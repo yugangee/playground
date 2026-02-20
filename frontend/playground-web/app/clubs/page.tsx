@@ -1,0 +1,500 @@
+"use client";
+
+import Image from "next/image";
+import { MapPin, Trophy, Users, X, Swords, Send, Plus, ImageIcon } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { useClub } from "@/context/ClubContext";
+import { regionData } from "../signup/regions";
+
+const API = process.env.NEXT_PUBLIC_API_URL;
+
+type DbClub = {
+  clubId: string;
+  name: string;
+  sport: string;
+  areas: { sido: string; sigungu: string }[];
+  members: number;
+  styles: string[];
+  image: string;
+  record: string;
+  winRate: number;
+  createdAt: string;
+};
+
+const sidoList = ["전체", "서울", "경기", "인천"];
+
+export default function ClubsPage() {
+  const { setMyClub } = useClub();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [allClubs, setAllClubs] = useState<DbClub[]>([]);
+  const [sido, setSido] = useState("전체");
+  const [sigungu, setSigungu] = useState("전체");
+  const [filterSport, setFilterSport] = useState("전체");
+  const [sortBy, setSortBy] = useState("latest");
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<DbClub | null>(null);
+  const [dismissed, setDismissed] = useState<string[]>([]);
+  const [proposed, setProposed] = useState<string[]>([]);
+  const [aiPool, setAiPool] = useState<DbClub[]>([]);
+  const [creating, setCreating] = useState(false);
+  const [newClub, setNewClub] = useState({ name: "", sido: "", sigungu: "", image: "", imagePreview: "", members: "" });
+  const [clubStyles, setClubStyles] = useState<string[]>([]);
+  const [clubSport, setClubSport] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [clubAreas, setClubAreas] = useState([
+    { sido: "", sigungu: "" },
+    { sido: "", sigungu: "" },
+    { sido: "", sigungu: "" },
+  ]);
+  const PER_PAGE = 8;
+
+  // API에서 클럽 목록 불러오기
+  useEffect(() => {
+    fetch(`${API}/clubs`)
+      .then(r => r.json())
+      .then(d => {
+        const list = d.clubs || [];
+        setAllClubs(list);
+        setAiPool([...list].sort(() => Math.random() - 0.5).slice(0, 4));
+      })
+      .catch(() => {});
+  }, []);
+
+  const aiMatches = aiPool.filter((c) => !dismissed.includes(c.clubId));
+
+  const handleSido = (s: string) => { setSido(s); setSigungu("전체"); setPage(1); };
+
+  // 시/도에 해당하는 시/군/구 목록 (데이터 기반)
+  const sigunguList = sido !== "전체"
+    ? ["전체", ...Array.from(new Set(allClubs.filter(c => c.areas?.some(a => a.sido === sido)).flatMap(c => c.areas.filter(a => a.sido === sido).map(a => a.sigungu))))]
+    : [];
+
+  const filtered = allClubs.filter((c) => {
+    if (filterSport !== "전체" && c.sport !== filterSport) return false;
+    if (sido !== "전체" && !c.areas?.some(a => a.sido === sido)) return false;
+    if (sigungu !== "전체" && !c.areas?.some(a => a.sigungu === sigungu)) return false;
+    return true;
+  }).sort((a, b) => {
+    if (sortBy === "winRate") return b.winRate - a.winRate;
+    return (b.createdAt || "").localeCompare(a.createdAt || "");
+  });
+
+  const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  const chipStyle = (active: boolean) =>
+    active
+      ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
+      : { background: "rgba(255,255,255,0.05)", color: "#9ca3af" };
+
+  const modalInputStyle = {
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: "10px",
+    color: "white",
+    padding: "10px 14px",
+    width: "100%",
+    outline: "none",
+    fontSize: "13px",
+  };
+
+  function ModalDropdown({ value, placeholder, items, onChange, disabled }: { value: string; placeholder: string; items: string[]; onChange: (v: string) => void; disabled?: boolean }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+      const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+      document.addEventListener("mousedown", handler);
+      return () => document.removeEventListener("mousedown", handler);
+    }, []);
+    return (
+      <div ref={ref} style={{ position: "relative", width: "100%" }}>
+        <button type="button" disabled={disabled} onClick={() => !disabled && setOpen(!open)}
+          style={{ ...modalInputStyle, textAlign: "left", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ color: value ? "white" : "#6b7280", fontSize: "13px" }}>{value || placeholder}</span>
+          <span style={{ color: "#6b7280", fontSize: "10px" }}>▼</span>
+        </button>
+        {open && items.length > 0 && (
+          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 60, marginTop: "4px", background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "10px", maxHeight: "200px", overflowY: "auto" }}>
+            {items.map((item) => (
+              <div key={item} onClick={() => { onChange(item); setOpen(false); }}
+                style={{ padding: "8px 14px", fontSize: "13px", color: item === value ? "#c084fc" : "white", cursor: "pointer", background: item === value ? "rgba(192,132,252,0.1)" : "transparent" }}
+                onMouseEnter={(e) => { if (item !== value) (e.target as HTMLDivElement).style.background = "rgba(255,255,255,0.08)"; }}
+                onMouseLeave={(e) => { (e.target as HTMLDivElement).style.background = item === value ? "rgba(192,132,252,0.1)" : "transparent"; }}>
+                {item}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const updateClubArea = (idx: number, field: "sido" | "sigungu", value: string) => {
+    setClubAreas((prev) => prev.map((a, i) => i === idx ? { ...a, [field]: value, ...(field === "sido" ? { sigungu: "" } : {}) } : a));
+  };
+
+  const getClubSigunguItems = (sido: string) => sido ? ["전체", ...(regionData[sido] || [])] : [];
+
+  const isClubDuplicateArea = (idx: number, sido: string, sigungu: string) => {
+    if (!sido || !sigungu) return false;
+    return clubAreas.some((a, i) => i !== idx && a.sido === sido && a.sigungu === sigungu);
+  };
+
+  return (
+    <div className="max-w-5xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">클럽 탐색</h1>
+          <p className="text-gray-400 text-sm mt-1">주변 클럽을 찾고 경기를 제안해보세요</p>
+        </div>
+        <button onClick={() => setCreating(true)} className="w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+          <Plus size={18} />
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex gap-2 flex-wrap">
+          {["전체","축구","풋살","농구","야구","배구","배드민턴","아이스하키","스노보드","러닝크루","기타"].map((s) => (
+            <button key={s} onClick={() => { setFilterSport(s); setPage(1); }}
+              className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+              style={chipStyle(filterSport === s)}
+            >{s}</button>
+          ))}
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {sidoList.map((s) => (
+            <button key={s} onClick={() => handleSido(s)}
+              className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+              style={chipStyle(sido === s)}
+            >{s}</button>
+          ))}
+        </div>
+        {sido !== "전체" && sigunguList.length > 1 && (
+          <div className="flex gap-2 flex-wrap">
+            {sigunguList.map((g) => (
+              <button key={g} onClick={() => setSigungu(g)}
+                className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+                style={sigungu === g
+                  ? { background: "rgba(192,38,211,0.15)", color: "#e879f9", border: "1px solid rgba(192,38,211,0.3)" }
+                  : { background: "rgba(255,255,255,0.03)", color: "#6b7280", border: "1px solid rgba(255,255,255,0.08)" }
+                }
+              >{g}</button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 정렬 */}
+      <div className="flex justify-end gap-2">
+        {[{ key: "latest", label: "최신등록순" }, { key: "winRate", label: "승률순" }].map(({ key, label }) => (
+          <button key={key} onClick={() => setSortBy(key)}
+            className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+            style={sortBy === key ? { background: "rgba(192,38,211,0.15)", color: "#e879f9", border: "1px solid rgba(192,38,211,0.3)" } : { background: "rgba(255,255,255,0.03)", color: "#6b7280", border: "1px solid rgba(255,255,255,0.08)" }}
+          >{label}</button>
+        ))}
+      </div>
+
+      {/* AI 라이벌 매칭 */}
+      {aiMatches.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Swords size={15} className="text-fuchsia-400" />
+            <span className="text-sm font-semibold text-white">AI가 찾은 오늘의 라이벌</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {aiMatches.map((r) => (
+              <div key={r.clubId} className="border border-white/10 rounded-xl p-4 space-y-3 relative flex flex-col overflow-hidden">
+                {r.image && <Image src={r.image} alt={r.name} fill className="object-cover opacity-20 scale-[1.2]" />}
+                <button onClick={() => setDismissed((p) => [...p, r.clubId])} className="absolute top-3 right-3 z-10 text-gray-400 hover:text-white transition-colors">
+                  <X size={14} />
+                </button>
+                <div className="relative z-10">
+                  <p className="text-white font-semibold text-sm">{r.name}</p>
+                  <p className="text-gray-400 text-xs mt-0.5">{r.areas?.[0]?.sido} {r.areas?.[0]?.sigungu}</p>
+                </div>
+                <div className="relative z-10 mt-auto space-y-3">
+                  <div className="flex gap-3 text-xs">
+                    <span className="text-gray-500">{r.record}</span>
+                    <span className="text-fuchsia-400 font-medium">승률 {r.winRate}%</span>
+                  </div>
+                  <button
+                    onClick={() => setProposed((p) => p.includes(r.clubId) ? p : [...p, r.clubId])}
+                    disabled={proposed.includes(r.clubId)}
+                    className="w-full py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                    style={proposed.includes(r.clubId)
+                      ? { background: "rgba(255,255,255,0.05)", color: "#6b7280" }
+                      : { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
+                    }
+                  >
+                    <Send size={12} />
+                    {proposed.includes(r.clubId) ? "제안 완료" : "경기 제안"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {paginated.map((c) => (
+          <button key={c.clubId} onClick={() => setSelected(c)}
+            className="relative border border-white/10 rounded-xl overflow-hidden flex flex-col hover:border-fuchsia-500/40 transition-colors group text-left"
+            style={{ minHeight: "calc((100vh - 280px) / 2)" }}
+          >
+            {c.image && <Image src={c.image} alt={c.name} fill className="object-cover opacity-20 group-hover:opacity-30 transition-opacity" />}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+            <div className="relative z-10 p-4 flex flex-col h-full">
+              <div>
+                <p className="text-white font-semibold text-sm">{c.name}</p>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-fuchsia-500/15 text-fuchsia-400">{c.sport}</span>
+                  <MapPin size={10} className="text-gray-400" />
+                  <p className="text-gray-400 text-xs">{c.areas?.[0]?.sido} {c.areas?.[0]?.sigungu}</p>
+                </div>
+              </div>
+              <div className="mt-auto space-y-2">
+                <div className="flex items-center gap-1 text-xs text-gray-400">
+                  <Trophy size={10} />
+                  <span>{c.record}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-400">멤버 {c.members}명</span>
+                  <span className="text-fuchsia-400 font-medium">승률 {c.winRate}%</span>
+                </div>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {totalPages > 1 && (
+        <div className="flex justify-center gap-2">
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            <button key={p} onClick={() => setPage(p)}
+              className="w-8 h-8 rounded-lg text-xs font-semibold transition-colors"
+              style={page === p
+                ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
+                : { background: "rgba(255,255,255,0.05)", color: "#9ca3af" }
+              }
+            >{p}</button>
+          ))}
+        </div>
+      )}
+
+      {/* 클럽 생성 모달 */}
+      {creating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }} onClick={() => setCreating(false)}>
+          <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-sm space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <span className="text-white font-semibold">클럽 생성</span>
+              <button onClick={() => setCreating(false)} className="text-gray-500 hover:text-white"><X size={16} /></button>
+            </div>
+
+            {/* 이미지 업로드 */}
+            <div>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden"
+                onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setImageFile(file);
+                  const url = URL.createObjectURL(file);
+                  setNewClub(p => ({ ...p, image: url, imagePreview: url }));
+                }}
+              />
+              <button type="button" onClick={() => fileRef.current?.click()}
+                className="w-full h-32 rounded-xl border border-dashed border-white/20 flex flex-col items-center justify-center gap-2 hover:border-fuchsia-500/40 transition-colors overflow-hidden relative">
+                {newClub.imagePreview
+                  ? <Image src={newClub.imagePreview} alt="preview" fill className="object-cover" />
+                  : <><ImageIcon size={24} className="text-gray-600" /><span className="text-xs text-gray-500">클럽 이미지 업로드</span></>}
+              </button>
+            </div>
+
+            {/* 종목 */}
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">종목</label>
+              <div className="flex flex-wrap gap-2">
+                {["축구", "풋살", "농구", "야구", "배구", "배드민턴", "아이스하키", "스노보드"].map((s) => (
+                  <button key={s} type="button"
+                    onClick={() => setClubSport(s)}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+                    style={clubSport === s ? chipStyle(true) : chipStyle(false)}
+                  >{s}</button>
+                ))}
+              </div>
+            </div>
+
+            {([
+              { label: "클럽명", key: "name", placeholder: "예) 서울 FC 썬더" },
+            ] as { label: string; key: keyof typeof newClub; placeholder: string }[]).map(({ label, key, placeholder }) => (
+              <div key={key} className="space-y-1">
+                <label className="text-xs text-gray-400">{label}</label>
+                <input
+                  value={newClub[key]}
+                  onChange={e => setNewClub(p => ({ ...p, [key]: e.target.value }))}
+                  placeholder={placeholder}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-fuchsia-500/50 placeholder:text-gray-600"
+                />
+              </div>
+            ))}
+
+            {/* 현재 멤버 수 */}
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">현재 멤버 수</label>
+              <input
+                type="number" min="1" placeholder="예) 15"
+                value={newClub.members}
+                onChange={e => setNewClub(p => ({ ...p, members: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-fuchsia-500/50 placeholder:text-gray-600"
+              />
+            </div>
+
+            {/* 플레이 스타일 */}
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">플레이 스타일 (복수 선택)</label>
+              <div className="flex flex-wrap gap-2">
+                {["공격형", "수비형", "역습형", "점유형", "압박형", "측면공격", "세트피스", "균형형"].map((s) => (
+                  <button key={s} type="button"
+                    onClick={() => setClubStyles((p) => p.includes(s) ? p.filter((x) => x !== s) : [...p, s])}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+                    style={clubStyles.includes(s) ? chipStyle(true) : chipStyle(false)}
+                  >{s}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* 활동 지역 3개 */}
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">활동 지역 (최대 3개)</label>
+              <div className="space-y-2">
+                {clubAreas.map((area, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <span className="text-xs text-gray-600 w-3 shrink-0">{i + 1}</span>
+                    <ModalDropdown value={area.sido} placeholder="시/도" items={Object.keys(regionData)} onChange={(v) => updateClubArea(i, "sido", v)} />
+                    <ModalDropdown value={area.sigungu} placeholder="시/군/구"
+                      items={getClubSigunguItems(area.sido).filter((sg) => !isClubDuplicateArea(i, area.sido, sg))}
+                      onChange={(v) => { if (!isClubDuplicateArea(i, area.sido, v)) updateClubArea(i, "sigungu", v); }}
+                      disabled={!area.sido} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={async () => {
+                const areas = clubAreas.filter(a => a.sido);
+                let imageUrl = "";
+                // S3에 이미지 업로드
+                if (imageFile) {
+                  try {
+                    const urlRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload-url`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ folder: "clubs", fileName: imageFile.name, contentType: imageFile.type }),
+                    });
+                    const { uploadUrl, publicUrl } = await urlRes.json();
+                    await fetch(uploadUrl, { method: "PUT", headers: { "Content-Type": imageFile.type }, body: imageFile });
+                    imageUrl = publicUrl;
+                  } catch (e) { console.error("이미지 업로드 실패", e); }
+                }
+                try {
+                  await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clubs`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      name: newClub.name,
+                      sport: clubSport,
+                      areas,
+                      members: parseInt(newClub.members) || 0,
+                      styles: clubStyles,
+                      image: imageUrl,
+                      creatorEmail: "",
+                    }),
+                  });
+                } catch (e) { console.error(e); }
+                setMyClub({ name: newClub.name, sido: areas[0]?.sido || "", sigungu: areas[0]?.sigungu || "", style: clubStyles.join(", "), image: imageUrl || newClub.image });
+                setCreating(false);
+                // 목록 새로고침
+                fetch(`${API}/clubs`).then(r => r.json()).then(d => setAllClubs(d.clubs || [])).catch(() => {});
+                setNewClub({ name: "", sido: "", sigungu: "", image: "", imagePreview: "", members: "" });
+                setClubStyles([]);
+                setClubSport("");
+                setImageFile(null);
+                setClubAreas([{ sido: "", sigungu: "" }, { sido: "", sigungu: "" }, { sido: "", sigungu: "" }]);
+              }}
+              disabled={!newClub.name.trim()}
+              className="w-full py-2.5 rounded-lg font-semibold text-sm text-white disabled:opacity-40"
+              style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
+            >클럽 생성</button>
+          </div>
+        </div>
+      )}
+
+      {/* 모달 */}
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.7)" }}
+          onClick={() => setSelected(null)}
+        >
+          <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-md space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-white">{selected.name}</h2>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="text-xs px-2 py-0.5 rounded bg-fuchsia-500/15 text-fuchsia-400">{selected.sport}</span>
+                  <MapPin size={12} className="text-gray-500" />
+                  <p className="text-gray-400 text-sm">{selected.areas?.[0]?.sido} {selected.areas?.[0]?.sigungu}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {selected.styles?.map((s) => (
+                  <span key={s} className="text-xs px-2 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-400">{s}</span>
+                ))}
+                <button onClick={() => setSelected(null)} className="text-gray-500 hover:text-white transition-colors">
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { icon: Trophy, label: "전적", value: selected.record },
+                { icon: Users,  label: "멤버", value: `${selected.members}명` },
+                { icon: Trophy, label: "승률", value: `${selected.winRate}%` },
+              ].map(({ icon: Icon, label, value }) => (
+                <div key={label} className="bg-white/5 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon size={12} className="text-fuchsia-400" />
+                    <span className="text-xs text-gray-500">{label}</span>
+                  </div>
+                  <p className="text-white font-semibold text-sm">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-white/5 rounded-lg p-3">
+              <p className="text-xs text-gray-500 mb-2">활동 가능지역</p>
+              <div className="flex gap-2 flex-wrap">
+                {selected.areas?.map((area, i) => (
+                  <span key={i} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-white/5 text-gray-300 border border-white/10">
+                    <MapPin size={10} className="text-fuchsia-400" />
+                    {area.sido} {area.sigungu}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <button
+              className="w-full py-2.5 rounded-lg font-semibold text-sm text-white"
+              style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
+            >
+              경기 제안하기
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

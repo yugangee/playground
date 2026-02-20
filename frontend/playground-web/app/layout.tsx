@@ -1,0 +1,58 @@
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import Sidebar from "@/components/layout/Sidebar";
+import Link from "next/link";
+import { Home, UserCircle } from "lucide-react";
+import { ChatProvider } from "@/context/ChatContext";
+import { ClubProvider } from "@/context/ClubContext";
+import { AuthProvider } from "@/context/AuthContext";
+import ScrollToTop from "@/components/ScrollToTop";
+import HeaderAuth from "@/components/layout/HeaderAuth";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Playground",
+  description: "축구 선수 마켓 & 팀 관리 플랫폼",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased text-white`}
+        style={{ background: "#1a1a1a" }}
+      >
+        <AuthProvider>
+        <ChatProvider>
+        <ClubProvider>
+        <div className="flex">
+          <Sidebar />
+          <div className="flex-1 flex flex-col">
+            <HeaderAuth />
+            <main className="flex-1 px-8 pb-8">
+              <ScrollToTop />
+              {children}
+            </main>
+          </div>
+        </div>
+        </ClubProvider>
+        </ChatProvider>
+        </AuthProvider>
+      </body>
+    </html>
+  );
+}

@@ -1,0 +1,6 @@
+[
+  {"Name":"name","Required":true,"Mutable":true},
+  {"Name":"email","Required":true,"Mutable":true},
+  {"Name":"gender","Required":false,"Mutable":true},
+  {"Name":"birthdate","Required":false,"Mutable":true}
+]
