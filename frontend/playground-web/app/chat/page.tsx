@@ -1,11 +1,14 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
-import { MessageCircle, Send, Calendar, MapPin, X } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { MessageCircle, Send, Calendar, MapPin, X, Users } from "lucide-react";
 import { useChat } from "@/context/ChatContext";
+import { useAuth } from "@/context/AuthContext";
+import { useWebSocket } from "@/lib/useWebSocket";
 import Image from "next/image";
 
 export default function ChatPage() {
-  const { rooms, sendMsg, sendTimeSlot, selectTime } = useChat();
+  const { rooms, sendMsg, sendTimeSlot, selectTime, addLiveMsg, setHistory } = useChat();
+  const { user } = useAuth();
   const [activeId, setActiveId] = useState<number | null>(null);
   const [input, setInput] = useState("");
   const [showCal, setShowCal] = useState(false);
@@ -19,9 +22,45 @@ export default function ChatPage() {
   useEffect(() => { if (active && !activeId) setActiveId(active.id); }, [rooms]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [active?.msgs]);
 
+  // WebSocket for team chat
+  const isLiveRoom = active?.type === "team" && !!active?.roomId;
+  const wsRoomId = isLiveRoom ? active.roomId! : "";
+
+  const onWsMessage = useCallback((data: any) => {
+    if (!active) return;
+    if (data.action === "message") {
+      const isMe = data.email === user?.email;
+      if (!isMe) {
+        addLiveMsg(active.id, { from: "them", text: data.text, userName: data.userName, email: data.email, timestamp: data.timestamp });
+      }
+    }
+    if (data.action === "history" && data.messages) {
+      const msgs = data.messages.map((m: any) => ({
+        from: m.email === user?.email ? "me" as const : "them" as const,
+        text: m.text,
+        userName: m.userName,
+        email: m.email,
+        timestamp: m.timestamp,
+      }));
+      setHistory(active.id, msgs);
+    }
+  }, [active?.id, user?.email]);
+
+  const { send: wsSend, connected } = useWebSocket({
+    roomId: wsRoomId,
+    userName: user?.name || "익명",
+    email: user?.email || "",
+    onMessage: onWsMessage,
+  });
+
   function send() {
     if (!input.trim() || !active) return;
-    sendMsg(active.id, input);
+    if (isLiveRoom) {
+      wsSend(input);
+      addLiveMsg(active.id, { from: "me", text: input, userName: user?.name, email: user?.email, timestamp: new Date().toISOString() });
+    } else {
+      sendMsg(active.id, input);
+    }
     setInput("");
   }
 
@@ -50,29 +89,55 @@ export default function ChatPage() {
       {/* 채팅 목록 */}
       <div className="w-56 shrink-0 bg-white/5 border border-white/10 rounded-xl overflow-hidden flex flex-col">
         <p className="text-xs font-semibold text-gray-400 px-4 py-3 border-b border-white/10">채팅 목록</p>
-        {rooms.map(r => (
-          <button key={r.id} onClick={() => setActiveId(r.id)}
-            className={`flex items-center gap-3 px-3 py-3 text-left border-b border-white/5 transition-colors ${active?.id === r.id ? "bg-fuchsia-500/10" : "hover:bg-white/5"}`}>
-            <div className="relative w-9 h-9 rounded-full overflow-hidden shrink-0 border border-white/10">
-              <Image src={r.avatar} alt={r.userName} fill className="object-cover" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-white text-xs font-semibold">{r.userName}</span>
-                <span className="text-gray-500 text-xs">{r.team}</span>
+        <div className="overflow-y-auto flex-1">
+          {rooms.filter(r => r.type === "team").length > 0 && (
+            <>
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-4 pt-3 pb-1">팀 채팅</p>
+              {rooms.filter(r => r.type === "team").map(r => (
+                <button key={r.id} onClick={() => setActiveId(r.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-3 text-left border-b border-white/5 transition-colors ${active?.id === r.id ? "bg-fuchsia-500/10" : "hover:bg-white/5"}`}>
+                  <div className="w-9 h-9 rounded-full shrink-0 border border-fuchsia-500/30 bg-fuchsia-500/10 flex items-center justify-center">
+                    <Users size={16} className="text-fuchsia-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-white text-xs font-semibold block">{r.team}</span>
+                    <span className="text-gray-500 text-xs truncate block mt-0.5">{r.msgs.at(-1)?.text}</span>
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
+          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-4 pt-4 pb-1">개인 채팅</p>
+          {rooms.filter(r => r.type === "personal").map(r => (
+            <button key={r.id} onClick={() => setActiveId(r.id)}
+              className={`w-full flex items-center gap-3 px-3 py-3 text-left border-b border-white/5 transition-colors ${active?.id === r.id ? "bg-fuchsia-500/10" : "hover:bg-white/5"}`}>
+              <div className="relative w-9 h-9 rounded-full overflow-hidden shrink-0 border border-white/10">
+                <Image src={r.avatar} alt={r.userName} fill className="object-cover" />
               </div>
-              <span className="text-gray-500 text-xs truncate block mt-0.5">{r.msgs.at(-1)?.text}</span>
-            </div>
-          </button>
-        ))}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-white text-xs font-semibold">{r.userName}</span>
+                  {r.team && <span className="text-gray-500 text-xs">{r.team}</span>}
+                </div>
+                <span className="text-gray-500 text-xs truncate block mt-0.5">{r.msgs.at(-1)?.text}</span>
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 채팅창 */}
       {active && (
         <div className="flex-1 bg-white/5 border border-white/10 rounded-xl flex flex-col overflow-hidden">
           <div className="px-4 py-3 border-b border-white/10">
-            <p className="text-white font-semibold text-sm">{active.team}</p>
-            <p className="text-gray-500 text-xs">{active.date} · {active.venue}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-white font-semibold text-sm">{active.type === "team" ? active.team : active.userName}</p>
+              {isLiveRoom && (
+                <span className={`w-2 h-2 rounded-full ${connected ? "bg-green-400" : "bg-gray-500"}`} title={connected ? "연결됨" : "연결 중..."} />
+              )}
+            </div>
+            {active.type === "team" && !isLiveRoom && <p className="text-gray-500 text-xs">{active.date} · {active.venue}</p>}
+            {active.type === "personal" && active.date && <p className="text-gray-500 text-xs">{active.date} · {active.venue}</p>}
           </div>
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
             {active.msgs.map((m, i) => (
@@ -92,10 +157,15 @@ export default function ChatPage() {
                     </div>
                   </div>
                 ) : (
-                  <span className={`text-xs px-3 py-2 rounded-2xl max-w-[70%] ${m.from === "me" ? "text-white" : "bg-white/10 text-gray-200"}`}
-                    style={m.from === "me" ? { background: "linear-gradient(to right, #c026d3, #7c3aed)" } : {}}>
-                    {m.text}
-                  </span>
+                  <div className={`flex flex-col ${m.from === "me" ? "items-end" : "items-start"} max-w-[70%]`}>
+                    {m.from === "them" && active.type === "team" && m.userName && (
+                      <span className="text-[10px] text-gray-500 mb-0.5 px-1">{m.userName}</span>
+                    )}
+                    <span className={`text-xs px-3 py-2 rounded-2xl ${m.from === "me" ? "text-white" : "bg-white/10 text-gray-200"}`}
+                      style={m.from === "me" ? { background: "linear-gradient(to right, #c026d3, #7c3aed)" } : {}}>
+                      {m.text}
+                    </span>
+                  </div>
                 )}
               </div>
             ))}

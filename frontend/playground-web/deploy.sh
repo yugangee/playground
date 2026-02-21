@@ -1,16 +1,21 @@
 #!/bin/bash
 set -e
 
-BUCKET="playground-web-sedaily-us"
-DISTRIBUTION_ID="YOUR_DISTRIBUTION_ID"  # CloudFront 배포 ID로 교체
-
-echo "🔨 빌드 중..."
+echo "📦 빌드 중..."
+sed -i 's/const nextConfig: NextConfig = {/const nextConfig: NextConfig = {\n  output: "export",/' next.config.ts
 npm run build
+sed -i '/  output: "export",/d' next.config.ts
 
-echo "📦 S3 업로드 중... (uploads/ 폴더 제외)"
-aws s3 sync out/ s3://$BUCKET --delete --exclude "uploads/*"
+echo "☁️ S3 업로드 중..."
+aws s3 sync out/ s3://playground-web-sedaily-us --delete --no-verify-ssl
 
-echo "🔄 CloudFront 캐시 무효화..."
-aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/*"
+echo "🔄 CloudFront 캐시 무효화 중..."
+INVALIDATION_ID=$(aws cloudfront create-invalidation \
+  --distribution-id E1U8HJ0871GR0O \
+  --paths "/*" \
+  --no-verify-ssl \
+  --query 'Invalidation.Id' \
+  --output text)
 
-echo "✅ 배포 완료"
+echo "✅ 배포 완료! 무효화 ID: $INVALIDATION_ID"
+echo "🌐 https://d1t0vkbh1b2z3x.cloudfront.net"

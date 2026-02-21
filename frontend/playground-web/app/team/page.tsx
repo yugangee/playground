@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { CalendarDays, TrendingUp, Users, Shield, UserPlus, X, Copy, Check, Send, MessageCircle, Crown } from "lucide-react";
+import { CalendarDays, TrendingUp, Users, Shield, UserPlus, X, Copy, Check, Send, MessageCircle, Crown, Pencil, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
@@ -49,6 +49,9 @@ export default function TeamPage() {
   const [loadingTeam, setLoadingTeam] = useState(true);
   const [captainEditing, setCaptainEditing] = useState(false);
   const [captainSaving, setCaptainSaving] = useState(false);
+  const [memberEditing, setMemberEditing] = useState(false);
+  const [editingMember, setEditingMember] = useState<{ email: string; name: string; position: string } | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", position: "" });
 
   const [attendance, setAttendance] = useState<Record<number, boolean | null>>({});
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -94,6 +97,46 @@ export default function TeamPage() {
       alert("주장 저장에 실패했습니다");
     } finally {
       setCaptainSaving(false);
+    }
+  }
+
+  async function deleteMember(email: string) {
+    if (!confirm("정말 이 멤버를 삭제하시겠습니까?")) return;
+    try {
+      const r = await fetch(`${API}/club-members`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clubId: user?.teamId, email }),
+      });
+      if (!r.ok) throw new Error();
+      setMembers((prev: any[]) => prev.filter((m: any) => m.email !== email));
+    } catch {
+      alert("멤버 삭제에 실패했습니다");
+    }
+  }
+
+  async function saveEditMember() {
+    if (!editingMember) return;
+    try {
+      const r = await fetch(`${API}/club-members`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clubId: user?.teamId, email: editingMember.email, name: editForm.name, position: editForm.position }),
+      });
+      if (!r.ok) throw new Error();
+      setMembers((prev: any[]) => prev.map((m: any) => m.email === editingMember.email ? { ...m, name: editForm.name, position: editForm.position } : m));
+      setEditingMember(null);
+    } catch {
+      alert("멤버 수정에 실패했습니다");
+    }
+  }
+
+  async function toggleRecruiting(val: boolean) {
+    try {
+      await fetch(`${API}/clubs`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clubId: user?.teamId, recruiting: val }) });
+      setClub((prev: any) => prev ? { ...prev, recruiting: val } : prev);
+    } catch {
+      alert("모집 상태 변경에 실패했습니다");
     }
   }
 
@@ -146,10 +189,10 @@ export default function TeamPage() {
   const areas = (club.areas || []).map((a: any) => [a.sido, a.sigungu].filter(Boolean).join(" ")).join(", ");
   const styles = (club.styles || []).join(", ");
 
-  return <TeamPageContent club={club} members={members} isDemo={false} record={record} areas={areas} styles={styles} captainEditing={captainEditing} setCaptainEditing={setCaptainEditing} captainSaving={captainSaving} saveCaptain={saveCaptain} setInviteOpen={setInviteOpen} attendance={attendance} setAttendance={setAttendance} pending={pending} accept={accept} decline={decline} chatTeam={chatTeam} setChatTeam={setChatTeam} msgs={msgs} input={input} setInput={setInput} sendMsg={sendMsg} bottomRef={bottomRef} inviteOpen={inviteOpen} inviteLink={inviteLink} copy={copy} copied={copied} />;
+  return <TeamPageContent club={club} members={members} isDemo={false} record={record} areas={areas} styles={styles} captainEditing={captainEditing} setCaptainEditing={setCaptainEditing} captainSaving={captainSaving} saveCaptain={saveCaptain} setInviteOpen={setInviteOpen} attendance={attendance} setAttendance={setAttendance} pending={pending} accept={accept} decline={decline} chatTeam={chatTeam} setChatTeam={setChatTeam} msgs={msgs} input={input} setInput={setInput} sendMsg={sendMsg} bottomRef={bottomRef} inviteOpen={inviteOpen} inviteLink={inviteLink} copy={copy} copied={copied} memberEditing={memberEditing} setMemberEditing={setMemberEditing} deleteMember={deleteMember} editingMember={editingMember} setEditingMember={setEditingMember} editForm={editForm} setEditForm={setEditForm} saveEditMember={saveEditMember} toggleRecruiting={toggleRecruiting} />;
 }
 
-function TeamPageContent({ club, members, isDemo, record, areas, styles, captainEditing, setCaptainEditing, captainSaving, saveCaptain, setInviteOpen, attendance = {}, setAttendance = () => {}, pending = [], accept = () => {}, decline = () => {}, chatTeam, setChatTeam = () => {}, msgs = {}, input = "", setInput = () => {}, sendMsg = () => {}, bottomRef, inviteOpen, inviteLink = "", copy = () => {}, copied = false }: any) {
+function TeamPageContent({ club, members, isDemo, record, areas, styles, captainEditing, setCaptainEditing, captainSaving, saveCaptain, setInviteOpen, attendance = {}, setAttendance = () => {}, pending = [], accept = () => {}, decline = () => {}, chatTeam, setChatTeam = () => {}, msgs = {}, input = "", setInput = () => {}, sendMsg = () => {}, bottomRef, inviteOpen, inviteLink = "", copy = () => {}, copied = false, memberEditing = false, setMemberEditing = () => {}, deleteMember = () => {}, editingMember = null, setEditingMember = () => {}, editForm = { name: "", position: "" }, setEditForm = () => {}, saveEditMember = () => {}, toggleRecruiting = () => {} }: any) {
   if (!club) {
     return (
       <div className="max-w-4xl mx-auto pt-20 text-center space-y-4">
@@ -198,9 +241,25 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
             </div>
           </div>
           {!isDemo && (
-            <button onClick={() => setInviteOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
-              <UserPlus size={13} />선수 초대
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => {
+                if (club.recruiting) {
+                  if (confirm("모집을 완료하시겠습니까?")) toggleRecruiting(false);
+                } else {
+                  toggleRecruiting(true);
+                }
+              }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                style={club.recruiting
+                  ? { background: "rgba(192,38,211,0.15)", color: "#e879f9", border: "1px solid rgba(192,38,211,0.3)" }
+                  : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }
+                }>
+                {club.recruiting ? "🟢 모집중" : "모집 시작"}
+              </button>
+              <button onClick={() => setInviteOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+                <UserPlus size={13} />선수 초대
+              </button>
+            </div>
           )}
         </div>
 
@@ -225,11 +284,18 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
             <span className="text-sm text-gray-400">선수 명단 ({members.length}명)</span>
           </div>
           {!isDemo && (
-            <button onClick={() => setCaptainEditing(!captainEditing)}
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-fuchsia-400 transition-colors">
-              <Crown size={12} />
-              {captainEditing ? "완료" : "주장 설정"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => { setMemberEditing(!memberEditing); setCaptainEditing(false); }}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-fuchsia-400 transition-colors">
+                <Pencil size={12} />
+                {memberEditing ? "완료" : "수정"}
+              </button>
+              <button onClick={() => { setCaptainEditing(!captainEditing); setMemberEditing(false); }}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-fuchsia-400 transition-colors">
+                <Crown size={12} />
+                {captainEditing ? "완료" : "주장 설정"}
+              </button>
+            </div>
           )}
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -243,6 +309,14 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
                 <span className="text-white text-sm font-medium flex-1 truncate">{m.name || m.email}</span>
                 {m.position && (
                   <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${positionColor[m.position] || "bg-white/10 text-gray-400"}`}>{m.position}</span>
+                )}
+                {memberEditing && !isDemo && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={(e) => { e.stopPropagation(); setEditingMember(m); setEditForm({ name: m.name || "", position: m.position || "" }); }}
+                      className="text-gray-500 hover:text-fuchsia-400 transition-colors"><Pencil size={11} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); deleteMember(m.email); }}
+                      className="text-gray-500 hover:text-red-400 transition-colors"><Trash2 size={11} /></button>
+                  </div>
                 )}
               </div>
             );
@@ -335,6 +409,39 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
           </div>
         </div>
       </div>
+
+      {/* 멤버 수정 모달 */}
+      {editingMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={() => setEditingMember(null)}>
+          <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-xs space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <span className="text-white font-semibold text-sm">멤버 수정</span>
+              <button onClick={() => setEditingMember(null)} className="text-gray-500 hover:text-white"><X size={16} /></button>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs text-gray-400">이름</label>
+                <input value={editForm.name} onChange={e => setEditForm((p: any) => ({ ...p, name: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-fuchsia-500/50" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-400">포지션</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.keys(positionColor).map(pos => (
+                    <button key={pos} type="button" onClick={() => setEditForm((p: any) => ({ ...p, position: pos }))}
+                      className={`text-xs px-2 py-1 rounded font-semibold transition-colors ${editForm.position === pos ? positionColor[pos] : "bg-white/5 text-gray-500"}`}>
+                      {pos}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <button onClick={saveEditMember} disabled={!editForm.name.trim()}
+              className="w-full py-2 rounded-lg font-semibold text-sm text-white disabled:opacity-40"
+              style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>저장</button>
+          </div>
+        </div>
+      )}
 
       {/* 초대 모달 */}
       {inviteOpen && (

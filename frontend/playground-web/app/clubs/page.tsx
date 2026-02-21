@@ -19,6 +19,7 @@ type DbClub = {
   image: string;
   record: string;
   winRate: number;
+  recruiting?: boolean;
   createdAt: string;
 };
 
@@ -75,6 +76,7 @@ export default function ClubsPage() {
     if (filterSport !== "전체" && c.sport !== filterSport) return false;
     if (sido !== "전체" && !c.areas?.some(a => a.sido === sido)) return false;
     if (sigungu !== "전체" && !c.areas?.some(a => a.sigungu === sigungu)) return false;
+    if (sortBy === "recruiting" && !c.recruiting) return false;
     return true;
   }).sort((a, b) => {
     if (sortBy === "winRate") return b.winRate - a.winRate;
@@ -188,7 +190,7 @@ export default function ClubsPage() {
 
       {/* 정렬 */}
       <div className="flex justify-end gap-2">
-        {[{ key: "latest", label: "최신등록순" }, { key: "winRate", label: "승률순" }].map(({ key, label }) => (
+        {[{ key: "latest", label: "최신등록순" }, { key: "winRate", label: "승률순" }, { key: "recruiting", label: "모집중" }].map(({ key, label }) => (
           <button key={key} onClick={() => setSortBy(key)}
             className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
             style={sortBy === key ? { background: "rgba(192,38,211,0.15)", color: "#e879f9", border: "1px solid rgba(192,38,211,0.3)" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }}

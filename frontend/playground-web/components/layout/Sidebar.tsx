@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShoppingCart, Users, BarChart2, ChevronLeft, ChevronRight, Shield, MessageCircle, Landmark, Clapperboard, UserSearch, User, Sun, Moon } from "lucide-react";
+import { ShoppingCart, Users, BarChart2, ChevronLeft, ChevronRight, Shield, MessageCircle, Landmark, Clapperboard, UserSearch, User, Sun, Moon, Globe } from "lucide-react";
 import { useState } from "react";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
@@ -12,6 +12,7 @@ const navItems = [
   { href: "/clubs",   label: "클럽 탐색",   icon: Shield },
   { href: "/players", label: "선수 탐색",   icon: UserSearch },
   { href: "/chat",    label: "채팅",        icon: MessageCircle },
+  { href: "/community", label: "커뮤니티",   icon: Globe },
   { href: "/market",  label: "마켓",       icon: ShoppingCart },
   { href: "/team",    label: "팀 관리",     icon: Users },
   { href: "/finance", label: "팀 매니지먼트", icon: Landmark },

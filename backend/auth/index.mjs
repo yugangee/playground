@@ -26,7 +26,7 @@ const headers = {
   "Content-Type": "application/json",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type,Authorization",
-  "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
+  "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
 };
 
 function res(statusCode, body) {
@@ -263,6 +263,44 @@ async function addClubMember(body) {
   return res(200, { message: "멤버 등록 성공" });
 }
 
+async function deleteClubMember(body) {
+  const { clubId, email } = body;
+  if (!clubId || !email) return res(400, { message: "clubId와 email은 필수입니다" });
+  const { DeleteCommand } = await import("@aws-sdk/lib-dynamodb");
+  await ddb.send(new DeleteCommand({
+    TableName: MEMBERS_TABLE,
+    Key: { clubId, email },
+  }));
+  return res(200, { message: "멤버 삭제 성공" });
+}
+
+async function updateClubMember(body) {
+  const { clubId, email, name, position } = body;
+  if (!clubId || !email) return res(400, { message: "clubId와 email은 필수입니다" });
+  const { UpdateCommand } = await import("@aws-sdk/lib-dynamodb");
+  const exprParts = [];
+  const exprNames = {};
+  const exprValues = {};
+  let idx = 0;
+  for (const key of ["name", "position"]) {
+    if (body[key] !== undefined) {
+      exprParts.push(`#f${idx} = :v${idx}`);
+      exprNames[`#f${idx}`] = key;
+      exprValues[`:v${idx}`] = body[key];
+      idx++;
+    }
+  }
+  if (exprParts.length === 0) return res(400, { message: "수정할 항목이 없습니다" });
+  await ddb.send(new UpdateCommand({
+    TableName: MEMBERS_TABLE,
+    Key: { clubId, email },
+    UpdateExpression: "SET " + exprParts.join(", "),
+    ExpressionAttributeNames: exprNames,
+    ExpressionAttributeValues: exprValues,
+  }));
+  return res(200, { message: "멤버 수정 성공" });
+}
+
 async function getClubMembers(clubId) {
   const result = await ddb.send(new QueryCommand({
     TableName: MEMBERS_TABLE,
@@ -280,7 +318,7 @@ async function updateClub(body) {
   const exprNames = {};
   const exprValues = {};
   let idx = 0;
-  const allowed = ["captainEmail"];
+  const allowed = ["captainEmail", "recruiting"];
   for (const key of allowed) {
     if (body[key] !== undefined) {
       exprParts.push(`#f${idx} = :v${idx}`);
@@ -339,6 +377,12 @@ export const handler = async (event) => {
     }
     if (method === "POST" && path === "/club-members") {
       return await addClubMember(JSON.parse(event.body));
+    }
+    if (method === "PUT" && path === "/club-members") {
+      return await updateClubMember(JSON.parse(event.body));
+    }
+    if (method === "DELETE" && path === "/club-members") {
+      return await deleteClubMember(JSON.parse(event.body));
     }
     if (method === "GET" && path.startsWith("/club-members/")) {
       const clubId = path.split("/club-members/")[1];
