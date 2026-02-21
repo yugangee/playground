@@ -1,15 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    root: __dirname,
-  },
+  output: "export",
   images: {
     unoptimized: true,
     remotePatterns: [{ hostname: "i.pravatar.cc" }],
-  },
-  logging: {
-    level: "error",
   },
 };
 

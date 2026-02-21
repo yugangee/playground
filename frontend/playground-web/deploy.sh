@@ -7,7 +7,7 @@ npm run build
 sed -i '/  output: "export",/d' next.config.ts
 
 echo "☁️ S3 업로드 중..."
-aws s3 sync out/ s3://playground-web-sedaily-us --delete --no-verify-ssl
+aws s3 sync out/ s3://playground-web-sedaily-us --delete --exclude "uploads/*" --no-verify-ssl
 
 echo "🔄 CloudFront 캐시 무효화 중..."
 INVALIDATION_ID=$(aws cloudfront create-invalidation \

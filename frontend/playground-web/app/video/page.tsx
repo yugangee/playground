@@ -103,74 +103,73 @@ export default function VideoPage() {
       console.log("[VIDEO] S3 업로드 완료:", uploadRes.status, `(${((Date.now() - uploadStart) / 1000).toFixed(1)}초)`);
       if (!uploadRes.ok) throw new Error(`S3 업로드 실패 (${uploadRes.status})`);
 
-      console.log("[VIDEO] 4/4 분석 요청 시작...", { s3_key, api_url: `${API_URL}/api/analyze` });
+      console.log("[VIDEO] 4/4 분석 요청 시작 (비동기)...", { s3_key });
       setStatus("analyzing");
       
-      // 영상 길이에 따른 예상 대기시간 계산 (15초 = 2분30초)
+      // 영상 길이에 따른 예상 대기시간 계산
       if (file) {
         const videoDuration = await getVideoDuration(file);
-        const estimatedSeconds = Math.ceil(videoDuration * 10); // 1초당 10초 분석
+        const estimatedSeconds = Math.ceil(videoDuration * 10);
         setEstimatedTime(estimatedSeconds);
       }
       
       const analyzeStart = Date.now();
-      
-      console.log("[VIDEO] fetch 시작...");
-      
-      // 타임아웃 설정 (30분 — 영상 분석은 오래 걸릴 수 있음)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.log("[VIDEO] 30분 타임아웃 발생, 요청 중단");
-        controller.abort();
-      }, 30 * 60 * 1000);
 
-      // 30초마다 예상 대기시간 업데이트
-      const progressId = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - analyzeStart) / 1000);
-        if (estimatedTime) {
-          const remaining = Math.max(0, estimatedTime - elapsed);
-          setEstimatedTime(remaining);
-        }
-        console.log(`[VIDEO] ⏳ 분석 진행 중... ${elapsed}초 경과`);
-      }, 30000);
-      
+      // 1) 분석 요청 → 즉시 jobId 반환
       const analyzeRes = await fetch(`${API_URL}/api/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ video_s3_key: s3_key }),
-        signal: controller.signal
       });
       
-      clearTimeout(timeoutId);
-      clearInterval(progressId);
-      console.log("[VIDEO] fetch 완료, 응답 상태:", analyzeRes.status, analyzeRes.statusText, `(${((Date.now() - analyzeStart) / 1000).toFixed(1)}초)`);
-      
       if (!analyzeRes.ok) {
-        console.log("[VIDEO] 에러 응답 처리 중...");
         const errBody = await analyzeRes.text();
-        console.error("[VIDEO] 분석 에러 응답 body:", errBody);
-        
-        // 서버 에러 메시지 파싱
-        let errorMessage = `분석 요청 실패 (${analyzeRes.status}: ${analyzeRes.statusText})`;
-        try {
-          const errorData = JSON.parse(errBody);
-          if (errorData.detail && errorData.detail.includes('BertSdpaSelfAttention')) {
-            errorMessage = '백엔드 AI 모델 라이브러리 오류입니다. 서버 관리자에게 문의해주세요.';
-          } else if (errorData.detail) {
-            errorMessage = `분석 실패: ${errorData.detail}`;
-          }
-        } catch (e) {
-          // JSON 파싱 실패 시 기본 메시지 사용
-        }
-        
-        throw new Error(errorMessage);
+        throw new Error(`분석 요청 실패 (${analyzeRes.status})`);
       }
 
-      console.log("[VIDEO] JSON 파싱 시작...");
-      const data = await analyzeRes.json();
-      console.log("[VIDEO] JSON 파싱 완료, 분석 결과:", JSON.stringify(data).slice(0, 500));
-      setResult(data);
-      setStatus("done");
+      const { jobId } = await analyzeRes.json();
+      console.log("[VIDEO] jobId 받음:", jobId);
+
+      // 2) 폴링으로 상태 확인 (5초마다, 최대 30분)
+      const maxWait = 30 * 60 * 1000;
+      const pollInterval = 5000;
+      let elapsed = 0;
+
+      while (elapsed < maxWait) {
+        await new Promise(r => setTimeout(r, pollInterval));
+        elapsed += pollInterval;
+
+        const elapsedSec = Math.floor((Date.now() - analyzeStart) / 1000);
+        if (estimatedTime) {
+          const remaining = Math.max(0, estimatedTime - elapsedSec);
+          setEstimatedTime(remaining);
+        }
+        console.log(`[VIDEO] ⏳ 폴링 중... ${elapsedSec}초 경과`);
+
+        const statusRes = await fetch(`${API_URL}/api/status/${jobId}`);
+        if (!statusRes.ok) throw new Error("상태 확인 실패");
+        const statusData = await statusRes.json();
+
+        if (statusData.status === "done") {
+          console.log("[VIDEO] 분석 완료!", `(${((Date.now() - analyzeStart) / 1000).toFixed(1)}초)`);
+          setResult({
+            output_video_url: statusData.result.output_video_url,
+            events: statusData.result.events,
+            team_ball_control: statusData.result.team_ball_control,
+            status: "success",
+            message: "분석 완료",
+          });
+          setStatus("done");
+          break;
+        } else if (statusData.status === "error") {
+          throw new Error(statusData.error || "분석 중 오류 발생");
+        }
+        // 그 외 (queued, downloading, analyzing, uploading) → 계속 폴링
+      }
+
+      if (elapsed >= maxWait) {
+        throw new Error("분석 시간이 초과되었습니다 (30분)");
+      }
     } catch (err: unknown) {
       console.error("[VIDEO] 에러 발생:", err);
       console.error("[VIDEO] 에러 스택:", err instanceof Error ? err.stack : 'No stack');

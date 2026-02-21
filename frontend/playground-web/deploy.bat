@@ -6,7 +6,7 @@ call npm run build
 powershell -Command "(Get-Content next.config.ts) | Where-Object { $_ -notmatch 'output: .export.' } | Set-Content next.config.ts"
 
 echo ☁️ S3 업로드 중...
-aws s3 sync out/ s3://playground-web-sedaily-us --delete --no-verify-ssl
+aws s3 sync out/ s3://playground-web-sedaily-us --delete --exclude "uploads/*" --no-verify-ssl
 if errorlevel 1 ( echo ❌ S3 업로드 실패 & exit /b 1 )
 
 echo 🔄 CloudFront 캐시 무효화 중...
