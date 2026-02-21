@@ -7,6 +7,7 @@ import { Home, UserCircle } from "lucide-react";
 import { ChatProvider } from "@/context/ChatContext";
 import { ClubProvider } from "@/context/ClubContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import ScrollToTop from "@/components/ScrollToTop";
 import HeaderAuth from "@/components/layout/HeaderAuth";
 
@@ -31,11 +32,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className="" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem("theme");if(t==="dark")document.documentElement.classList.add("dark");else document.documentElement.classList.remove("dark")}catch(e){}})()` }} />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased text-white`}
-        style={{ background: "#1a1a1a" }}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <ThemeProvider>
         <AuthProvider>
         <ChatProvider>
         <ClubProvider>
@@ -52,6 +56,7 @@ export default function RootLayout({
         </ClubProvider>
         </ChatProvider>
         </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

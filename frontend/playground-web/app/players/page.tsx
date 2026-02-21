@@ -47,7 +47,7 @@ export default function PlayersPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm text-white outline-none"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
+            style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)" }}
           />
         </div>
       </div>
@@ -62,7 +62,7 @@ export default function PlayersPage() {
             style={
               sport === s
                 ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
-                : { background: "rgba(255,255,255,0.05)", color: "#9ca3af", border: "1px solid rgba(255,255,255,0.1)" }
+                : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }
             }
           >
             {s}
@@ -77,9 +77,9 @@ export default function PlayersPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filtered.map((p) => (
+          {filtered.map((p, index) => (
             <div
-              key={p.username}
+              key={p.username || p.email || index}
               className="bg-white/5 border border-white/10 rounded-xl p-4 hover:border-fuchsia-500/30 hover:bg-white/8 transition-all cursor-pointer"
             >
               <div className="flex flex-col items-center text-center gap-3">

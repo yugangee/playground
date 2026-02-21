@@ -157,14 +157,13 @@ export default function ReportPage() {
       </div>
 
       {!user && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-          <div className="pointer-events-auto bg-[#111] border border-white/10 rounded-2xl p-8 max-w-xs text-center space-y-4 shadow-2xl">
-            <p className="text-white font-semibold">로그인이 필요합니다</p>
-            <p className="text-gray-400 text-xs">로그인하고 AI 리포트를 확인하세요</p>
-            <Link href="/login" className="inline-block px-8 py-2.5 rounded-full text-sm font-semibold text-white transition-opacity hover:opacity-90" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
-              로그인
-            </Link>
-          </div>
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
+          <LogIn size={24} className="text-fuchsia-400 mx-auto mb-3" />
+          <p className="text-white font-semibold mb-2">로그인하여 내 팀 리포트를 확인하세요</p>
+          <p className="text-gray-400 text-sm mb-4">현재 샘플 데이터로 표시되고 있습니다</p>
+          <Link href="/login" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+            로그인
+          </Link>
         </div>
       )}
 

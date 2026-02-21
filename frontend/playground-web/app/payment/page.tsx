@@ -29,7 +29,7 @@ function PaymentForm() {
     setDone(true);
   }
 
-  const inputCls = "w-full bg-transparent border border-white/15 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-fuchsia-500/60 placeholder:text-gray-600";
+  const inputCls = "w-full bg-transparent border border-white/10 rounded-lg px-4 py-3 text-white text-sm outline-none focus:border-fuchsia-500/60 placeholder:text-gray-600";
 
   if (done) return (
     <div className="max-w-sm mx-auto pt-20 flex flex-col items-center gap-4 text-center">

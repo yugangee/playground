@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
     unoptimized: true,
     remotePatterns: [{ hostname: "i.pravatar.cc" }],
   },
+  logging: {
+    level: "error",
+  },
 };
 
 export default nextConfig;

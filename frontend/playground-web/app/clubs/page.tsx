@@ -4,6 +4,7 @@ import Image from "next/image";
 import { MapPin, Trophy, Users, X, Swords, Send, Plus, ImageIcon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useClub } from "@/context/ClubContext";
+import { useAuth } from "@/context/AuthContext";
 import { regionData } from "../signup/regions";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -25,6 +26,7 @@ const sidoList = ["전체", "서울", "경기", "인천"];
 
 export default function ClubsPage() {
   const { setMyClub } = useClub();
+  const { user, refresh } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const [allClubs, setAllClubs] = useState<DbClub[]>([]);
   const [sido, setSido] = useState("전체");
@@ -85,13 +87,13 @@ export default function ClubsPage() {
   const chipStyle = (active: boolean) =>
     active
       ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
-      : { background: "rgba(255,255,255,0.05)", color: "#9ca3af" };
+      : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" };
 
-  const modalInputStyle = {
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.1)",
+  const modalInputStyle: React.CSSProperties = {
+    background: "var(--input-bg)",
+    border: "1px solid var(--input-border)",
     borderRadius: "10px",
-    color: "white",
+    color: "var(--text-primary)",
     padding: "10px 14px",
     width: "100%",
     outline: "none",
@@ -110,15 +112,15 @@ export default function ClubsPage() {
       <div ref={ref} style={{ position: "relative", width: "100%" }}>
         <button type="button" disabled={disabled} onClick={() => !disabled && setOpen(!open)}
           style={{ ...modalInputStyle, textAlign: "left", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ color: value ? "white" : "#6b7280", fontSize: "13px" }}>{value || placeholder}</span>
+          <span style={{ color: value ? "var(--text-primary)" : "var(--text-muted)", fontSize: "13px" }}>{value || placeholder}</span>
           <span style={{ color: "#6b7280", fontSize: "10px" }}>▼</span>
         </button>
         {open && items.length > 0 && (
-          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 60, marginTop: "4px", background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "10px", maxHeight: "200px", overflowY: "auto" }}>
+          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 60, marginTop: "4px", background: "var(--dropdown-bg)", border: "1px solid var(--card-border)", borderRadius: "10px", maxHeight: "200px", overflowY: "auto" }}>
             {items.map((item) => (
               <div key={item} onClick={() => { onChange(item); setOpen(false); }}
-                style={{ padding: "8px 14px", fontSize: "13px", color: item === value ? "#c084fc" : "white", cursor: "pointer", background: item === value ? "rgba(192,132,252,0.1)" : "transparent" }}
-                onMouseEnter={(e) => { if (item !== value) (e.target as HTMLDivElement).style.background = "rgba(255,255,255,0.08)"; }}
+                style={{ padding: "8px 14px", fontSize: "13px", color: item === value ? "#c084fc" : "var(--text-primary)", cursor: "pointer", background: item === value ? "rgba(192,132,252,0.1)" : "transparent" }}
+                onMouseEnter={(e) => { if (item !== value) (e.target as HTMLDivElement).style.background = "var(--card-bg)"; }}
                 onMouseLeave={(e) => { (e.target as HTMLDivElement).style.background = item === value ? "rgba(192,132,252,0.1)" : "transparent"; }}>
                 {item}
               </div>
@@ -147,7 +149,7 @@ export default function ClubsPage() {
           <h1 className="text-2xl font-bold text-white">클럽 탐색</h1>
           <p className="text-gray-400 text-sm mt-1">주변 클럽을 찾고 경기를 제안해보세요</p>
         </div>
-        <button onClick={() => setCreating(true)} className="w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+        <button onClick={() => { if (!user) { alert("로그인이 필요합니다"); return; } setCreating(true); }} className="w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
           <Plus size={18} />
         </button>
       </div>
@@ -176,7 +178,7 @@ export default function ClubsPage() {
                 className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
                 style={sigungu === g
                   ? { background: "rgba(192,38,211,0.15)", color: "#e879f9", border: "1px solid rgba(192,38,211,0.3)" }
-                  : { background: "rgba(255,255,255,0.03)", color: "#6b7280", border: "1px solid rgba(255,255,255,0.08)" }
+                  : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }
                 }
               >{g}</button>
             ))}
@@ -189,7 +191,7 @@ export default function ClubsPage() {
         {[{ key: "latest", label: "최신등록순" }, { key: "winRate", label: "승률순" }].map(({ key, label }) => (
           <button key={key} onClick={() => setSortBy(key)}
             className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-            style={sortBy === key ? { background: "rgba(192,38,211,0.15)", color: "#e879f9", border: "1px solid rgba(192,38,211,0.3)" } : { background: "rgba(255,255,255,0.03)", color: "#6b7280", border: "1px solid rgba(255,255,255,0.08)" }}
+            style={sortBy === key ? { background: "rgba(192,38,211,0.15)", color: "#e879f9", border: "1px solid rgba(192,38,211,0.3)" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }}
           >{label}</button>
         ))}
       </div>
@@ -222,7 +224,7 @@ export default function ClubsPage() {
                     disabled={proposed.includes(r.clubId)}
                     className="w-full py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
                     style={proposed.includes(r.clubId)
-                      ? { background: "rgba(255,255,255,0.05)", color: "#6b7280" }
+                      ? { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }
                       : { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
                     }
                   >
@@ -284,8 +286,8 @@ export default function ClubsPage() {
 
       {/* 클럽 생성 모달 */}
       {creating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }} onClick={() => setCreating(false)}>
-          <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-sm space-y-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={() => setCreating(false)}>
+          <div className="border rounded-xl p-6 w-full max-w-sm space-y-4" style={{ background: "var(--sidebar-bg)", borderColor: "var(--card-border)" }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <span className="text-white font-semibold">클럽 생성</span>
               <button onClick={() => setCreating(false)} className="text-gray-500 hover:text-white"><X size={16} /></button>
@@ -398,19 +400,48 @@ export default function ClubsPage() {
                   } catch (e) { console.error("이미지 업로드 실패", e); }
                 }
                 try {
-                  await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clubs`, {
+                  const createRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clubs`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       name: newClub.name,
                       sport: clubSport,
                       areas,
-                      members: parseInt(newClub.members) || 0,
+                      members: parseInt(newClub.members) || 1,
                       styles: clubStyles,
                       image: imageUrl,
-                      creatorEmail: "",
+                      creatorEmail: user?.email || "",
                     }),
                   });
+                  const createData = await createRes.json();
+                  const newClubId = createData.clubId || createData.club?.clubId;
+
+                  if (newClubId && user) {
+                    // 1) 멤버로 등록
+                    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/club-members`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ clubId: newClubId, email: user.email, name: user.name, position: user.position || "" }),
+                    }).catch(() => {});
+
+                    // 2) 캡틴으로 설정
+                    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clubs`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ clubId: newClubId, captainEmail: user.email }),
+                    }).catch(() => {});
+
+                    // 3) 내 프로필에 팀 설정
+                    const token = localStorage.getItem("accessToken");
+                    if (token) {
+                      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/profile`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ hasTeam: true, teamSport: clubSport, teamId: newClubId, position: user.position || "" }),
+                      }).catch(() => {});
+                      await refresh();
+                    }
+                  }
                 } catch (e) { console.error(e); }
                 setMyClub({ name: newClub.name, sido: areas[0]?.sido || "", sigungu: areas[0]?.sigungu || "", style: clubStyles.join(", "), image: imageUrl || newClub.image });
                 setCreating(false);
@@ -433,10 +464,11 @@ export default function ClubsPage() {
       {/* 모달 */}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.7)" }}
+          style={{ background: "var(--modal-overlay)" }}
           onClick={() => setSelected(null)}
         >
-          <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-md space-y-4"
+          <div className="border rounded-xl p-6 w-full max-w-md space-y-4"
+            style={{ background: "var(--sidebar-bg)", borderColor: "var(--card-border)" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between">

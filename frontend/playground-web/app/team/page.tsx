@@ -167,14 +167,13 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
   return (
     <div>
       {isDemo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-          <div className="pointer-events-auto bg-[#111] border border-white/10 rounded-2xl p-8 max-w-xs text-center space-y-4 shadow-2xl">
-            <p className="text-white font-semibold">로그인이 필요합니다</p>
-            <p className="text-gray-400 text-xs">로그인하고 내 팀을 관리하세요</p>
-            <Link href="/login" className="inline-block px-8 py-2.5 rounded-full text-sm font-semibold text-white transition-opacity hover:opacity-90" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
-              로그인
-            </Link>
-          </div>
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center mb-6">
+          <Users size={24} className="text-fuchsia-400 mx-auto mb-3" />
+          <p className="text-white font-semibold mb-2">로그인하여 내 팀을 관리하세요</p>
+          <p className="text-gray-400 text-sm mb-4">현재 샘플 데이터로 표시되고 있습니다</p>
+          <Link href="/login" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+            로그인
+          </Link>
         </div>
       )}
       <div>
@@ -268,7 +267,7 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
               <div className="flex gap-2">
                 <button onClick={() => setAttendance((prev: Record<number, boolean | null>) => ({ ...prev, [i]: true }))}
                   className="flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors"
-                  style={attendance[i] === true ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" } : { background: "rgba(255,255,255,0.05)", color: "#9ca3af" }}>
+                  style={attendance[i] === true ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
                   참석
                 </button>
                 <button onClick={() => setAttendance((prev: Record<number, boolean | null>) => ({ ...prev, [i]: false }))}
@@ -339,7 +338,7 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
 
       {/* 초대 모달 */}
       {inviteOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }} onClick={() => setInviteOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={() => setInviteOpen(false)}>
           <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-sm space-y-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <span className="text-white font-semibold">선수 초대</span>
@@ -359,7 +358,7 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
 
       {/* 채팅 모달 */}
       {chatTeam && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }} onClick={() => setChatTeam(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={() => setChatTeam(null)}>
           <div className="bg-[#111] border border-white/10 rounded-xl w-full max-w-sm flex flex-col" style={{ height: 420 }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
               <span className="text-white font-semibold text-sm">{chatTeam.team}</span>

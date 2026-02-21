@@ -42,10 +42,10 @@ export default function SignupPage() {
   }, [teamSport]);
 
   const inputStyle = {
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.1)",
+    background: "var(--input-bg)",
+    border: "1px solid var(--input-border)",
     borderRadius: "10px",
-    color: "white",
+    color: "var(--text-primary)",
     padding: "12px 16px",
     width: "100%",
     outline: "none",
@@ -85,7 +85,7 @@ export default function SignupPage() {
           <span style={{ color: "#6b7280", fontSize: "10px" }}>▼</span>
         </button>
         {open && items.length > 0 && (
-          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, marginTop: "4px", background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "10px", maxHeight: "200px", overflowY: "auto" }}>
+          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, marginTop: "4px", background: "var(--dropdown-bg)", border: "1px solid var(--input-border)", borderRadius: "10px", maxHeight: "200px", overflowY: "auto" }}>
             {items.map((item) => (
               <div key={item} onClick={() => { onChange(item); setOpen(false); }}
                 style={{ padding: "10px 16px", fontSize: "14px", color: item === value ? "#c084fc" : "white", cursor: "pointer", background: item === value ? "rgba(192,132,252,0.1)" : "transparent" }}
@@ -101,7 +101,7 @@ export default function SignupPage() {
   }
 
   const chipActive = { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" };
-  const chipInactive = { background: "rgba(255,255,255,0.05)", color: "#9ca3af", border: "1px solid rgba(255,255,255,0.1)" };
+  const chipInactive = { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" };
 
   const handleSignup = async () => {
     setError("");
@@ -250,7 +250,7 @@ export default function SignupPage() {
                 <button key={c.clubId} type="button"
                   onClick={() => setTeamId(c.clubId)}
                   className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors"
-                  style={teamId === c.clubId ? { ...chipActive, borderRadius: "12px" } : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
+                  style={teamId === c.clubId ? { ...chipActive, borderRadius: "12px" } : { background: "var(--chip-inactive-bg)", border: "1px solid var(--chip-inactive-border)" }}
                 >
                   <span className="text-sm font-medium">{c.name}</span>
                   <span className="text-xs opacity-60">{c.areas?.[0]?.sido} {c.areas?.[0]?.sigungu}</span>

@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShoppingCart, Users, BarChart2, ChevronLeft, ChevronRight, Shield, MessageCircle, Landmark, Clapperboard, UserSearch, User } from "lucide-react";
+import { ShoppingCart, Users, BarChart2, ChevronLeft, ChevronRight, Shield, MessageCircle, Landmark, Clapperboard, UserSearch, User, Sun, Moon } from "lucide-react";
 import { useState } from "react";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 
 const navItems = [
   { href: "/clubs",   label: "클럽 탐색",   icon: Shield },
@@ -22,16 +23,17 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(true);
   const { user } = useAuth();
+  const { theme, toggle } = useTheme();
 
   return (
-    <aside className={`sticky top-0 h-screen border-r border-white/10 flex flex-col transition-all duration-300 ${collapsed ? "w-16" : "w-60"}`} style={{ background: "#111111" }}>
-      <div className="px-4 py-5 border-b border-white/10 flex items-center justify-between">
+    <aside className={`sticky top-0 h-screen border-r flex flex-col transition-all duration-300 ${collapsed ? "w-16" : "w-60"}`} style={{ background: "var(--sidebar-bg)", borderColor: "var(--card-border)" }}>
+      <div className="px-4 py-5 flex items-center justify-between" style={{ borderBottom: "1px solid var(--card-border)" }}>
         {!collapsed && (
-          <Link href="/" className="text-white font-bold text-xl tracking-tight hover:text-gray-300 transition-colors uppercase">
+          <Link href="/" className="font-bold text-xl tracking-tight transition-colors uppercase" style={{ color: "var(--text-primary)" }}>
             Playground
           </Link>
         )}
-        <button onClick={() => setCollapsed(p => !p)} className={`text-gray-500 hover:text-white transition-colors ${collapsed ? "mx-auto" : ""}`}>
+        <button onClick={() => setCollapsed(p => !p)} className={`transition-colors ${collapsed ? "mx-auto" : ""}`} style={{ color: "var(--text-muted)" }}>
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
@@ -44,8 +46,9 @@ export default function Sidebar() {
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 active
                   ? "text-white bg-gradient-to-r from-fuchsia-600/20 to-violet-600/20 border border-fuchsia-500/30"
-                  : "text-gray-400 hover:text-white hover:bg-white/5"
+                  : "hover:bg-[var(--card-bg)]"
               } ${collapsed ? "justify-center" : ""}`}
+              style={active ? undefined : { color: "var(--text-muted)" }}
               title={collapsed ? label : undefined}
             >
               <Icon size={18} className="shrink-0" />
@@ -55,16 +58,23 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <Link href="/mypage" className={`border-t border-white/10 px-4 py-4 flex items-center gap-3 hover:bg-white/5 transition-colors ${collapsed ? "justify-center" : ""}`}>
-        <div className="relative w-8 h-8 rounded-full overflow-hidden shrink-0 border border-fuchsia-500/40 bg-white/5 flex items-center justify-center">
-          {user?.avatar ? (
-            <Image src={user.avatar} alt={user.name} fill className="object-cover" />
-          ) : (
-            <User size={16} className="text-gray-600" />
-          )}
-        </div>
-        {!collapsed && <span className="text-sm font-medium text-gray-300 truncate">{user?.name || "로그인"}</span>}
-      </Link>
+      <div className="px-4 py-4 flex items-center gap-3" style={{ borderTop: "1px solid var(--card-border)" }}>
+        <Link href="/mypage" className={`flex items-center gap-3 flex-1 min-w-0 ${collapsed ? "justify-center" : ""}`}>
+          <div className="relative w-8 h-8 rounded-full overflow-hidden shrink-0 border border-fuchsia-500/40 flex items-center justify-center" style={{ background: "var(--card-bg)" }}>
+            {user?.avatar ? (
+              <Image src={user.avatar} alt={user.name} fill className="object-cover" />
+            ) : (
+              <User size={16} style={{ color: "var(--text-muted)" }} />
+            )}
+          </div>
+          {!collapsed && <span className="text-sm font-medium truncate" style={{ color: "var(--text-secondary)" }}>{user?.name || "로그인"}</span>}
+        </Link>
+        {!collapsed && (
+          <button onClick={toggle} className="shrink-0 p-1.5 rounded-lg transition-colors hover:bg-[var(--card-bg)]" title={theme === "dark" ? "라이트 모드" : "다크 모드"}>
+            {theme === "dark" ? <Sun size={15} style={{ color: "var(--text-muted)" }} /> : <Moon size={15} style={{ color: "var(--text-muted)" }} />}
+          </button>
+        )}
+      </div>
     </aside>
   );
 }

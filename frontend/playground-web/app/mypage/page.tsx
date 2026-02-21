@@ -39,10 +39,10 @@ export default function MyPage() {
       return () => document.removeEventListener("mousedown", handler);
     }, []);
     const inputStyle = {
-      background: "rgba(255,255,255,0.05)",
-      border: "1px solid rgba(255,255,255,0.1)",
+      background: "var(--input-bg)",
+      border: "1px solid var(--input-border)",
       borderRadius: "10px",
-      color: "white",
+      color: "var(--text-primary)",
       padding: "12px 16px",
       width: "100%",
       outline: "none",
@@ -56,7 +56,7 @@ export default function MyPage() {
           <span style={{ color: "#6b7280", fontSize: "10px" }}>▼</span>
         </button>
         {open && items.length > 0 && (
-          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, marginTop: "4px", background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.15)", borderRadius: "10px", maxHeight: "200px", overflowY: "auto" }}>
+          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, marginTop: "4px", background: "var(--dropdown-bg)", border: "1px solid var(--input-border)", borderRadius: "10px", maxHeight: "200px", overflowY: "auto" }}>
             {items.map((item) => (
               <div key={item} onClick={() => { onChange(item); setOpen(false); }}
                 style={{ padding: "10px 16px", fontSize: "14px", color: item === value ? "#c084fc" : "white", cursor: "pointer", background: item === value ? "rgba(192,132,252,0.1)" : "transparent" }}
@@ -428,7 +428,7 @@ export default function MyPage() {
 
       {/* 소속 편집 모달 */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }} onClick={closeTeamEdit}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={closeTeamEdit}>
           <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-sm space-y-4 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <span className="text-white font-semibold">소속 편집</span>
@@ -445,7 +445,7 @@ export default function MyPage() {
                     className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
                     style={teamDraft.sport === s
                       ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
-                      : { background: "rgba(255,255,255,0.05)", color: "#9ca3af", border: "1px solid rgba(255,255,255,0.1)" }}>
+                      : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }}>
                     {s}
                   </button>
                 ))}
@@ -463,7 +463,7 @@ export default function MyPage() {
                       className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors"
                       style={teamDraft.teamId === c.clubId
                         ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white", borderRadius: "12px" }
-                        : { background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                        : { background: "var(--chip-inactive-bg)", border: "1px solid var(--chip-inactive-border)" }}>
                       <span className="text-sm font-medium">{c.name}</span>
                       <span className="text-xs opacity-60">{c.areas?.[0]?.sido} {c.areas?.[0]?.sigungu}</span>
                     </button>
@@ -484,7 +484,7 @@ export default function MyPage() {
                       className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
                       style={teamDraft.position === p
                         ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
-                        : { background: "rgba(255,255,255,0.05)", color: "#9ca3af", border: "1px solid rgba(255,255,255,0.1)" }}>
+                        : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }}>
                       {p}
                     </button>
                   ))}
@@ -515,7 +515,7 @@ export default function MyPage() {
 
       {/* 개인정보 편집 모달 */}
       {profileEditing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }} onClick={() => setProfileEditing(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={() => setProfileEditing(false)}>
           <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-sm space-y-4 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <span className="text-white font-semibold">개인정보 수정</span>
@@ -539,7 +539,7 @@ export default function MyPage() {
                     className="flex-1 py-2 rounded-lg text-sm font-medium transition-colors"
                     style={profileDraft.gender === val
                       ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
-                      : { background: "rgba(255,255,255,0.05)", color: "#9ca3af", border: "1px solid rgba(255,255,255,0.1)" }}>
+                      : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }}>
                     {label}
                   </button>
                 ))}
@@ -601,7 +601,7 @@ export default function MyPage() {
                     className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
                     style={profileDraft.sports.includes(s)
                       ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
-                      : { background: "rgba(255,255,255,0.05)", color: "#9ca3af", border: "1px solid rgba(255,255,255,0.1)" }}>
+                      : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }}>
                     {s}
                   </button>
                 ))}

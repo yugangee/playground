@@ -84,14 +84,13 @@ export default function FinancePage() {
   return (
     <div className="relative">
       {!user && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-          <div className="pointer-events-auto bg-[#111] border border-white/10 rounded-2xl p-8 max-w-xs text-center space-y-4 shadow-2xl">
-            <p className="text-white font-semibold">로그인이 필요합니다</p>
-            <p className="text-gray-400 text-xs">로그인하고 팀 매니지먼트를 시작하세요</p>
-            <Link href="/login" className="inline-block px-8 py-2.5 rounded-full text-sm font-semibold text-white transition-opacity hover:opacity-90" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
-              로그인
-            </Link>
-          </div>
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center mb-6">
+          <Wallet size={24} className="text-fuchsia-400 mx-auto mb-3" />
+          <p className="text-white font-semibold mb-2">로그인하여 내 팀 재정을 관리하세요</p>
+          <p className="text-gray-400 text-sm mb-4">현재 샘플 데이터로 표시되고 있습니다</p>
+          <Link href="/login" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+            로그인
+          </Link>
         </div>
       )}
     <div className="max-w-4xl mx-auto space-y-6">
@@ -182,7 +181,7 @@ export default function FinancePage() {
             {paidList.map((m, i) => (
               <button key={m.name} onClick={() => setPaidList(p => p.map((x, j) => j === i ? { ...x, paid: !x.paid } : x))}
                 className="flex items-center justify-between px-3 py-2 rounded-lg transition-colors"
-                style={{ background: m.paid ? "rgba(192,38,211,0.1)" : "rgba(255,255,255,0.03)", border: `1px solid ${m.paid ? "rgba(192,38,211,0.3)" : "rgba(255,255,255,0.08)"}` }}>
+                style={{ background: m.paid ? "rgba(192,38,211,0.1)" : "var(--chip-inactive-bg)", border: `1px solid ${m.paid ? "rgba(192,38,211,0.3)" : "var(--chip-inactive-border)"}` }}>
                 <span className="text-sm text-white">{m.name}</span>
                 <span className={`text-xs font-semibold ${m.paid ? "text-fuchsia-400" : "text-gray-600"}`}>{m.paid ? "납부" : "미납"}</span>
               </button>
@@ -207,7 +206,7 @@ export default function FinancePage() {
                 className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
                 style={selMonth === m
                   ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
-                  : { background: "rgba(255,255,255,0.05)", color: "#9ca3af" }}>
+                  : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
                 {m.replace("2026-", "")}월
               </button>
             ))}

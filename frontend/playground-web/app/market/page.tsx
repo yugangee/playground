@@ -134,7 +134,7 @@ export default function MarketPage() {
             className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
             style={sport === s
               ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
-              : { background: "rgba(255,255,255,0.05)", color: "#9ca3af" }
+              : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }
             }
           >
             {s}

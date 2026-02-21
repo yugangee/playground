@@ -86,7 +86,7 @@ export default function ChatPage() {
                           className="px-3 py-1 rounded-full text-xs font-semibold transition-colors"
                           style={m.selectedTime?.includes(t)
                             ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
-                            : { background: "rgba(255,255,255,0.1)", color: "white" }
+                            : { background: "var(--chip-inactive-bg)", color: "var(--text-primary)" }
                           }>{t}</button>
                       ))}
                     </div>
@@ -117,7 +117,7 @@ export default function ChatPage() {
                 {["09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00"].map(t => (
                   <button key={t} type="button" onClick={() => setCalTimes(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t])}
                     className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-                    style={calTimes.includes(t) ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" } : { background: "rgba(255,255,255,0.05)", color: "#9ca3af" }}>
+                    style={calTimes.includes(t) ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
                     {t}
                   </button>
                 ))}

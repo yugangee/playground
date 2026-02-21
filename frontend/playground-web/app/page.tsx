@@ -35,6 +35,7 @@ const plans = [
       "경기 제안 무제한",
       "스마트 팀 매니지먼트",
       "경기 일정 관리 서비스",
+      "AI 영상분석 월 30분 (무제한 횟수)",
     ],
     cta: "시작하기",
     highlight: true,
@@ -47,7 +48,7 @@ const plans = [
     features: [
       "플러스 모든 기능",
       "선수 개인 분석 리포트",
-      "AI 경기 영상 분석",
+      "AI 영상분석 월 60분 (무제한 횟수)",
     ],
     cta: "시작하기",
     highlight: false,
@@ -180,7 +181,6 @@ export default function Home() {
   const { user, loading } = useAuth();
   const [recentTeams, setRecentTeams] = useState<any[]>([]);
   const [topMatchTeams, setTopMatchTeams] = useState<any[]>([]);
-  const [topSportTeams, setTopSportTeams] = useState<any[]>([]);
 
   useEffect(() => {
     const API = process.env.NEXT_PUBLIC_API_URL;
@@ -193,20 +193,15 @@ export default function Home() {
       .then(r => r.json())
       .then(d => setTopMatchTeams(d.clubs || []))
       .catch(() => {});
-    
-    fetch(`${API}/clubs/top-by-sport`)
-      .then(r => r.json())
-      .then(d => setTopSportTeams(d.clubs || []))
-      .catch(() => {});
   }, []);
 
   if (loading) return <div className="flex items-center justify-center pt-32"><div className="w-6 h-6 border-2 border-fuchsia-400 border-t-transparent rounded-full animate-spin" /></div>;
 
-  if (user) return <LoggedInHome name={user.name} recentTeams={recentTeams} topMatchTeams={topMatchTeams} topSportTeams={topSportTeams} />;
-  return <LandingHome recentTeams={recentTeams} topMatchTeams={topMatchTeams} topSportTeams={topSportTeams} />;
+  if (user) return <LoggedInHome name={user.name} recentTeams={recentTeams} topMatchTeams={topMatchTeams} />;
+  return <LandingHome recentTeams={recentTeams} topMatchTeams={topMatchTeams} />;
 }
 
-function LoggedInHome({ name, recentTeams, topMatchTeams, topSportTeams }: { name: string; recentTeams: any[]; topMatchTeams: any[]; topSportTeams: any[] }) {
+function LoggedInHome({ name, recentTeams, topMatchTeams }: { name: string; recentTeams: any[]; topMatchTeams: any[] }) {
   return (
     <div className="max-w-5xl mx-auto space-y-14">
       {/* Hero */}
@@ -283,7 +278,7 @@ function LoggedInHome({ name, recentTeams, topMatchTeams, topSportTeams }: { nam
   );
 }
 
-function LandingHome({ recentTeams, topMatchTeams, topSportTeams }: { recentTeams: any[]; topMatchTeams: any[]; topSportTeams: any[] }) {
+function LandingHome({ recentTeams, topMatchTeams }: { recentTeams: any[]; topMatchTeams: any[] }) {
   return (
     <div className="max-w-5xl mx-auto space-y-14">
       {/* Hero */}
@@ -346,7 +341,7 @@ function LandingHome({ recentTeams, topMatchTeams, topSportTeams }: { recentTeam
               className="relative rounded-xl p-6 flex flex-col gap-4"
               style={plan.highlight
                 ? { background: "linear-gradient(135deg, rgba(192,38,211,0.15), rgba(124,58,237,0.15))", border: "1px solid rgba(192,38,211,0.4)" }
-                : { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }
+                : { background: "var(--card-bg)", border: "1px solid var(--card-border)" }
               }
             >
               {plan.highlight && (
@@ -374,7 +369,7 @@ function LandingHome({ recentTeams, topMatchTeams, topSportTeams }: { recentTeam
                 className="w-full py-2 rounded-lg text-sm font-semibold text-white text-center transition-opacity hover:opacity-90"
                 style={plan.highlight
                   ? { background: "linear-gradient(to right, #c026d3, #7c3aed)" }
-                  : { background: "rgba(255,255,255,0.08)" }
+                  : { background: "var(--chip-inactive-bg)" }
                 }
               >{plan.cta}</Link>
             </div>
