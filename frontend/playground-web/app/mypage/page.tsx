@@ -5,6 +5,7 @@ import { MapPin, Shield, Trophy, Crosshair, Pencil, X, User, Mail, Calendar, Act
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { regionData } from "@/app/signup/regions";
+import RatingBadge from "@/components/RatingBadge";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 const allSports = ["축구", "풋살", "농구", "야구", "배구", "배드민턴", "아이스하키", "스노보드", "러닝크루", "기타"];
@@ -382,6 +383,27 @@ export default function MyPage() {
               <span key={s} className="text-xs px-3 py-1.5 rounded-full font-medium text-fuchsia-300" style={{ background: "linear-gradient(to right, rgba(192,38,211,0.15), rgba(124,58,237,0.15))" }}>
                 {s}
               </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 개인 등급 */}
+      {(user as any).ratings && Object.keys((user as any).ratings).length > 0 && (
+        <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
+          <div className="flex items-center gap-2 mb-1">
+            <Trophy size={14} className="text-fuchsia-400" />
+            <span className="text-sm font-semibold text-gray-300">개인 등급</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {Object.entries((user as any).ratings as Record<string, any>).map(([sport, data]: [string, any]) => (
+              <div key={sport} className="bg-white/5 rounded-lg px-4 py-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-white text-sm font-medium">{sport}</span>
+                  <RatingBadge tier={data.tier || "B"} type="player" size="sm" />
+                </div>
+                <p className="text-gray-500 text-xs">{data.points || 0}pt · {data.games || 0}경기 · {data.wins || 0}승</p>
+              </div>
             ))}
           </div>
         </div>

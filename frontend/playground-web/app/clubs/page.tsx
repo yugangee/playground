@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { useClub } from "@/context/ClubContext";
 import { useAuth } from "@/context/AuthContext";
 import { regionData } from "../signup/regions";
+import RatingBadge from "@/components/RatingBadge";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -222,7 +223,20 @@ export default function ClubsPage() {
                     <span className="text-fuchsia-400 font-medium">승률 {r.winRate}%</span>
                   </div>
                   <button
-                    onClick={() => setProposed((p) => p.includes(r.clubId) ? p : [...p, r.clubId])}
+                    onClick={async () => {
+                      if (!user) { alert("로그인이 필요합니다"); return; }
+                      if (!user.teamId) { alert("소속 팀이 필요합니다"); return; }
+                      if (user.teamId === r.clubId) return;
+                      try {
+                        const res = await fetch(`${API}/matches`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ homeClubId: user.teamId, awayClubId: r.clubId, sport: r.sport, createdBy: user.email }),
+                        });
+                        if (res.ok) setProposed((p) => [...p, r.clubId]);
+                        else { const d = await res.json(); alert(d.message); }
+                      } catch { alert("경기 제안 실패"); }
+                    }}
                     disabled={proposed.includes(r.clubId)}
                     className="w-full py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
                     style={proposed.includes(r.clubId)
@@ -253,6 +267,7 @@ export default function ClubsPage() {
                 <p className="text-white font-semibold text-sm">{c.name}</p>
                 <div className="flex items-center gap-1.5 mt-1">
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-fuchsia-500/15 text-fuchsia-400">{c.sport}</span>
+                  {(c as any).teamRating && <RatingBadge tier={(c as any).teamRating.tier} type="team" size="sm" />}
                   <MapPin size={10} className="text-gray-400" />
                   <p className="text-gray-400 text-xs">{c.areas?.[0]?.sido} {c.areas?.[0]?.sigungu}</p>
                 </div>
@@ -521,6 +536,22 @@ export default function ClubsPage() {
             </div>
 
             <button
+              onClick={async () => {
+                if (!user) { alert("로그인이 필요합니다"); return; }
+                if (!user.teamId) { alert("소속 팀이 필요합니다"); return; }
+                if (user.teamId === selected.clubId) { alert("자기 팀에는 경기를 제안할 수 없습니다"); return; }
+                try {
+                  const r = await fetch(`${API}/matches`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ homeClubId: user.teamId, awayClubId: selected.clubId, sport: selected.sport, createdBy: user.email }),
+                  });
+                  const data = await r.json();
+                  if (!r.ok) { alert(data.message); return; }
+                  alert("경기 제안 완료!");
+                  setSelected(null);
+                } catch { alert("경기 제안 실패"); }
+              }}
               className="w-full py-2.5 rounded-lg font-semibold text-sm text-white"
               style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
             >

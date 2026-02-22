@@ -52,3 +52,23 @@ AWS 콘솔 > API Gateway > WebSocket API 생성:
 ```
 NEXT_PUBLIC_WS_URL=wss://XXXXXX.execute-api.us-east-1.amazonaws.com/prod
 ```
+
+---
+
+## 채팅 종류
+
+### 1. 팀 단체 채팅
+- 팀원 전체가 참여하는 그룹 채팅
+- 채팅 페이지 (/chat) "팀 채팅" 섹션
+- roomId: `team_{clubId}`
+
+### 2. 주장 간 매치 채팅
+- 경기 제안 수락 시 자동 생성
+- 두 팀 주장끼리 시간/장소 협의
+- roomId: `match_{matchId}`
+
+### 3. 팀원 간 개인 채팅
+- 팀 관리 페이지 멤버 목록에서 채팅 버튼 클릭
+- 1:1 개인 채팅
+- 채팅 페이지 (/chat) "개인 채팅" 섹션에도 표시
+- roomId: `dm_{sorted_email1}_{sorted_email2}`

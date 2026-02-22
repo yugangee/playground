@@ -24,6 +24,7 @@ interface User {
   record?: { games: number; goals: number; assists: number };
   recentGoals?: { date: string; opponent: string; minute: number; score: string }[];
   createdAt?: string;
+  ratings?: Record<string, { tier: string; points: number; games: number; wins: number; winStreak: number }>;
 }
 
 interface AuthContextType {

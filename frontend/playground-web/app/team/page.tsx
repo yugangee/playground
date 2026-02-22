@@ -1,12 +1,17 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { CalendarDays, TrendingUp, Users, Shield, UserPlus, X, Copy, Check, Send, MessageCircle, Crown, Pencil, Trash2 } from "lucide-react";
+import { CalendarDays, TrendingUp, Users, Shield, UserPlus, X, Copy, Check, Send, MessageCircle, Crown, Pencil, Trash2, Swords, Plus, CheckCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import RatingBadge from "@/components/RatingBadge";
+import { useRouter } from "next/navigation";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
+
+const COMPETITIVE_SPORTS = ["축구", "풋살", "농구", "야구", "배구", "아이스하키"];
+const CASUAL_SPORTS = ["러닝크루", "스노보드", "배드민턴"];
 
 const positionColor: Record<string, string> = {
   GK: "bg-yellow-500/20 text-yellow-400",
@@ -81,6 +86,117 @@ export default function TeamPage() {
       setMembers(membersData.members || []);
     }).catch(() => {}).finally(() => setLoadingTeam(false));
   }, [user?.teamId]);
+
+  // 매치/활동 데이터 로딩
+  const [matches, setMatches] = useState<any[]>([]);
+  const [activities, setActivities] = useState<any[]>([]);
+  const [allClubs, setAllClubs] = useState<any[]>([]);
+  const [goalModal, setGoalModal] = useState<any>(null);
+  const [goalSelections, setGoalSelections] = useState<Record<string, number>>({});
+  const [activityForm, setActivityForm] = useState({ date: "", venue: "" });
+  const [scoreModal, setScoreModal] = useState<any>(null);
+  const [scoreForm, setScoreForm] = useState({ ourScore: "", theirScore: "" });
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!user?.teamId) return;
+    fetch(`${API}/matches?clubId=${user.teamId}`).then(r => r.json()).then(d => setMatches(d.matches || [])).catch(() => {});
+    fetch(`${API}/activities?clubId=${user.teamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
+    fetch(`${API}/clubs`).then(r => r.json()).then(d => setAllClubs(d.clubs || [])).catch(() => {});
+  }, [user?.teamId]);
+
+  const clubNameMap: Record<string, string> = {};
+  allClubs.forEach((c: any) => { clubNameMap[c.clubId] = c.name; });
+
+  const isCompetitive = club ? COMPETITIVE_SPORTS.includes(club.sport) : false;
+  const isCasual = club ? CASUAL_SPORTS.includes(club.sport) : false;
+  const isCaptain = club?.captainEmail === user?.email;
+
+  const proposedMatches = matches.filter(m => m.status === "proposed" && m.awayClubId === user?.teamId);
+  const confirmedMatches = matches.filter(m => m.status === "confirmed").sort((a: any, b: any) => (b.confirmedAt || "").localeCompare(a.confirmedAt || ""));
+  const scheduledMatches = matches.filter(m => ["scheduled", "homeSubmitted", "awaySubmitted", "disputed"].includes(m.status));
+
+  async function acceptMatchAPI(matchId: string) {
+    try {
+      await fetch(`${API}/matches/${matchId}/accept`, { method: "PUT" });
+      setMatches(prev => prev.map(m => m.matchId === matchId ? { ...m, status: "scheduled" } : m));
+    } catch { alert("수락 실패"); }
+  }
+  async function declineMatchAPI(matchId: string) {
+    try {
+      await fetch(`${API}/matches/${matchId}/decline`, { method: "PUT" });
+      setMatches(prev => prev.filter(m => m.matchId !== matchId));
+    } catch { alert("거절 실패"); }
+  }
+  async function submitScoreAPI() {
+    if (!scoreModal || !user) return;
+    const ourScore = parseInt(scoreForm.ourScore);
+    const theirScore = parseInt(scoreForm.theirScore);
+    if (isNaN(ourScore) || isNaN(theirScore)) { alert("스코어를 입력하세요"); return; }
+    try {
+      const r = await fetch(`${API}/matches/${scoreModal.matchId}/score`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clubId: user.teamId, userEmail: user.email, ourScore, theirScore }),
+      });
+      const data = await r.json();
+      if (!r.ok) { alert(data.message); return; }
+      // 매치 목록 새로고침
+      fetch(`${API}/matches?clubId=${user.teamId}`).then(r => r.json()).then(d => setMatches(d.matches || [])).catch(() => {});
+      setScoreModal(null);
+      setScoreForm({ ourScore: "", theirScore: "" });
+      alert(data.message);
+    } catch { alert("스코어 입력 실패"); }
+  }
+  async function addGoalsAPI() {
+    if (!goalModal || !user) return;
+    const goals = Object.entries(goalSelections).filter(([, count]) => count > 0).map(([scorer, count]) => ({ scorer, club: user.teamId, count }));
+    if (goals.length === 0) { alert("골 기록을 선택하세요"); return; }
+    try {
+      const r = await fetch(`${API}/matches/${goalModal.matchId}/goals`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clubId: user.teamId, userEmail: user.email, goals }),
+      });
+      const data = await r.json();
+      if (!r.ok) { alert(data.message); return; }
+      fetch(`${API}/matches?clubId=${user.teamId}`).then(r => r.json()).then(d => setMatches(d.matches || [])).catch(() => {});
+      setGoalModal(null);
+      setGoalSelections({});
+    } catch { alert("골 기록 추가 실패"); }
+  }
+  async function createActivityAPI() {
+    if (!user || !club) return;
+    if (!activityForm.date) { alert("날짜를 입력하세요"); return; }
+    try {
+      await fetch(`${API}/activities`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clubId: user.teamId, sport: club.sport, date: activityForm.date, venue: activityForm.venue, createdBy: user.email }),
+      });
+      fetch(`${API}/activities?clubId=${user.teamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
+      setActivityForm({ date: "", venue: "" });
+    } catch { alert("활동 생성 실패"); }
+  }
+  async function joinActivityAPI(activityId: string) {
+    if (!user) return;
+    try {
+      const r = await fetch(`${API}/activities/${activityId}/join`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email }),
+      });
+      const data = await r.json();
+      if (!r.ok) { alert(data.message); return; }
+      fetch(`${API}/activities?clubId=${user.teamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
+    } catch { alert("참가 실패"); }
+  }
+  async function completeActivityAPI(activityId: string) {
+    if (!user) return;
+    try {
+      await fetch(`${API}/activities/${activityId}/complete`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email }),
+      });
+      fetch(`${API}/activities?clubId=${user.teamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
+    } catch { alert("완료 실패"); }
+  }
 
   async function saveCaptain(email: string) {
     setCaptainSaving(true);
@@ -189,10 +305,10 @@ export default function TeamPage() {
   const areas = (club.areas || []).map((a: any) => [a.sido, a.sigungu].filter(Boolean).join(" ")).join(", ");
   const styles = (club.styles || []).join(", ");
 
-  return <TeamPageContent club={club} members={members} isDemo={false} record={record} areas={areas} styles={styles} captainEditing={captainEditing} setCaptainEditing={setCaptainEditing} captainSaving={captainSaving} saveCaptain={saveCaptain} setInviteOpen={setInviteOpen} attendance={attendance} setAttendance={setAttendance} pending={pending} accept={accept} decline={decline} chatTeam={chatTeam} setChatTeam={setChatTeam} msgs={msgs} input={input} setInput={setInput} sendMsg={sendMsg} bottomRef={bottomRef} inviteOpen={inviteOpen} inviteLink={inviteLink} copy={copy} copied={copied} memberEditing={memberEditing} setMemberEditing={setMemberEditing} deleteMember={deleteMember} editingMember={editingMember} setEditingMember={setEditingMember} editForm={editForm} setEditForm={setEditForm} saveEditMember={saveEditMember} toggleRecruiting={toggleRecruiting} />;
+  return <TeamPageContent club={club} members={members} isDemo={false} record={record} areas={areas} styles={styles} captainEditing={captainEditing} setCaptainEditing={setCaptainEditing} captainSaving={captainSaving} saveCaptain={saveCaptain} setInviteOpen={setInviteOpen} attendance={attendance} setAttendance={setAttendance} pending={pending} accept={accept} decline={decline} chatTeam={chatTeam} setChatTeam={setChatTeam} msgs={msgs} input={input} setInput={setInput} sendMsg={sendMsg} bottomRef={bottomRef} inviteOpen={inviteOpen} inviteLink={inviteLink} copy={copy} copied={copied} memberEditing={memberEditing} setMemberEditing={setMemberEditing} deleteMember={deleteMember} editingMember={editingMember} setEditingMember={setEditingMember} editForm={editForm} setEditForm={setEditForm} saveEditMember={saveEditMember} toggleRecruiting={toggleRecruiting} proposedMatches={proposedMatches} confirmedMatches={confirmedMatches} scheduledMatches={scheduledMatches} acceptMatchAPI={acceptMatchAPI} declineMatchAPI={declineMatchAPI} submitScoreAPI={submitScoreAPI} addGoalsAPI={addGoalsAPI} clubNameMap={clubNameMap} isCompetitive={isCompetitive} isCasual={isCasual} isCaptainUser={isCaptain} currentUser={user} scoreModal={scoreModal} setScoreModal={setScoreModal} scoreForm={scoreForm} setScoreForm={setScoreForm} goalModal={goalModal} setGoalModal={setGoalModal} goalSelections={goalSelections} setGoalSelections={setGoalSelections} activities={activities} activityForm={activityForm} setActivityForm={setActivityForm} createActivityAPI={createActivityAPI} joinActivityAPI={joinActivityAPI} completeActivityAPI={completeActivityAPI} router={router} />;
 }
 
-function TeamPageContent({ club, members, isDemo, record, areas, styles, captainEditing, setCaptainEditing, captainSaving, saveCaptain, setInviteOpen, attendance = {}, setAttendance = () => {}, pending = [], accept = () => {}, decline = () => {}, chatTeam, setChatTeam = () => {}, msgs = {}, input = "", setInput = () => {}, sendMsg = () => {}, bottomRef, inviteOpen, inviteLink = "", copy = () => {}, copied = false, memberEditing = false, setMemberEditing = () => {}, deleteMember = () => {}, editingMember = null, setEditingMember = () => {}, editForm = { name: "", position: "" }, setEditForm = () => {}, saveEditMember = () => {}, toggleRecruiting = () => {} }: any) {
+function TeamPageContent({ club, members, isDemo, record, areas, styles, captainEditing, setCaptainEditing, captainSaving, saveCaptain, setInviteOpen, attendance = {}, setAttendance = () => {}, pending = [], accept = () => {}, decline = () => {}, chatTeam, setChatTeam = () => {}, msgs = {}, input = "", setInput = () => {}, sendMsg = () => {}, bottomRef, inviteOpen, inviteLink = "", copy = () => {}, copied = false, memberEditing = false, setMemberEditing = () => {}, deleteMember = () => {}, editingMember = null, setEditingMember = () => {}, editForm = { name: "", position: "" }, setEditForm = () => {}, saveEditMember = () => {}, toggleRecruiting = () => {}, proposedMatches = [], confirmedMatches = [], scheduledMatches = [], acceptMatchAPI, declineMatchAPI, submitScoreAPI, addGoalsAPI, clubNameMap = {}, isCompetitive = false, isCasual = false, isCaptainUser = false, currentUser = null, scoreModal = null, setScoreModal = () => {}, scoreForm = { ourScore: "", theirScore: "" }, setScoreForm = () => {}, goalModal = null, setGoalModal = () => {}, goalSelections = {}, setGoalSelections = () => {}, activities = [], activityForm = { date: "", venue: "" }, setActivityForm = () => {}, createActivityAPI, joinActivityAPI, completeActivityAPI, router = null }: any) {
   if (!club) {
     return (
       <div className="max-w-4xl mx-auto pt-20 text-center space-y-4">
@@ -236,6 +352,7 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
               <div className="flex items-center gap-2">
                 <Shield size={18} className="text-fuchsia-400" />
                 <h2 className="text-lg font-bold text-white">{club.name}</h2>
+                {club.teamRating && <RatingBadge tier={club.teamRating.tier} type="team" size="sm" />}
               </div>
               <p className="text-xs text-gray-500 mt-0.5">{finalAreas}{finalStyles ? ` · ${finalStyles}` : ""}</p>
             </div>
@@ -310,6 +427,13 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
                 {m.position && (
                   <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${positionColor[m.position] || "bg-white/10 text-gray-400"}`}>{m.position}</span>
                 )}
+                {m.ratings && Object.keys(m.ratings).length > 0 && (
+                  <RatingBadge tier={Object.values(m.ratings as Record<string, any>)[0]?.tier || "B"} type="player" size="sm" />
+                )}
+                {!isDemo && !memberEditing && !captainEditing && currentUser?.email !== m.email && (
+                  <button onClick={(e) => { e.stopPropagation(); router?.push(`/chat?to=${m.email}&name=${encodeURIComponent(m.name || m.email)}`); }}
+                    className="text-gray-500 hover:text-fuchsia-400 transition-colors shrink-0"><MessageCircle size={12} /></button>
+                )}
                 {memberEditing && !isDemo && (
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={(e) => { e.stopPropagation(); setEditingMember(m); setEditForm({ name: m.name || "", position: m.position || "" }); }}
@@ -351,32 +475,51 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
               </div>
             </div>
           ))}
-          {pending.length > 0 && (
+          {proposedMatches && proposedMatches.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs text-gray-500 pt-1">경기 제안 받음</p>
-              {initialProposals.filter(p => pending.includes(p.id)).map(p => (
-                <div key={p.id} className="border border-fuchsia-500/20 bg-fuchsia-500/5 rounded-lg p-4 space-y-3">
+              {proposedMatches.map((m: any) => (
+                <div key={m.matchId} className="border border-fuchsia-500/20 bg-fuchsia-500/5 rounded-lg p-4 space-y-3">
                   <div>
-                    <p className="text-white font-medium text-sm">{p.team}</p>
-                    <p className="text-gray-500 text-xs mt-0.5">{p.date} · {p.venue}</p>
+                    <p className="text-white font-medium text-sm">{clubNameMap?.[m.homeClubId] || m.homeClubId}</p>
+                    <p className="text-gray-500 text-xs mt-0.5">{m.sport} · {m.createdAt?.slice(0, 10)}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => accept(p)} className="flex-1 py-1.5 rounded-md text-xs font-semibold text-white flex items-center justify-center gap-1" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
-                      <MessageCircle size={11} /> 수락 · 채팅
+                    <button onClick={() => acceptMatchAPI?.(m.matchId)} className="flex-1 py-1.5 rounded-md text-xs font-semibold text-white flex items-center justify-center gap-1" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+                      수락
                     </button>
-                    <button onClick={() => decline(p.id)} className="flex-1 py-1.5 rounded-md text-xs font-semibold bg-white/5 text-gray-400 hover:text-white transition-colors">거절</button>
+                    <button onClick={() => declineMatchAPI?.(m.matchId)} className="flex-1 py-1.5 rounded-md text-xs font-semibold bg-white/5 text-gray-400 hover:text-white transition-colors">거절</button>
                   </div>
                 </div>
               ))}
             </div>
           )}
-          {initialProposals.filter(p => !pending.includes(p.id) && msgs[p.id]).map(p => (
-            <button key={p.id} onClick={() => setChatTeam(p)} className="w-full flex items-center gap-2 border border-white/10 rounded-lg px-4 py-2.5 hover:bg-white/5 transition-colors">
-              <MessageCircle size={13} className="text-fuchsia-400" />
-              <span className="text-sm text-gray-300 flex-1 text-left">{p.team}</span>
-              <span className="text-xs text-gray-500">채팅 열기</span>
-            </button>
-          ))}
+
+          {/* 진행중 경기 (스코어 입력) */}
+          {scheduledMatches && scheduledMatches.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500 pt-1">진행중 경기</p>
+              {scheduledMatches.map((m: any) => {
+                const isHome = m.homeClubId === currentUser?.teamId;
+                const opponentName = clubNameMap?.[isHome ? m.awayClubId : m.homeClubId] || "상대팀";
+                const alreadySubmitted = (isHome && m.homeSubmittedBy) || (!isHome && m.awaySubmittedBy);
+                return (
+                  <div key={m.matchId} className="border border-white/10 rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-white font-medium text-sm">vs {opponentName}</p>
+                      <span className="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400">{m.status === "disputed" ? "불일치" : alreadySubmitted ? "입력완료" : "대기중"}</span>
+                    </div>
+                    {isCaptainUser && !alreadySubmitted && (
+                      <button onClick={() => { setScoreModal(m); setScoreForm({ ourScore: "", theirScore: "" }); }}
+                        className="w-full py-1.5 rounded-md text-xs font-semibold text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+                        결과 입력
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* 팀 스탯 */}
@@ -409,6 +552,159 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
           </div>
         </div>
       </div>
+
+      {/* 최근 경기 기록 (대전형) */}
+      {isCompetitive && confirmedMatches && confirmedMatches.length > 0 && (
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <Swords size={16} className="text-fuchsia-400" />
+            <h2 className="text-sm font-semibold text-gray-300">최근 경기 기록</h2>
+          </div>
+          {confirmedMatches.slice(0, 10).map((m: any) => {
+            const isHome = m.homeClubId === currentUser?.teamId;
+            const opponentName = clubNameMap?.[isHome ? m.awayClubId : m.homeClubId] || "상대팀";
+            const ourScore = isHome ? m.homeScore : m.awayScore;
+            const theirScore = isHome ? m.awayScore : m.homeScore;
+            const result = ourScore > theirScore ? "승" : ourScore < theirScore ? "패" : "무";
+            const resultColor = result === "승" ? "text-green-400" : result === "패" ? "text-red-400" : "text-gray-400";
+            const myGoals = (m.goals || []).filter((g: any) => g.club === currentUser?.teamId);
+            return (
+              <div key={m.matchId} className="border border-white/10 rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium text-sm">vs {opponentName}</p>
+                    <p className="text-gray-500 text-xs mt-0.5">{m.confirmedAt?.slice(0, 10)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-white font-bold">{ourScore} - {theirScore}</p>
+                    <p className={`text-xs font-semibold ${resultColor}`}>{result}</p>
+                  </div>
+                </div>
+                {myGoals.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {myGoals.map((g: any, i: number) => (
+                      <span key={i} className="text-xs px-2 py-0.5 rounded bg-fuchsia-500/10 text-fuchsia-400">⚽ {g.scorer?.split("@")[0]} ×{g.count}</span>
+                    ))}
+                  </div>
+                )}
+                {isCaptainUser && (
+                  <button onClick={() => { setGoalModal(m); setGoalSelections({}); }}
+                    className="text-xs text-fuchsia-400 hover:text-fuchsia-300 transition-colors flex items-center gap-1">
+                    <Plus size={12} /> 골 기록 추가
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 활동 일정 (동아리형) */}
+      {isCasual && (
+        <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <CalendarDays size={16} className="text-fuchsia-400" />
+            <h2 className="text-sm font-semibold text-gray-300">활동 일정</h2>
+          </div>
+          {/* 활동 제안 폼 */}
+          <div className="border border-white/10 rounded-lg p-4 space-y-3">
+            <p className="text-xs text-gray-400">새 활동 제안</p>
+            <input type="datetime-local" value={activityForm?.date || ""} onChange={e => setActivityForm?.((p: any) => ({ ...p, date: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-fuchsia-500/50" style={{ colorScheme: "dark" }} />
+            <input placeholder="장소" value={activityForm?.venue || ""} onChange={e => setActivityForm?.((p: any) => ({ ...p, venue: e.target.value }))}
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-fuchsia-500/50 placeholder:text-gray-600" />
+            <button onClick={() => createActivityAPI?.()} className="w-full py-1.5 rounded-md text-xs font-semibold text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+              활동 제안
+            </button>
+          </div>
+          {/* 활동 목록 */}
+          {(activities || []).filter((a: any) => a.status === "open").map((a: any) => (
+            <div key={a.activityId} className="border border-white/10 rounded-lg p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white font-medium text-sm">{a.venue || "장소 미정"}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">{a.date?.replace("T", " ")}</p>
+                </div>
+                <span className="text-xs text-fuchsia-400">{(a.participants || []).length}명 참가</span>
+              </div>
+              <div className="flex gap-2">
+                {!(a.participants || []).includes(currentUser?.email) && (
+                  <button onClick={() => joinActivityAPI?.(a.activityId)} className="flex-1 py-1.5 rounded-md text-xs font-semibold text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>참가</button>
+                )}
+                {a.createdBy === currentUser?.email && (
+                  <button onClick={() => completeActivityAPI?.(a.activityId)} className="flex-1 py-1.5 rounded-md text-xs font-semibold bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors flex items-center justify-center gap-1">
+                    <CheckCircle size={12} /> 완료
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          {/* 완료된 활동 */}
+          {(activities || []).filter((a: any) => a.status === "completed").length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500">완료된 활동</p>
+              {(activities || []).filter((a: any) => a.status === "completed").slice(0, 5).map((a: any) => (
+                <div key={a.activityId} className="border border-white/10 rounded-lg p-3 opacity-60">
+                  <p className="text-white text-sm">{a.venue || "장소 미정"} · {a.date?.slice(0, 10)}</p>
+                  <p className="text-gray-500 text-xs">{(a.participants || []).length}명 참가 · +5점</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 스코어 입력 모달 */}
+      {scoreModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={() => setScoreModal(null)}>
+          <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-xs space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <span className="text-white font-semibold text-sm">결과 입력</span>
+              <button onClick={() => setScoreModal(null)} className="text-gray-500 hover:text-white"><X size={16} /></button>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs text-gray-400">우리팀 스코어</label>
+                <input type="number" min="0" value={scoreForm?.ourScore || ""} onChange={e => setScoreForm?.((p: any) => ({ ...p, ourScore: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-fuchsia-500/50" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-400">상대팀 스코어</label>
+                <input type="number" min="0" value={scoreForm?.theirScore || ""} onChange={e => setScoreForm?.((p: any) => ({ ...p, theirScore: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-fuchsia-500/50" />
+              </div>
+            </div>
+            <button onClick={() => submitScoreAPI?.()} className="w-full py-2 rounded-lg font-semibold text-sm text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>입력</button>
+          </div>
+        </div>
+      )}
+
+      {/* 골 기록 추가 모달 */}
+      {goalModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={() => setGoalModal(null)}>
+          <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-xs space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <span className="text-white font-semibold text-sm">골 기록 추가</span>
+              <button onClick={() => setGoalModal(null)} className="text-gray-500 hover:text-white"><X size={16} /></button>
+            </div>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {members.map((m: any) => (
+                <div key={m.email} className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
+                  <span className="text-white text-sm">{m.name || m.email}</span>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setGoalSelections?.((p: any) => ({ ...p, [m.email]: Math.max(0, (p[m.email] || 0) - 1) }))}
+                      className="w-6 h-6 rounded bg-white/10 text-gray-400 flex items-center justify-center text-xs">-</button>
+                    <span className="text-white text-sm w-4 text-center">{goalSelections?.[m.email] || 0}</span>
+                    <button onClick={() => setGoalSelections?.((p: any) => ({ ...p, [m.email]: (p[m.email] || 0) + 1 }))}
+                      className="w-6 h-6 rounded bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center text-xs">+</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => addGoalsAPI?.()} className="w-full py-2 rounded-lg font-semibold text-sm text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>저장</button>
+          </div>
+        </div>
+      )}
 
       {/* 멤버 수정 모달 */}
       {editingMember && (
