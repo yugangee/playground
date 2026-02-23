@@ -1,0 +1,9 @@
+[
+  {
+    "IndexName": "roomId-index",
+    "KeySchema": [
+      { "AttributeName": "roomId", "KeyType": "HASH" }
+    ],
+    "Projection": { "ProjectionType": "ALL" }
+  }
+]

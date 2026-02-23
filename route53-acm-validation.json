@@ -1,0 +1,17 @@
+{
+  "Changes": [
+    {
+      "Action": "CREATE",
+      "ResourceRecordSet": {
+        "Name": "_08f9b0c8cecb95bd15fff3cde36b5026.fun.sedaily.ai",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "_d3fd4ae05ee87bba7914630597884fda.jkddzztszm.acm-validations.aws"
+          }
+        ]
+      }
+    }
+  ]
+}

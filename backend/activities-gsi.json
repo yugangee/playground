@@ -1,0 +1,10 @@
+[
+  {
+    "IndexName": "clubId-status-index",
+    "KeySchema": [
+      {"AttributeName": "clubId", "KeyType": "HASH"},
+      {"AttributeName": "status", "KeyType": "RANGE"}
+    ],
+    "Projection": {"ProjectionType": "ALL"}
+  }
+]

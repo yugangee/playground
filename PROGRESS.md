@@ -11,21 +11,21 @@
 - **파일**: `globals.css`, `ThemeContext.tsx`, `layout.tsx`, `Sidebar.tsx`
 - **남은 것**: signup/mypage date input의 `colorScheme` 라이트 모드 대응, 일부 페이지 하드코딩 인라인 스타일 점검
 
-### 2. 클럽 생성 (프론트엔드)
+### 2. 클럽 생성 (프론트엔드 + 백엔드)
 - 로그인 필수 체크
 - 생성 후 자동 멤버 등록 + 주장 설정 + 프로필 팀 연결
 - **파일**: `clubs/page.tsx`, `backend/auth/index.mjs`
-- **남은 것**: 백엔드 Lambda 배포
+- ✅ 백엔드 Lambda 배포 완료 (2026-02-23)
 
-### 3. 팀 관리 - 멤버 수정/삭제 + 모집중 토글 (프론트엔드)
+### 3. 팀 관리 - 멤버 수정/삭제 + 모집중 토글 (프론트엔드 + 백엔드)
 - Pencil/Trash2 아이콘, 수정 모달, 삭제 confirm
 - recruiting 토글 버튼
 - **파일**: `team/page.tsx`, `backend/auth/index.mjs`
-- **남은 것**: 백엔드 Lambda 배포
+- ✅ 백엔드 Lambda 배포 완료 (2026-02-23)
 
-### 4. 클럽 탐색 - 모집중 필터 (프론트엔드)
+### 4. 클럽 탐색 - 모집중 필터 (프론트엔드 + 백엔드)
 - **파일**: `clubs/page.tsx`
-- **남은 것**: 백엔드 Lambda 배포
+- ✅ 백엔드 Lambda 배포 완료 (2026-02-23)
 
 ### 5. 커뮤니티 페이지 + 사이드바
 - **완료**
@@ -35,12 +35,12 @@
 - **완료**
 - **파일**: `chat/page.tsx`, `ChatContext.tsx`
 
-### 7. 실시간 채팅 WebSocket (코드 작성 완료)
+### 7. 실시간 채팅 WebSocket ✅ (코드 + 인프라 + 배포 완료)
 - 백엔드 Lambda: `backend/chat/index.mjs`
 - 프론트엔드 훅: `useWebSocket.ts`
 - 팀 채팅, 주장 매치 채팅, 1:1 멤버 채팅 타입
 - **파일**: `backend/chat/index.mjs`, `useWebSocket.ts`, `CHAT-PIPELINE.md`
-- **남은 것**: AWS 인프라 구축 (API Gateway WebSocket, DynamoDB chat 테이블, Lambda 배포) → `CHAT-PIPELINE.md` 참조
+- ✅ AWS 인프라 구축 완료 (API Gateway WebSocket, DynamoDB chat 테이블, Lambda 배포)
 
 ### 8. 비디오 API - 비동기 폴링 + CloudFront CORS
 - **완료**
@@ -50,7 +50,7 @@
 - **완료**
 - **파일**: `deploy.bat`, `deploy.sh`
 
-### 10. 등급/티어 시스템 (코드 작성 완료)
+### 10. 등급/티어 시스템 ✅ (코드 + 배포 완료)
 - **스펙 문서**: `RATING-SYSTEM.md`, `.kiro/specs/rating-system/` (requirements.md, design.md, tasks.md)
 - **백엔드 구현 완료**:
   - `backend/auth/scoring.mjs` — 점수/등급 순수 함수 5개
@@ -91,66 +91,37 @@
     - 종목별 개인 등급 뱃지 섹션 (포인트, 경기수, 승수 표시)
   - `context/AuthContext.tsx` — User 타입에 ratings 필드 추가
 
+### 11. 프론트엔드 S3 + CloudFront 배포 ✅ (2026-02-23)
+- S3 버킷 `playground-web-sedaily-us`에 정적 빌드 업로드
+- CloudFront 캐시 무효화 완료 (ID: `I8NYZ86IS68EPPW70HCIYWC2EC`)
+- **배포 URL**: `https://d1t0vkbh1b2z3x.cloudfront.net/` / `https://fun.sedaily.ai/`
+
 ---
 
-## 🔧 배포 필요 (AWS)
+## ✅ 배포 완료 (AWS) — 2026-02-23
 
-### A. DynamoDB 테이블 생성 (2개)
+### A. DynamoDB 테이블 생성 ✅
+- `playground-matches` (GSI: `homeClubId-status-index`, `awayClubId-status-index`)
+- `playground-activities` (GSI: `clubId-status-index`)
 
-```bash
-# 1. playground-matches
-aws dynamodb create-table \
-  --table-name playground-matches \
-  --attribute-definitions \
-    AttributeName=matchId,AttributeType=S \
-    AttributeName=homeClubId,AttributeType=S \
-    AttributeName=awayClubId,AttributeType=S \
-    AttributeName=status,AttributeType=S \
-  --key-schema AttributeName=matchId,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST \
-  --global-secondary-indexes \
-    '[{"IndexName":"homeClubId-status-index","KeySchema":[{"AttributeName":"homeClubId","KeyType":"HASH"},{"AttributeName":"status","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}},{"IndexName":"awayClubId-status-index","KeySchema":[{"AttributeName":"awayClubId","KeyType":"HASH"},{"AttributeName":"status","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}]'
+### B. Lambda 코드 업데이트 ✅
+- `playground-auth` 함수에 `index.mjs`, `scoring.mjs`, `package.json`, `node_modules/` 배포 완료
+- CodeSha256: `G1+JiQ5iAO012IlUSBzduq52EZN5jHkCt0MAFSLzanU=`
 
-# 2. playground-activities
-aws dynamodb create-table \
-  --table-name playground-activities \
-  --attribute-definitions \
-    AttributeName=activityId,AttributeType=S \
-    AttributeName=clubId,AttributeType=S \
-    AttributeName=status,AttributeType=S \
-  --key-schema AttributeName=activityId,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST \
-  --global-secondary-indexes \
-    '[{"IndexName":"clubId-status-index","KeySchema":[{"AttributeName":"clubId","KeyType":"HASH"},{"AttributeName":"status","KeyType":"RANGE"}],"Projection":{"ProjectionType":"ALL"}}]'
-```
+### C. API Gateway 라우트 추가 ✅
+- 모든 매치/활동 라우트 + OPTIONS (CORS) + Lambda 프록시 통합 완료
+- `prod` 스테이지 재배포 완료 (deployment ID: `t0gtvg`)
 
-### B. Lambda 코드 업데이트
-
-```bash
-# backend/auth 폴더에서
-cd backend/auth
-zip -r function.zip index.mjs scoring.mjs package.json node_modules/
-aws lambda update-function-code \
-  --function-name playground-auth \
-  --zip-file fileb://function.zip
-```
-
-### C. API Gateway 라우트 추가
-
-기존 API Gateway REST API (`ayeyr9vgsc`)에 새 리소스/메서드 추가 필요:
-
-| 리소스 | 메서드 |
-|--------|--------|
-| `/matches` | POST, GET |
-| `/matches/{matchId}/accept` | PUT |
-| `/matches/{matchId}/decline` | PUT |
-| `/matches/{matchId}/score` | PUT |
-| `/matches/{matchId}/goals` | PUT |
-| `/activities` | POST, GET |
-| `/activities/{activityId}/join` | PUT |
-| `/activities/{activityId}/complete` | PUT |
-
-각 리소스에 OPTIONS (CORS) + Lambda 프록시 통합 설정 후 `prod` 스테이지 재배포.
+| 리소스 | 메서드 | 상태 |
+|--------|--------|------|
+| `/matches` | POST, GET, OPTIONS | ✅ |
+| `/matches/{matchId}/accept` | PUT, OPTIONS | ✅ |
+| `/matches/{matchId}/decline` | PUT, OPTIONS | ✅ |
+| `/matches/{matchId}/score` | PUT, OPTIONS | ✅ |
+| `/matches/{matchId}/goals` | PUT, OPTIONS | ✅ |
+| `/activities` | POST, GET, OPTIONS | ✅ |
+| `/activities/{activityId}/join` | PUT, OPTIONS | ✅ |
+| `/activities/{activityId}/complete` | PUT, OPTIONS | ✅ |
 
 ### D. 프론트엔드 빌드 & 배포
 
@@ -161,9 +132,21 @@ aws s3 sync out/ s3://playground-web-sedaily-us/ --delete --exclude "uploads/*"
 aws cloudfront create-invalidation --distribution-id E1U8HJ0871GR0O --paths "/*"
 ```
 
-### E. WebSocket 채팅 인프라 (별도)
+### E. WebSocket 채팅 인프라 ✅ (2026-02-23)
+- DynamoDB 테이블 생성 완료:
+  - `playground-ws-connections` (GSI: `roomId-index`)
+  - `playground-chat-messages` (PK: `roomId`, SK: `messageId`)
+- Lambda 함수 `playground-chat-ws` 생성 완료 (nodejs22.x)
+- API Gateway WebSocket API `playground-chat` (ID: `s2b7iclwcj`) 생성 완료
+  - 라우트: `$connect`, `$disconnect`, `sendMessage`, `getHistory`
+  - `prod` 스테이지 배포 완료
+- IAM: `execute-api:ManageConnections` 인라인 정책 추가
+- WebSocket URL: `wss://s2b7iclwcj.execute-api.us-east-1.amazonaws.com/prod`
+- 프론트엔드 `.env`에 `NEXT_PUBLIC_WS_URL` 추가
 
-`CHAT-PIPELINE.md` 참조. API Gateway WebSocket API + DynamoDB chat 테이블 + Lambda 배포 필요.
+### F. 프론트엔드 재배포 ✅ (2026-02-23)
+- WebSocket URL 포함 빌드 → S3 업로드 → CloudFront 캐시 무효화 완료
+- Invalidation ID: `I5JQBCUNL8JJ3SKNZN2IHVW3QT`
 
 ---
 
@@ -173,7 +156,7 @@ aws cloudfront create-invalidation --distribution-id E1U8HJ0871GR0O --paths "/*"
 2. **동아리형 종목별 등급 커트라인** — 러닝크루/스노보드/배드민턴 등급표 미정
 3. **다른 대전형 종목 등급 커트라인** — 농구/야구/배구/아이스하키 (현재 축구/풋살만 설정됨)
 4. **알림 시스템** — 경기 제안 시 상대팀 전원 알림 (현재 미구현, DB에만 저장)
-5. **주장 채팅방 자동 생성** — 매치 scheduled 시 양쪽 주장 채팅방 (WebSocket 인프라 필요)
+5. **주장 채팅방 자동 생성** — 매치 scheduled 시 양쪽 주장 채팅방 (WebSocket 인프라 완료, 로직 구현 필요)
 6. **스코어 불일치(disputed) 처리 UI** — 현재 재입력 안내만, 상세 UI 미구현
 7. **팀 승급 조건 검증** — 현재 TP 커트라인만 적용, 추가 조건(누적 20승, 팀원 평균 등급 등) 미구현
 8. **속성 기반 테스트** — fast-check 라이브러리로 scoring.mjs 테스트 (선택사항)
@@ -215,3 +198,5 @@ aws cloudfront create-invalidation --distribution-id E1U8HJ0871GR0O --paths "/*"
 | CloudFront (사이트) | `d1t0vkbh1b2z3x.cloudfront.net` (ID: `E1U8HJ0871GR0O`) |
 | CloudFront (비디오) | `d2e8khynpnbcpl.cloudfront.net` (ID: `E2AQ982ZLLWYM9`) |
 | GitHub | `https://github.com/yugangee/playground.git` (main) |
+| WebSocket API | `wss://s2b7iclwcj.execute-api.us-east-1.amazonaws.com/prod` (ID: `s2b7iclwcj`) |
+| Chat Lambda | `playground-chat-ws` |

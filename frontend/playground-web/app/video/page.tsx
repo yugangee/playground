@@ -5,7 +5,7 @@ import { Upload, Goal, Crosshair, Shield, AlertCircle, HelpCircle, Download } fr
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 
-const API_URL = process.env.NEXT_PUBLIC_VIDEO_API_URL || "http://34.236.216.122:8000";
+const API_URL = process.env.NEXT_PUBLIC_VIDEO_API_URL || "https://bvologzwm8.execute-api.us-east-1.amazonaws.com";
 
 const typeConfig = {
   goal:   { icon: Goal,        color: "text-lime-400",   bg: "bg-lime-400/10 border-lime-400/30",    label: "골" },

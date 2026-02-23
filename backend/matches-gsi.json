@@ -1,0 +1,18 @@
+[
+  {
+    "IndexName": "homeClubId-status-index",
+    "KeySchema": [
+      {"AttributeName": "homeClubId", "KeyType": "HASH"},
+      {"AttributeName": "status", "KeyType": "RANGE"}
+    ],
+    "Projection": {"ProjectionType": "ALL"}
+  },
+  {
+    "IndexName": "awayClubId-status-index",
+    "KeySchema": [
+      {"AttributeName": "awayClubId", "KeyType": "HASH"},
+      {"AttributeName": "status", "KeyType": "RANGE"}
+    ],
+    "Projection": {"ProjectionType": "ALL"}
+  }
+]
