@@ -50,7 +50,59 @@ export default function ClubsPage() {
     { sido: "", sigungu: "" },
     { sido: "", sigungu: "" },
   ]);
+  const [joining, setJoining] = useState<string | null>(null);
   const PER_PAGE = 8;
+
+  // 유저가 이미 가입한 클럽인지 확인
+  const isAlreadyMember = (clubId: string) => {
+    if (!user) return false;
+    if (user.teamIds?.includes(clubId)) return true;
+    if (user.teamId === clubId) return true;
+    return false;
+  };
+
+  // 클럽 가입 처리
+  const handleJoinClub = async (club: DbClub) => {
+    if (!user) { alert("로그인이 필요합니다"); return; }
+    if (isAlreadyMember(club.clubId)) { alert("이미 가입한 클럽입니다"); return; }
+    setJoining(club.clubId);
+    try {
+      // 1) 멤버 등록
+      await fetch(`${API}/club-members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clubId: club.clubId, email: user.email, name: user.name, position: user.position || "" }),
+      });
+      // 2) 프로필 업데이트 (teamIds에 추가)
+      const token = localStorage.getItem("accessToken");
+      if (token) {
+        const newTeamIds = [...new Set([...(user.teamIds || (user.teamId ? [user.teamId] : [])), club.clubId])];
+        await fetch(`${API}/auth/profile`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ hasTeam: true, teamSport: club.sport, teamId: newTeamIds[0], teamIds: newTeamIds, position: user.position || "" }),
+        });
+        await refresh();
+      }
+      // 3) 클럽 멤버 수 증가
+      await fetch(`${API}/clubs`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clubId: club.clubId, members: (club.members || 0) + 1 }),
+      });
+      // 4) 목록 새로고침
+      const r = await fetch(`${API}/clubs`);
+      const d = await r.json();
+      setAllClubs(d.clubs || []);
+      alert(`${club.name}에 가입했습니다!`);
+      setSelected(null);
+    } catch (e) {
+      console.error(e);
+      alert("가입 처리 중 오류가 발생했습니다");
+    } finally {
+      setJoining(null);
+    }
+  };
 
   // API에서 클럽 목록 불러오기
   useEffect(() => {
@@ -256,8 +308,8 @@ export default function ClubsPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {paginated.map((c) => (
-          <button key={c.clubId} onClick={() => setSelected(c)}
-            className="relative border border-white/10 rounded-xl overflow-hidden flex flex-col hover:border-fuchsia-500/40 transition-colors group text-left"
+          <div key={c.clubId} onClick={() => setSelected(c)}
+            className="relative border border-white/10 rounded-xl overflow-hidden flex flex-col hover:border-fuchsia-500/40 transition-colors group text-left cursor-pointer"
             style={{ minHeight: "calc((100vh - 280px) / 2)" }}
           >
             {c.image && <Image src={c.image} alt={c.name} fill className="object-cover opacity-20 group-hover:opacity-30 transition-opacity" />}
@@ -281,9 +333,23 @@ export default function ClubsPage() {
                   <span className="text-gray-400">멤버 {c.members}명</span>
                   <span className="text-fuchsia-400 font-medium">승률 {c.winRate}%</span>
                 </div>
+                {c.recruiting && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleJoinClub(c); }}
+                    disabled={isAlreadyMember(c.clubId) || joining === c.clubId}
+                    className="w-full py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors mt-1"
+                    style={isAlreadyMember(c.clubId)
+                      ? { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }
+                      : { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
+                    }
+                  >
+                    <Users size={12} />
+                    {isAlreadyMember(c.clubId) ? "가입됨" : joining === c.clubId ? "가입 중..." : "가입하기"}
+                  </button>
+                )}
               </div>
             </div>
-          </button>
+          </div>
         ))}
       </div>
 
@@ -454,7 +520,7 @@ export default function ClubsPage() {
                       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/profile`, {
                         method: "PUT",
                         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                        body: JSON.stringify({ hasTeam: true, teamSport: clubSport, teamId: newClubId, position: user.position || "" }),
+                        body: JSON.stringify({ hasTeam: true, teamSport: clubSport, teamId: newClubId, teamIds: [...(user.teamIds || (user.teamId ? [user.teamId] : [])), newClubId], position: user.position || "" }),
                       }).catch(() => {});
                       await refresh();
                     }
@@ -534,6 +600,21 @@ export default function ClubsPage() {
                 ))}
               </div>
             </div>
+
+            {/* 가입하기 버튼 */}
+            {selected.recruiting && (
+              <button
+                onClick={() => handleJoinClub(selected)}
+                disabled={isAlreadyMember(selected.clubId) || joining === selected.clubId}
+                className="w-full py-2.5 rounded-lg font-semibold text-sm text-white disabled:opacity-50"
+                style={isAlreadyMember(selected.clubId)
+                  ? { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }
+                  : { background: "linear-gradient(to right, #c026d3, #7c3aed)" }
+                }
+              >
+                {isAlreadyMember(selected.clubId) ? "이미 가입한 클럽입니다" : joining === selected.clubId ? "가입 중..." : "가입하기"}
+              </button>
+            )}
 
             <button
               onClick={async () => {

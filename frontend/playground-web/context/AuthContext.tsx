@@ -17,6 +17,7 @@ interface User {
   hasTeam?: boolean;
   teamSport?: string;
   teamId?: string | null;
+  teamIds?: string[];
   position?: string;
   avatar?: string;
   number?: number;

@@ -7,39 +7,20 @@ import { regionData } from "./regions";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
-const sports = ["축구", "풋살", "농구", "야구", "배구", "배드민턴", "아이스하키", "스노보드", "러닝크루", "기타"];
+const allSports = ["축구", "풋살", "농구", "야구", "배구", "배드민턴", "아이스하키", "스노보드", "러닝크루", "기타"];
 
 export default function SignupPage() {
   const [form, setForm] = useState({ name: "", gender: "", birth: "", id: "", password: "", passwordConfirm: "", regionSido: "", regionSigungu: "" });
-  const [activeAreas, setActiveAreas] = useState([
-    { sido: "", sigungu: "" },
-    { sido: "", sigungu: "" },
-    { sido: "", sigungu: "" },
-  ]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  const [selectedSports, setSelectedSports] = useState<string[]>([]);
-  const [hasTeam, setHasTeam] = useState<boolean | null>(null);
   const [teamSport, setTeamSport] = useState("");
   const [teamId, setTeamId] = useState<string | null>(null);
-  const [teamPosition, setTeamPosition] = useState("");
-  const [apiClubs, setApiClubs] = useState<any[]>([]);
+  const [position, setPosition] = useState("");
+  const [teamClubs, setTeamClubs] = useState<any[]>([]);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((p) => ({ ...p, [k]: e.target.value }));
-
-  const toggleSport = (s: string) =>
-    setSelectedSports((p) => p.includes(s) ? p.filter((x) => x !== s) : [...p, s]);
-
-  // 종목 선택 시 해당 종목 클럽 목록 불러오기
-  useEffect(() => {
-    if (!teamSport) { setApiClubs([]); return; }
-    fetch(`${API}/clubs?sport=${encodeURIComponent(teamSport)}`)
-      .then(r => r.json())
-      .then(d => setApiClubs(d.clubs || []))
-      .catch(() => setApiClubs([]));
-  }, [teamSport]);
 
   const inputStyle = {
     background: "var(--input-bg)",
@@ -52,22 +33,16 @@ export default function SignupPage() {
     fontSize: "14px",
   };
 
-  const updateActiveArea = (idx: number, field: "sido" | "sigungu", value: string) => {
-    setActiveAreas((prev) => prev.map((a, i) => i === idx ? { ...a, [field]: value, ...(field === "sido" ? { sigungu: "" } : {}) } : a));
-  };
-
-  const isDuplicateArea = (idx: number, sido: string, sigungu: string) => {
-    if (!sido || !sigungu) return false;
-    return activeAreas.some((a, i) => i !== idx && a.sido === sido && a.sigungu === sigungu);
-  };
-
-  const handleAreaSigungu = (idx: number, value: string) => {
-    const sido = activeAreas[idx].sido;
-    if (isDuplicateArea(idx, sido, value)) return;
-    updateActiveArea(idx, "sigungu", value);
-  };
-
   const getSigunguItems = (sido: string) => sido ? ["전체", ...(regionData[sido] || [])] : [];
+
+  // 종목 선택 시 해당 클럽 목록 로드
+  useEffect(() => {
+    if (!teamSport) { setTeamClubs([]); return; }
+    fetch(`${API}/clubs?sport=${encodeURIComponent(teamSport)}`)
+      .then(r => r.json())
+      .then(d => setTeamClubs(d.clubs || []))
+      .catch(() => setTeamClubs([]));
+  }, [teamSport]);
 
   function Dropdown({ value, placeholder, items, onChange, disabled }: { value: string; placeholder: string; items: string[]; onChange: (v: string) => void; disabled?: boolean }) {
     const [open, setOpen] = useState(false);
@@ -81,14 +56,14 @@ export default function SignupPage() {
       <div ref={ref} style={{ position: "relative", width: "100%" }}>
         <button type="button" disabled={disabled} onClick={() => !disabled && setOpen(!open)}
           style={{ ...inputStyle, textAlign: "left", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.4 : 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ color: value ? "white" : "#6b7280" }}>{value || placeholder}</span>
+          <span style={{ color: value ? "var(--text-primary)" : "#6b7280" }}>{value || placeholder}</span>
           <span style={{ color: "#6b7280", fontSize: "10px" }}>▼</span>
         </button>
         {open && items.length > 0 && (
           <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, marginTop: "4px", background: "var(--dropdown-bg)", border: "1px solid var(--input-border)", borderRadius: "10px", maxHeight: "200px", overflowY: "auto" }}>
             {items.map((item) => (
               <div key={item} onClick={() => { onChange(item); setOpen(false); }}
-                style={{ padding: "10px 16px", fontSize: "14px", color: item === value ? "#c084fc" : "white", cursor: "pointer", background: item === value ? "rgba(192,132,252,0.1)" : "transparent" }}
+                style={{ padding: "10px 16px", fontSize: "14px", color: item === value ? "#c084fc" : "var(--text-primary)", cursor: "pointer", background: item === value ? "rgba(192,132,252,0.1)" : "transparent" }}
                 onMouseEnter={(e) => { if (item !== value) (e.target as HTMLDivElement).style.background = "rgba(255,255,255,0.08)"; }}
                 onMouseLeave={(e) => { (e.target as HTMLDivElement).style.background = item === value ? "rgba(192,132,252,0.1)" : "transparent"; }}>
                 {item}
@@ -119,12 +94,11 @@ export default function SignupPage() {
           birthdate: form.birth,
           regionSido: form.regionSido,
           regionSigungu: form.regionSigungu,
-          activeAreas: activeAreas.filter((a) => a.sido),
-          sports: selectedSports,
-          hasTeam: hasTeam || false,
-          teamSport: teamSport || "",
-          teamId: teamId || null,
-          position: teamPosition || "",
+          hasTeam: !!teamId,
+          teamSport: teamSport,
+          teamId: teamId,
+          teamIds: teamId ? [teamId] : [],
+          position: position,
         }),
       });
       const data = await res.json();
@@ -182,100 +156,71 @@ export default function SignupPage() {
           </div>
         </div>
 
-        {/* 활동 가능 지역 */}
-        <div>
-          <p className="text-xs text-gray-500 mb-2">활동 가능 지역 (최대 3개)</p>
-          <div className="space-y-2">
-            {activeAreas.map((area, i) => (
-              <div key={i} className="flex gap-2 items-center">
-                <span className="text-xs text-gray-600 w-4 shrink-0">{i + 1}</span>
-                <Dropdown value={area.sido} placeholder="시/도" items={Object.keys(regionData)} onChange={(v) => updateActiveArea(i, "sido", v)} />
-                <Dropdown value={area.sigungu} placeholder="시/군/구"
-                  items={getSigunguItems(area.sido).filter((sg) => !isDuplicateArea(i, area.sido, sg))}
-                  onChange={(v) => handleAreaSigungu(i, v)} disabled={!area.sido} />
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* 활동 가능 지역, 관심 스포츠는 가입 후 마이페이지에서 설정 */}
 
-        {/* 관심 스포츠 */}
+        {/* 팀 선택 */}
         <div>
-          <p className="text-xs text-gray-500 mb-2">관심 스포츠 * (복수 선택 가능)</p>
-          <div className="flex flex-wrap gap-2">
-            {sports.map((s) => (
-              <button key={s} type="button" onClick={() => toggleSport(s)}
+          <p className="text-xs text-gray-500 mb-2">소속 팀 (선택)</p>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {allSports.map(s => (
+              <button key={s} type="button"
+                onClick={() => { setTeamSport(s === teamSport ? "" : s); setTeamId(null); setPosition(""); }}
                 className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
-                style={selectedSports.includes(s) ? chipActive : chipInactive}
+                style={teamSport === s ? chipActive : chipInactive}
               >{s}</button>
             ))}
           </div>
-        </div>
-
-        {/* 소속팀 여부 */}
-        <div>
-          <p className="text-xs text-gray-500 mb-2">소속된 팀이 있으신가요?</p>
-          <div className="flex gap-2">
-            {[{ label: "있어요", val: true }, { label: "없어요", val: false }].map(({ label, val }) => (
-              <button key={label} type="button"
-                onClick={() => { setHasTeam(val); setTeamSport(""); setTeamId(null); }}
-                className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors"
-                style={hasTeam === val ? chipActive : chipInactive}
-              >{label}</button>
-            ))}
-          </div>
-        </div>
-
-        {/* 종목 선택 */}
-        {hasTeam === true && (
-          <div>
-            <p className="text-xs text-gray-500 mb-2">종목 선택</p>
-            <div className="flex flex-wrap gap-2">
-              {sports.map((s) => (
-                <button key={s} type="button"
-                  onClick={() => { setTeamSport(s); setTeamId(null); setTeamPosition(""); }}
-                  className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
-                  style={teamSport === s ? chipActive : chipInactive}
-                >{s}</button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 팀 선택 */}
-        {hasTeam === true && teamSport && (
-          <div>
-            <p className="text-xs text-gray-500 mb-2">소속 팀 선택 {apiClubs.length > 0 && `(${apiClubs.length}개)`}</p>
-            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-              {apiClubs.map((c: any) => (
+          {teamSport && teamClubs.length > 0 && (
+            <div className="space-y-1.5 max-h-40 overflow-y-auto">
+              {teamClubs.map((c: any) => (
                 <button key={c.clubId} type="button"
-                  onClick={() => setTeamId(c.clubId)}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors"
-                  style={teamId === c.clubId ? { ...chipActive, borderRadius: "12px" } : { background: "var(--chip-inactive-bg)", border: "1px solid var(--chip-inactive-border)" }}
-                >
-                  <span className="text-sm font-medium">{c.name}</span>
-                  <span className="text-xs opacity-60">{c.areas?.[0]?.sido} {c.areas?.[0]?.sigungu}</span>
+                  onClick={() => setTeamId(teamId === c.clubId ? null : c.clubId)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-left text-sm transition-colors"
+                  style={teamId === c.clubId
+                    ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
+                    : { background: "var(--chip-inactive-bg)", border: "1px solid var(--chip-inactive-border)", color: "var(--text-primary)" }}>
+                  <span>{c.name}</span>
+                  <span className="text-xs opacity-70">{c.members || 0}명</span>
                 </button>
               ))}
-              {apiClubs.length === 0 && <p className="text-xs text-gray-600 text-center py-2">해당 종목 클럽이 없습니다</p>}
             </div>
-          </div>
-        )}
+          )}
+          {teamSport && teamClubs.length === 0 && (
+            <p className="text-xs text-gray-600">해당 종목의 팀이 없습니다</p>
+          )}
+        </div>
 
         {/* 포지션 선택 */}
-        {hasTeam === true && teamId && (
-          <div>
-            <p className="text-xs text-gray-500 mb-2">포지션</p>
-            <div className="flex flex-wrap gap-2">
-              {["GK","DF","MF","FW","C","PG","SG","SF","PF","투수","포수","내야수","외야수","세터","리베로","공격수","기타"].map((p) => (
-                <button key={p} type="button"
-                  onClick={() => setTeamPosition(p)}
-                  className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
-                  style={teamPosition === p ? chipActive : chipInactive}
-                >{p}</button>
-              ))}
+        {teamId && (() => {
+          const selectedClub = teamClubs.find((c: any) => c.clubId === teamId);
+          const sport = selectedClub?.sport || teamSport;
+          const positionsBySport: Record<string, string[]> = {
+            "축구": ["GK", "DF", "MF", "FW"],
+            "풋살": ["GK", "DF", "MF", "FW"],
+            "농구": ["PG", "SG", "SF", "PF", "C"],
+            "야구": ["투수", "포수", "내야수", "외야수"],
+            "배구": ["세터", "리베로", "공격수"],
+            "아이스하키": ["GK", "DF", "FW"],
+            "배드민턴": ["단식", "복식"],
+            "스노보드": ["프리스타일", "알파인", "보더크로스"],
+            "러닝크루": ["페이스메이커", "러너"],
+          };
+          const positions = [...(positionsBySport[sport] || []), "기타"];
+          return (
+            <div>
+              <p className="text-xs text-gray-500 mb-2">포지션</p>
+              <div className="flex flex-wrap gap-2">
+                {positions.map(p => (
+                  <button key={p} type="button"
+                    onClick={() => setPosition(position === p ? "" : p)}
+                    className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+                    style={position === p ? chipActive : chipInactive}
+                  >{p}</button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       <div className="space-y-3">

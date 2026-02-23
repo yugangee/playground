@@ -8,21 +8,21 @@ import Link from "next/link";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
-/* ── mock 데이터 (비로그인 / 팀 없을 때) ── */
+/* 팀용 mock 데이터(비로그인 / 팀 없을 때 사용) */
 const mockTeamName = "서울 FC 썬더";
 
 const mockPlayers = [
-  { name: "김민준", number: 1,  position: "GK", stats: { 스피드: 60, 슈팅: 40, 패스: 70, 체력: 75, 수비: 80 }, goals: 0,  assists: 1,  shots: 3,  passes: 210 },
+  { name: "김민수", number: 1,  position: "GK", stats: { 스피드: 60, 슈팅: 40, 패스: 70, 체력: 75, 수비: 80 }, goals: 0,  assists: 1,  shots: 3,  passes: 210 },
   { name: "이서준", number: 4,  position: "DF", stats: { 스피드: 72, 슈팅: 35, 패스: 68, 체력: 80, 수비: 88 }, goals: 1,  assists: 2,  shots: 5,  passes: 180 },
-  { name: "박지호", number: 5,  position: "DF", stats: { 스피드: 70, 슈팅: 30, 패스: 65, 체력: 78, 수비: 85 }, goals: 0,  assists: 1,  shots: 2,  passes: 160 },
+  { name: "박지훈", number: 5,  position: "DF", stats: { 스피드: 70, 슈팅: 30, 패스: 65, 체력: 78, 수비: 85 }, goals: 0,  assists: 1,  shots: 2,  passes: 160 },
   { name: "최현우", number: 6,  position: "DF", stats: { 스피드: 68, 슈팅: 32, 패스: 62, 체력: 76, 수비: 84 }, goals: 2,  assists: 0,  shots: 6,  passes: 155 },
   { name: "정도윤", number: 8,  position: "MF", stats: { 스피드: 78, 슈팅: 65, 패스: 82, 체력: 85, 수비: 60 }, goals: 5,  assists: 8,  shots: 22, passes: 320 },
   { name: "강시우", number: 10, position: "MF", stats: { 스피드: 82, 슈팅: 70, 패스: 88, 체력: 83, 수비: 55 }, goals: 7,  assists: 12, shots: 28, passes: 380 },
-  { name: "윤준서", number: 11, position: "MF", stats: { 스피드: 80, 슈팅: 68, 패스: 80, 체력: 82, 수비: 58 }, goals: 4,  assists: 9,  shots: 20, passes: 290 },
-  { name: "임지훈", number: 7,  position: "FW", stats: { 스피드: 90, 슈팅: 85, 패스: 72, 체력: 80, 수비: 40 }, goals: 12, assists: 5,  shots: 45, passes: 140 },
-  { name: "한승민", number: 9,  position: "FW", stats: { 스피드: 88, 슈팅: 88, 패스: 70, 체력: 82, 수비: 38 }, goals: 15, assists: 4,  shots: 52, passes: 130 },
-  { name: "오태양", number: 17, position: "FW", stats: { 스피드: 86, 슈팅: 80, 패스: 68, 체력: 78, 수비: 42 }, goals: 8,  assists: 6,  shots: 35, passes: 120 },
-  { name: "신재원", number: 3,  position: "DF", stats: { 스피드: 74, 슈팅: 33, 패스: 66, 체력: 77, 수비: 86 }, goals: 1,  assists: 3,  shots: 4,  passes: 170 },
+  { name: "한예준", number: 11, position: "MF", stats: { 스피드: 80, 슈팅: 68, 패스: 80, 체력: 82, 수비: 58 }, goals: 4,  assists: 9,  shots: 20, passes: 290 },
+  { name: "오준서", number: 7,  position: "FW", stats: { 스피드: 90, 슈팅: 85, 패스: 72, 체력: 80, 수비: 40 }, goals: 12, assists: 5,  shots: 45, passes: 140 },
+  { name: "임승우", number: 9,  position: "FW", stats: { 스피드: 88, 슈팅: 88, 패스: 70, 체력: 82, 수비: 38 }, goals: 15, assists: 4,  shots: 52, passes: 130 },
+  { name: "조태현", number: 17, position: "FW", stats: { 스피드: 86, 슈팅: 80, 패스: 68, 체력: 78, 수비: 42 }, goals: 8,  assists: 6,  shots: 35, passes: 120 },
+  { name: "윤재민", number: 3,  position: "DF", stats: { 스피드: 74, 슈팅: 33, 패스: 66, 체력: 77, 수비: 86 }, goals: 1,  assists: 3,  shots: 4,  passes: 170 },
   { name: "백승호", number: 14, position: "MF", stats: { 스피드: 76, 슈팅: 62, 패스: 78, 체력: 80, 수비: 56 }, goals: 3,  assists: 7,  shots: 18, passes: 260 },
   { name: "류성민", number: 20, position: "GK", stats: { 스피드: 58, 슈팅: 38, 패스: 68, 체력: 72, 수비: 82 }, goals: 0,  assists: 0,  shots: 1,  passes: 190 },
 ];
@@ -40,10 +40,10 @@ const positionColor: Record<string, string> = {
 };
 
 const timeline = [
-  { time: "12:34", type: "goal", label: "골",   desc: "페널티 박스 우측 슈팅 → 골" },
+  { time: "12:34", type: "goal", label: "골",   desc: "페널티 박스 우측 슈팅 성공" },
   { time: "27:10", type: "shot", label: "슈팅", desc: "중거리 슈팅, 골키퍼 선방" },
-  { time: "61:48", type: "goal", label: "골",   desc: "왼발 감아차기 → 골" },
-  { time: "78:55", type: "foul", label: "파울", desc: "상대 수비수 파울 유도" },
+  { time: "61:48", type: "goal", label: "골",   desc: "왼발 감아차기 성공" },
+  { time: "78:55", type: "foul", label: "파울", desc: "상대 수비수에 파울 유도" },
 ];
 
 const typeConfig = {
@@ -63,7 +63,7 @@ type Player = {
   passes: number;
 };
 
-/* 포지션별 스탯 경향 (실제 멤버용 시드 기반 생성) */
+/* 선수별 스탯 경향 (실제 멤버의 시드 기반 생성) */
 function generateStats(name: string, position: string): Omit<Player, "name" | "number" | "position"> {
   // 이름 기반 시드 (같은 이름이면 항상 같은 스탯)
   let seed = 0;
@@ -102,21 +102,23 @@ export default function ReportPage() {
 
   // 로그인 + 팀 있으면 실제 데이터 fetch
   useEffect(() => {
-    if (!user?.teamId) { setClub(null); setRealMembers([]); return; }
+    const teamId = user?.teamIds?.[0] || user?.teamId;
+    if (!teamId) { setClub(null); setRealMembers([]); return; }
     setLoadingTeam(true);
     Promise.all([
       fetch(`${API}/clubs`).then(r => r.json()),
-      fetch(`${API}/club-members/${user.teamId}`).then(r => r.json()),
+      fetch(`${API}/club-members/${teamId}`).then(r => r.json()),
     ]).then(([clubsData, membersData]) => {
-      const found = (clubsData.clubs || []).find((c: any) => c.clubId === user.teamId);
+      const found = (clubsData.clubs || []).find((c: any) => c.clubId === teamId);
       setClub(found || null);
       setRealMembers(membersData.members || []);
     }).catch(() => {}).finally(() => setLoadingTeam(false));
-  }, [user?.teamId]);
+  }, [(user?.teamIds?.[0] || user?.teamId)]);
 
-  // 실제 멤버 → Player 형태로 변환
+  // 실제 멤버를 Player 형태로 변환
   const players: Player[] = useMemo(() => {
-    if (!user?.teamId || realMembers.length === 0) return mockPlayers;
+    const teamId = user?.teamIds?.[0] || user?.teamId;
+    if (!teamId || realMembers.length === 0) return mockPlayers;
     return realMembers.map((m: any, i: number) => {
       const pos = m.position || "MF";
       const generated = generateStats(m.name || m.email, pos);
@@ -127,10 +129,10 @@ export default function ReportPage() {
         ...generated,
       };
     });
-  }, [user?.teamId, realMembers]);
+  }, [(user?.teamIds?.[0] || user?.teamId), realMembers]);
 
   const displayTeamName = club?.name || mockTeamName;
-  const isRealTeam = !!user?.teamId && !!club;
+  const isRealTeam = !!(user?.teamIds?.[0] || user?.teamId) && !!club;
 
   const [selected, setSelected] = useState<Player | null>(null);
   useEffect(() => { if (players.length > 0) setSelected(players[0]); }, [players]);
@@ -145,12 +147,12 @@ export default function ReportPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* 팀명 */}
+      {/* 헤더 */}
       <div className="flex items-center gap-2 flex-wrap">
         <Shield size={20} className="text-fuchsia-400" />
         <h1 className="text-2xl font-bold text-white">{displayTeamName}</h1>
         <span className="ml-2 text-sm text-gray-400">AI 분석 리포트</span>
-        {isRealTeam && <span className="ml-2 text-xs px-2 py-1 rounded-full bg-fuchsia-500/20 text-fuchsia-400">내 팀</span>}
+        {isRealTeam && <span className="ml-2 text-xs px-2 py-1 rounded-full bg-fuchsia-500/20 text-fuchsia-400">실제</span>}
         {!isRealTeam && (
           <span className="ml-2 text-xs px-2 py-1 rounded-full bg-white/10 text-gray-400">샘플 데이터</span>
         )}
@@ -159,8 +161,8 @@ export default function ReportPage() {
       {!user && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
           <LogIn size={24} className="text-fuchsia-400 mx-auto mb-3" />
-          <p className="text-white font-semibold mb-2">로그인하여 내 팀 리포트를 확인하세요</p>
-          <p className="text-gray-400 text-sm mb-4">현재 샘플 데이터로 표시되고 있습니다</p>
+          <p className="text-white font-semibold mb-2">로그인하고 내 팀 리포트를 확인하세요</p>
+          <p className="text-gray-400 text-sm mb-4">현재 샘플 데이터로 표시하고 있습니다</p>
           <Link href="/login" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
             로그인
           </Link>
@@ -194,7 +196,7 @@ export default function ReportPage() {
             <div className="ml-auto grid grid-cols-4 gap-4 text-center">
               {[
                 { label: "골",   value: selected.goals },
-                { label: "도움", value: selected.assists },
+                { label: "어시", value: selected.assists },
                 { label: "슈팅", value: selected.shots },
                 { label: "패스", value: selected.passes },
               ].map(({ label, value }) => (

@@ -37,7 +37,7 @@ function res(statusCode, body) {
 }
 
 async function signup(body) {
-  const { email, password, name, gender, birthdate, regionSido, regionSigungu, activeAreas, sports, hasTeam, teamSport, teamId } = body;
+  const { email, password, name, gender, birthdate, regionSido, regionSigungu, activeAreas, sports, hasTeam, teamSport, teamId, teamIds } = body;
   const attrs = [{ Name: "name", Value: name }, { Name: "email", Value: email }];
   if (gender) attrs.push({ Name: "gender", Value: gender });
   if (birthdate) attrs.push({ Name: "birthdate", Value: birthdate });
@@ -68,7 +68,8 @@ async function signup(body) {
       sports: sports || [],
       hasTeam: hasTeam || false,
       teamSport: teamSport || "",
-      teamId: teamId || null,
+      teamId: teamId || (teamIds && teamIds.length > 0 ? teamIds[0] : null),
+      teamIds: teamIds || (teamId ? [teamId] : []),
       position: body.position || "",
       avatar: "",
       number: 0,
@@ -80,11 +81,12 @@ async function signup(body) {
   }));
 
   // 팀 선택했으면 클럽 멤버로도 등록
-  if (hasTeam && teamId) {
+  const joinTeamIds = teamIds || (teamId ? [teamId] : []);
+  for (const tid of joinTeamIds) {
     await ddb.send(new PutCommand({
       TableName: MEMBERS_TABLE,
       Item: {
-        clubId: teamId,
+        clubId: tid,
         email,
         name,
         position: body.position || "",
@@ -145,7 +147,7 @@ async function updateProfile(accessToken, body) {
   const email = attrs.email;
   if (!email) return res(400, { message: "이메일을 찾을 수 없습니다" });
 
-  const allowed = ["name", "gender", "birthdate", "regionSido", "regionSigungu", "activeAreas", "sports", "position", "teamId", "teamSport", "hasTeam", "avatar"];
+  const allowed = ["name", "gender", "birthdate", "regionSido", "regionSigungu", "activeAreas", "sports", "position", "teamId", "teamIds", "teamSport", "hasTeam", "avatar"];
   const updates = {};
   const exprParts = [];
   const exprNames = {};
@@ -200,6 +202,19 @@ async function updateProfile(accessToken, body) {
 async function createClub(body) {
   const { name, sport, areas, members, styles, image, creatorEmail } = body;
   if (!name) return res(400, { message: "클럽명은 필수입니다" });
+
+  // 같은 이름 클럽 중복 체크
+  const existing = await ddb.send(new ScanCommand({
+    TableName: CLUBS_TABLE,
+    FilterExpression: "#n = :name",
+    ExpressionAttributeNames: { "#n": "name" },
+    ExpressionAttributeValues: { ":name": name },
+    Limit: 1,
+  }));
+  if (existing.Items && existing.Items.length > 0) {
+    return res(409, { message: "이미 같은 이름의 클럽이 존재합니다" });
+  }
+
   const clubId = crypto.randomUUID();
   await ddb.send(new PutCommand({
     TableName: CLUBS_TABLE,
@@ -317,7 +332,7 @@ async function updateClub(body) {
   const exprNames = {};
   const exprValues = {};
   let idx = 0;
-  const allowed = ["captainEmail", "recruiting"];
+  const allowed = ["captainEmail", "recruiting", "members"];
   for (const key of allowed) {
     if (body[key] !== undefined) {
       exprParts.push(`#f${idx} = :v${idx}`);

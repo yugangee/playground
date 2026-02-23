@@ -26,9 +26,9 @@ const positionColor: Record<string, string> = {
 };
 
 const schedule = [
-  { date: "2026.03.07 (토) 15:00", opponent: "vs 마포 불사조", venue: "마포구민체육센터" },
-  { date: "2026.03.15 (일) 14:00", opponent: "vs 강남 번개FC", venue: "탄천종합운동장" },
-  { date: "2026.03.22 (일) 16:00", opponent: "vs 송파 드래곤즈", venue: "잠실종합운동장" },
+  { date: "2026.03.07 (금) 15:00", opponent: "vs 마포 불사조", venue: "마포구민체육센터" },
+  { date: "2026.03.15 (토) 14:00", opponent: "vs 강남 번개FC", venue: "잠원종합운동장" },
+  { date: "2026.03.22 (토) 16:00", opponent: "vs 송파 드래곤즈", venue: "잠실종합운동장" },
 ];
 
 const recent = [
@@ -40,7 +40,7 @@ const recent = [
 ];
 
 const initialProposals = [
-  { id: 1, team: "동작 피니크스", date: "2026.03.10 (화) 18:00", venue: "동작체육관" },
+  { id: 1, team: "동작 피닉스", date: "2026.03.10 (화) 18:00", venue: "동작체육관" },
   { id: 2, team: "성동 스파크", date: "2026.03.18 (수) 19:00", venue: "성동종합운동장" },
 ];
 
@@ -49,6 +49,9 @@ type Proposal = typeof initialProposals[0];
 
 export default function TeamPage() {
   const { user, loading } = useAuth();
+  const teamIds = user?.teamIds || (user?.teamId ? [user.teamId] : []);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [teamClubs, setTeamClubs] = useState<any[]>([]);
   const [club, setClub] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [loadingTeam, setLoadingTeam] = useState(true);
@@ -61,8 +64,13 @@ export default function TeamPage() {
   const [attendance, setAttendance] = useState<Record<number, boolean | null>>({});
   const [inviteOpen, setInviteOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const inviteLink = typeof window !== "undefined" ? `${window.location.origin}/clubs/${user?.teamId}` : "";
+  const inviteLink = typeof window !== "undefined" ? `${window.location.origin}/clubs/${selectedTeamId}` : "";
   function copy() { navigator.clipboard.writeText(inviteLink); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+
+  // teamIds가 바뀌면 첫 번째 팀 자동 선택
+  useEffect(() => {
+    if (teamIds.length > 0 && !selectedTeamId) setSelectedTeamId(teamIds[0]);
+  }, [teamIds.length]);
 
   const [pending, setPending] = useState(initialProposals.map(p => p.id));
   const [chatTeam, setChatTeam] = useState<Proposal | null>(null);
@@ -74,18 +82,20 @@ export default function TeamPage() {
 
   // 내 팀 정보 + 멤버 불러오기
   useEffect(() => {
-    if (!user?.teamId) { setClub(null); setMembers([]); setLoadingTeam(false); return; }
+    if (!selectedTeamId) { setClub(null); setMembers([]); setLoadingTeam(false); return; }
     setLoadingTeam(true);
     Promise.all([
       fetch(`${API}/clubs`).then(r => r.json()),
-      fetch(`${API}/club-members/${user.teamId}`).then(r => r.json()),
+      fetch(`${API}/club-members/${selectedTeamId}`).then(r => r.json()),
     ]).then(([clubsData, membersData]) => {
       console.log('Club members data:', membersData);
-      const found = (clubsData.clubs || []).find((c: any) => c.clubId === user.teamId);
+      const allClubsList = clubsData.clubs || [];
+      setTeamClubs(allClubsList.filter((c: any) => teamIds.includes(c.clubId)));
+      const found = allClubsList.find((c: any) => c.clubId === selectedTeamId);
       setClub(found || null);
       setMembers(membersData.members || []);
     }).catch(() => {}).finally(() => setLoadingTeam(false));
-  }, [user?.teamId]);
+  }, [selectedTeamId]);
 
   // 매치/활동 데이터 로딩
   const [matches, setMatches] = useState<any[]>([]);
@@ -99,11 +109,11 @@ export default function TeamPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!user?.teamId) return;
-    fetch(`${API}/matches?clubId=${user.teamId}`).then(r => r.json()).then(d => setMatches(d.matches || [])).catch(() => {});
-    fetch(`${API}/activities?clubId=${user.teamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
+    if (!selectedTeamId) return;
+    fetch(`${API}/matches?clubId=${selectedTeamId}`).then(r => r.json()).then(d => setMatches(d.matches || [])).catch(() => {});
+    fetch(`${API}/activities?clubId=${selectedTeamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
     fetch(`${API}/clubs`).then(r => r.json()).then(d => setAllClubs(d.clubs || [])).catch(() => {});
-  }, [user?.teamId]);
+  }, [selectedTeamId]);
 
   const clubNameMap: Record<string, string> = {};
   allClubs.forEach((c: any) => { clubNameMap[c.clubId] = c.name; });
@@ -112,7 +122,7 @@ export default function TeamPage() {
   const isCasual = club ? CASUAL_SPORTS.includes(club.sport) : false;
   const isCaptain = club?.captainEmail === user?.email;
 
-  const proposedMatches = matches.filter(m => m.status === "proposed" && m.awayClubId === user?.teamId);
+  const proposedMatches = matches.filter(m => m.status === "proposed" && m.awayClubId === selectedTeamId);
   const confirmedMatches = matches.filter(m => m.status === "confirmed").sort((a: any, b: any) => (b.confirmedAt || "").localeCompare(a.confirmedAt || ""));
   const scheduledMatches = matches.filter(m => ["scheduled", "homeSubmitted", "awaySubmitted", "disputed"].includes(m.status));
 
@@ -136,12 +146,11 @@ export default function TeamPage() {
     try {
       const r = await fetch(`${API}/matches/${scoreModal.matchId}/score`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clubId: user.teamId, userEmail: user.email, ourScore, theirScore }),
+        body: JSON.stringify({ clubId: selectedTeamId, userEmail: user.email, ourScore, theirScore }),
       });
       const data = await r.json();
       if (!r.ok) { alert(data.message); return; }
-      // 매치 목록 새로고침
-      fetch(`${API}/matches?clubId=${user.teamId}`).then(r => r.json()).then(d => setMatches(d.matches || [])).catch(() => {});
+      fetch(`${API}/matches?clubId=${selectedTeamId}`).then(r => r.json()).then(d => setMatches(d.matches || [])).catch(() => {});
       setScoreModal(null);
       setScoreForm({ ourScore: "", theirScore: "" });
       alert(data.message);
@@ -149,16 +158,16 @@ export default function TeamPage() {
   }
   async function addGoalsAPI() {
     if (!goalModal || !user) return;
-    const goals = Object.entries(goalSelections).filter(([, count]) => count > 0).map(([scorer, count]) => ({ scorer, club: user.teamId, count }));
+    const goals = Object.entries(goalSelections).filter(([, count]) => count > 0).map(([scorer, count]) => ({ scorer, club: selectedTeamId, count }));
     if (goals.length === 0) { alert("골 기록을 선택하세요"); return; }
     try {
       const r = await fetch(`${API}/matches/${goalModal.matchId}/goals`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clubId: user.teamId, userEmail: user.email, goals }),
+        body: JSON.stringify({ clubId: selectedTeamId, userEmail: user.email, goals }),
       });
       const data = await r.json();
       if (!r.ok) { alert(data.message); return; }
-      fetch(`${API}/matches?clubId=${user.teamId}`).then(r => r.json()).then(d => setMatches(d.matches || [])).catch(() => {});
+      fetch(`${API}/matches?clubId=${selectedTeamId}`).then(r => r.json()).then(d => setMatches(d.matches || [])).catch(() => {});
       setGoalModal(null);
       setGoalSelections({});
     } catch { alert("골 기록 추가 실패"); }
@@ -169,9 +178,9 @@ export default function TeamPage() {
     try {
       await fetch(`${API}/activities`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clubId: user.teamId, sport: club.sport, date: activityForm.date, venue: activityForm.venue, createdBy: user.email }),
+        body: JSON.stringify({ clubId: selectedTeamId, sport: club.sport, date: activityForm.date, venue: activityForm.venue, createdBy: user.email }),
       });
-      fetch(`${API}/activities?clubId=${user.teamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
+      fetch(`${API}/activities?clubId=${selectedTeamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
       setActivityForm({ date: "", venue: "" });
     } catch { alert("활동 생성 실패"); }
   }
@@ -184,7 +193,7 @@ export default function TeamPage() {
       });
       const data = await r.json();
       if (!r.ok) { alert(data.message); return; }
-      fetch(`${API}/activities?clubId=${user.teamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
+      fetch(`${API}/activities?clubId=${selectedTeamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
     } catch { alert("참가 실패"); }
   }
   async function completeActivityAPI(activityId: string) {
@@ -194,7 +203,7 @@ export default function TeamPage() {
         method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: user.email }),
       });
-      fetch(`${API}/activities?clubId=${user.teamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
+      fetch(`${API}/activities?clubId=${selectedTeamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
     } catch { alert("완료 실패"); }
   }
 
@@ -204,13 +213,13 @@ export default function TeamPage() {
       const r = await fetch(`${API}/clubs`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clubId: user?.teamId, captainEmail: email }),
+        body: JSON.stringify({ clubId: selectedTeamId, captainEmail: email }),
       });
       if (!r.ok) throw new Error();
       setClub((prev: any) => prev ? { ...prev, captainEmail: email } : prev);
       setCaptainEditing(false);
     } catch {
-      alert("주장 저장에 실패했습니다");
+      alert("주장 변경에 실패했습니다");
     } finally {
       setCaptainSaving(false);
     }
@@ -222,7 +231,7 @@ export default function TeamPage() {
       const r = await fetch(`${API}/club-members`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clubId: user?.teamId, email }),
+        body: JSON.stringify({ clubId: selectedTeamId, email }),
       });
       if (!r.ok) throw new Error();
       setMembers((prev: any[]) => prev.filter((m: any) => m.email !== email));
@@ -237,7 +246,7 @@ export default function TeamPage() {
       const r = await fetch(`${API}/club-members`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clubId: user?.teamId, email: editingMember.email, name: editForm.name, position: editForm.position }),
+        body: JSON.stringify({ clubId: selectedTeamId, email: editingMember.email, name: editForm.name, position: editForm.position }),
       });
       if (!r.ok) throw new Error();
       setMembers((prev: any[]) => prev.map((m: any) => m.email === editingMember.email ? { ...m, name: editForm.name, position: editForm.position } : m));
@@ -249,7 +258,7 @@ export default function TeamPage() {
 
   async function toggleRecruiting(val: boolean) {
     try {
-      await fetch(`${API}/clubs`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clubId: user?.teamId, recruiting: val }) });
+      await fetch(`${API}/clubs`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clubId: selectedTeamId, recruiting: val }) });
       setClub((prev: any) => prev ? { ...prev, recruiting: val } : prev);
     } catch {
       alert("모집 상태 변경에 실패했습니다");
@@ -267,7 +276,7 @@ export default function TeamPage() {
     const id = chatTeam.id;
     setMsgs(prev => ({ ...prev, [id]: [...(prev[id] ?? []), { from: "me", text: input }] }));
     setInput("");
-    setTimeout(() => setMsgs(prev => ({ ...prev, [id]: [...(prev[id] ?? []), { from: "them", text: "네 확인했습니다! 일정 맞추죠." }] })), 800);
+    setTimeout(() => setMsgs(prev => ({ ...prev, [id]: [...(prev[id] ?? []), { from: "them", text: "네 확인했습니다! 일정 맞추죠!" }] })), 800);
   }
 
   if (loading || loadingTeam) {
@@ -275,9 +284,8 @@ export default function TeamPage() {
   }
 
   if (!user) {
-    // 로그인 안 했을 때 예시 화면
     const demoClub = {
-      name: "서울 FC 썸더",
+      name: "서울 FC 썬더",
       sport: "축구",
       record: "12승 3무 2패",
       members: 15,
@@ -287,17 +295,17 @@ export default function TeamPage() {
       image: null,
     };
     const demoMembers = [
-      { name: "김민준", position: "GK", email: "demo1@example.com" },
+      { name: "김민수", position: "GK", email: "demo1@example.com" },
       { name: "이서준", position: "DF", email: "demo2@example.com" },
-      { name: "박지호", position: "DF", email: "demo3@example.com" },
-      { name: "정도윤", position: "MF", email: "demo4@example.com" },
+      { name: "박지훈", position: "DF", email: "demo3@example.com" },
+      { name: "최도윤", position: "MF", email: "demo4@example.com" },
       { name: "강시우", position: "MF", email: "demo5@example.com" },
-      { name: "임지훈", position: "FW", email: "demo6@example.com" },
+      { name: "윤하준", position: "FW", email: "demo6@example.com" },
     ];
     return <TeamPageContent club={demoClub} members={demoMembers} isDemo={true} />;
   }
 
-  if (!user.teamId || !club) {
+  if (teamIds.length === 0 || !club) {
     return <TeamPageContent club={null} members={[]} isDemo={false} />;
   }
 
@@ -305,10 +313,27 @@ export default function TeamPage() {
   const areas = (club.areas || []).map((a: any) => [a.sido, a.sigungu].filter(Boolean).join(" ")).join(", ");
   const styles = (club.styles || []).join(", ");
 
-  return <TeamPageContent club={club} members={members} isDemo={false} record={record} areas={areas} styles={styles} captainEditing={captainEditing} setCaptainEditing={setCaptainEditing} captainSaving={captainSaving} saveCaptain={saveCaptain} setInviteOpen={setInviteOpen} attendance={attendance} setAttendance={setAttendance} pending={pending} accept={accept} decline={decline} chatTeam={chatTeam} setChatTeam={setChatTeam} msgs={msgs} input={input} setInput={setInput} sendMsg={sendMsg} bottomRef={bottomRef} inviteOpen={inviteOpen} inviteLink={inviteLink} copy={copy} copied={copied} memberEditing={memberEditing} setMemberEditing={setMemberEditing} deleteMember={deleteMember} editingMember={editingMember} setEditingMember={setEditingMember} editForm={editForm} setEditForm={setEditForm} saveEditMember={saveEditMember} toggleRecruiting={toggleRecruiting} proposedMatches={proposedMatches} confirmedMatches={confirmedMatches} scheduledMatches={scheduledMatches} acceptMatchAPI={acceptMatchAPI} declineMatchAPI={declineMatchAPI} submitScoreAPI={submitScoreAPI} addGoalsAPI={addGoalsAPI} clubNameMap={clubNameMap} isCompetitive={isCompetitive} isCasual={isCasual} isCaptainUser={isCaptain} currentUser={user} scoreModal={scoreModal} setScoreModal={setScoreModal} scoreForm={scoreForm} setScoreForm={setScoreForm} goalModal={goalModal} setGoalModal={setGoalModal} goalSelections={goalSelections} setGoalSelections={setGoalSelections} activities={activities} activityForm={activityForm} setActivityForm={setActivityForm} createActivityAPI={createActivityAPI} joinActivityAPI={joinActivityAPI} completeActivityAPI={completeActivityAPI} router={router} />;
+  return (<>
+    {teamIds.length > 1 && (
+      <div className="max-w-4xl mx-auto mb-4 flex items-center gap-2">
+        <span className="text-xs text-gray-500">팀 선택</span>
+        <select
+          value={selectedTeamId || ""}
+          onChange={e => setSelectedTeamId(e.target.value)}
+          className="px-3 py-1.5 rounded-lg text-sm outline-none"
+          style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+        >
+          {teamClubs.map((c: any) => (
+            <option key={c.clubId} value={c.clubId} style={{ background: "var(--dropdown-bg)", color: "var(--text-primary)" }}>{c.name}</option>
+          ))}
+        </select>
+      </div>
+    )}
+    <TeamPageContent club={club} members={members} isDemo={false} record={record} areas={areas} styles={styles} captainEditing={captainEditing} setCaptainEditing={setCaptainEditing} captainSaving={captainSaving} saveCaptain={saveCaptain} setInviteOpen={setInviteOpen} attendance={attendance} setAttendance={setAttendance} pending={pending} accept={accept} decline={decline} chatTeam={chatTeam} setChatTeam={setChatTeam} msgs={msgs} input={input} setInput={setInput} sendMsg={sendMsg} bottomRef={bottomRef} inviteOpen={inviteOpen} inviteLink={inviteLink} copy={copy} copied={copied} memberEditing={memberEditing} setMemberEditing={setMemberEditing} deleteMember={deleteMember} editingMember={editingMember} setEditingMember={setEditingMember} editForm={editForm} setEditForm={setEditForm} saveEditMember={saveEditMember} toggleRecruiting={toggleRecruiting} proposedMatches={proposedMatches} confirmedMatches={confirmedMatches} scheduledMatches={scheduledMatches} acceptMatchAPI={acceptMatchAPI} declineMatchAPI={declineMatchAPI} submitScoreAPI={submitScoreAPI} addGoalsAPI={addGoalsAPI} clubNameMap={clubNameMap} isCompetitive={isCompetitive} isCasual={isCasual} isCaptainUser={isCaptain} currentUser={user} selectedTeamId={selectedTeamId} scoreModal={scoreModal} setScoreModal={setScoreModal} scoreForm={scoreForm} setScoreForm={setScoreForm} goalModal={goalModal} setGoalModal={setGoalModal} goalSelections={goalSelections} setGoalSelections={setGoalSelections} activities={activities} activityForm={activityForm} setActivityForm={setActivityForm} createActivityAPI={createActivityAPI} joinActivityAPI={joinActivityAPI} completeActivityAPI={completeActivityAPI} router={router} />
+  </>);
 }
 
-function TeamPageContent({ club, members, isDemo, record, areas, styles, captainEditing, setCaptainEditing, captainSaving, saveCaptain, setInviteOpen, attendance = {}, setAttendance = () => {}, pending = [], accept = () => {}, decline = () => {}, chatTeam, setChatTeam = () => {}, msgs = {}, input = "", setInput = () => {}, sendMsg = () => {}, bottomRef, inviteOpen, inviteLink = "", copy = () => {}, copied = false, memberEditing = false, setMemberEditing = () => {}, deleteMember = () => {}, editingMember = null, setEditingMember = () => {}, editForm = { name: "", position: "" }, setEditForm = () => {}, saveEditMember = () => {}, toggleRecruiting = () => {}, proposedMatches = [], confirmedMatches = [], scheduledMatches = [], acceptMatchAPI, declineMatchAPI, submitScoreAPI, addGoalsAPI, clubNameMap = {}, isCompetitive = false, isCasual = false, isCaptainUser = false, currentUser = null, scoreModal = null, setScoreModal = () => {}, scoreForm = { ourScore: "", theirScore: "" }, setScoreForm = () => {}, goalModal = null, setGoalModal = () => {}, goalSelections = {}, setGoalSelections = () => {}, activities = [], activityForm = { date: "", venue: "" }, setActivityForm = () => {}, createActivityAPI, joinActivityAPI, completeActivityAPI, router = null }: any) {
+function TeamPageContent({ club, members, isDemo, record, areas, styles, captainEditing, setCaptainEditing, captainSaving, saveCaptain, setInviteOpen, attendance = {}, setAttendance = () => {}, pending = [], accept = () => {}, decline = () => {}, chatTeam, setChatTeam = () => {}, msgs = {}, input = "", setInput = () => {}, sendMsg = () => {}, bottomRef, inviteOpen, inviteLink = "", copy = () => {}, copied = false, memberEditing = false, setMemberEditing = () => {}, deleteMember = () => {}, editingMember = null, setEditingMember = () => {}, editForm = { name: "", position: "" }, setEditForm = () => {}, saveEditMember = () => {}, toggleRecruiting = () => {}, proposedMatches = [], confirmedMatches = [], scheduledMatches = [], acceptMatchAPI, declineMatchAPI, submitScoreAPI, addGoalsAPI, clubNameMap = {}, isCompetitive = false, isCasual = false, isCaptainUser = false, currentUser = null, selectedTeamId = null, scoreModal = null, setScoreModal = () => {}, scoreForm = { ourScore: "", theirScore: "" }, setScoreForm = () => {}, goalModal = null, setGoalModal = () => {}, goalSelections = {}, setGoalSelections = () => {}, activities = [], activityForm = { date: "", venue: "" }, setActivityForm = () => {}, createActivityAPI, joinActivityAPI, completeActivityAPI, router = null }: any) {
   if (!club) {
     return (
       <div className="max-w-4xl mx-auto pt-20 text-center space-y-4">
@@ -328,8 +353,8 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
       {isDemo && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center mb-6">
           <Users size={24} className="text-fuchsia-400 mx-auto mb-3" />
-          <p className="text-white font-semibold mb-2">로그인하여 내 팀을 관리하세요</p>
-          <p className="text-gray-400 text-sm mb-4">현재 샘플 데이터로 표시되고 있습니다</p>
+          <p className="text-white font-semibold mb-2">로그인하고 내 팀을 관리하세요</p>
+          <p className="text-gray-400 text-sm mb-4">현재 샘플 데이터로 표시하고 있습니다</p>
           <Link href="/login" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
             로그인
           </Link>
@@ -361,7 +386,7 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
             <div className="flex items-center gap-2">
               <button onClick={() => {
                 if (club.recruiting) {
-                  if (confirm("모집을 완료하시겠습니까?")) toggleRecruiting(false);
+                  if (confirm("모집을 종료하시겠습니까?")) toggleRecruiting(false);
                 } else {
                   toggleRecruiting(true);
                 }
@@ -371,7 +396,7 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
                   ? { background: "rgba(192,38,211,0.15)", color: "#e879f9", border: "1px solid rgba(192,38,211,0.3)" }
                   : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }
                 }>
-                {club.recruiting ? "🟢 모집중" : "모집 시작"}
+                {club.recruiting ? "모집중" : "모집 시작"}
               </button>
               <button onClick={() => setInviteOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
                 <UserPlus size={13} />선수 초대
@@ -410,7 +435,7 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
               <button onClick={() => { setCaptainEditing(!captainEditing); setMemberEditing(false); }}
                 className="flex items-center gap-1 text-xs text-gray-500 hover:text-fuchsia-400 transition-colors">
                 <Crown size={12} />
-                {captainEditing ? "완료" : "주장 설정"}
+                {captainEditing ? "완료" : "주장 변경"}
               </button>
             </div>
           )}
@@ -500,7 +525,7 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
             <div className="space-y-2">
               <p className="text-xs text-gray-500 pt-1">진행중 경기</p>
               {scheduledMatches.map((m: any) => {
-                const isHome = m.homeClubId === currentUser?.teamId;
+                const isHome = m.homeClubId === selectedTeamId;
                 const opponentName = clubNameMap?.[isHome ? m.awayClubId : m.homeClubId] || "상대팀";
                 const alreadySubmitted = (isHome && m.homeSubmittedBy) || (!isHome && m.awaySubmittedBy);
                 return (
@@ -553,7 +578,7 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
         </div>
       </div>
 
-      {/* 최근 경기 기록 (대전형) */}
+      {/* 최근 경기 기록 (경쟁형) */}
       {isCompetitive && confirmedMatches && confirmedMatches.length > 0 && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
           <div className="flex items-center gap-2">
@@ -561,13 +586,13 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
             <h2 className="text-sm font-semibold text-gray-300">최근 경기 기록</h2>
           </div>
           {confirmedMatches.slice(0, 10).map((m: any) => {
-            const isHome = m.homeClubId === currentUser?.teamId;
+            const isHome = m.homeClubId === selectedTeamId;
             const opponentName = clubNameMap?.[isHome ? m.awayClubId : m.homeClubId] || "상대팀";
             const ourScore = isHome ? m.homeScore : m.awayScore;
             const theirScore = isHome ? m.awayScore : m.homeScore;
             const result = ourScore > theirScore ? "승" : ourScore < theirScore ? "패" : "무";
             const resultColor = result === "승" ? "text-green-400" : result === "패" ? "text-red-400" : "text-gray-400";
-            const myGoals = (m.goals || []).filter((g: any) => g.club === currentUser?.teamId);
+            const myGoals = (m.goals || []).filter((g: any) => g.club === selectedTeamId);
             return (
               <div key={m.matchId} className="border border-white/10 rounded-lg p-4 space-y-2">
                 <div className="flex items-center justify-between">
@@ -583,7 +608,7 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
                 {myGoals.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {myGoals.map((g: any, i: number) => (
-                      <span key={i} className="text-xs px-2 py-0.5 rounded bg-fuchsia-500/10 text-fuchsia-400">⚽ {g.scorer?.split("@")[0]} ×{g.count}</span>
+                      <span key={i} className="text-xs px-2 py-0.5 rounded bg-fuchsia-500/10 text-fuchsia-400">⚽{g.scorer?.split("@")[0]} ×{g.count}</span>
                     ))}
                   </div>
                 )}
@@ -747,14 +772,14 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
               <span className="text-white font-semibold">선수 초대</span>
               <button onClick={() => setInviteOpen(false)} className="text-gray-500 hover:text-white"><X size={16} /></button>
             </div>
-            <p className="text-xs text-gray-400">아래 링크를 공유하면 팀에 합류할 수 있어요.</p>
+            <p className="text-xs text-gray-400">아래 링크를 공유하면 팀에 합류할 수 있어요</p>
             <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
               <span className="text-gray-300 text-xs flex-1 truncate">{inviteLink}</span>
               <button onClick={copy} className="shrink-0 text-gray-400 hover:text-white transition-colors">
                 {copied ? <Check size={14} className="text-fuchsia-400" /> : <Copy size={14} />}
               </button>
             </div>
-            {copied && <p className="text-xs text-fuchsia-400 text-center">링크가 복사됐어요!</p>}
+            {copied && <p className="text-xs text-fuchsia-400 text-center">링크가 복사되었어요</p>}
           </div>
         </div>
       )}
