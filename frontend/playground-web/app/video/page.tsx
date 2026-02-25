@@ -262,7 +262,7 @@ export default function VideoPage() {
                   </div>
                   {coachingLoading && <p className="text-sm text-gray-400 animate-pulse">코칭 분석 중...</p>}
                   {coaching && (
-                    <div className="max-h-[600px] overflow-y-auto pr-1 prose prose-invert prose-sm max-w-none [&_h1]:text-lg [&_h1]:font-bold [&_h1]:text-white [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-white [&_h2]:mt-3 [&_h2]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-gray-200 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-gray-300 [&_ul]:space-y-1 [&_ol]:space-y-1 [&_li]:text-gray-300 [&_strong]:text-white [&_blockquote]:border-l-2 [&_blockquote]:border-fuchsia-400 [&_blockquote]:pl-3 [&_blockquote]:text-gray-400 [&_blockquote]:italic">
+                    <div className="max-h-[600px] overflow-y-auto pr-1 prose dark:prose-invert prose-sm max-w-none [&_h1]:text-lg [&_h1]:font-bold [&_h1]:text-gray-900 dark:[&_h1]:text-white [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-gray-900 dark:[&_h2]:text-white [&_h2]:mt-3 [&_h2]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-gray-800 dark:[&_h3]:text-gray-200 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-gray-700 dark:[&_h4]:text-gray-300 [&_ul]:space-y-1 [&_ol]:space-y-1 [&_li]:text-gray-700 dark:[&_li]:text-gray-300 [&_strong]:text-gray-900 dark:[&_strong]:text-white [&_blockquote]:border-l-2 [&_blockquote]:border-fuchsia-400 [&_blockquote]:pl-3 [&_blockquote]:text-gray-600 dark:[&_blockquote]:text-gray-400 [&_blockquote]:italic">
                       <ReactMarkdown>{coaching}</ReactMarkdown>
                     </div>
                   )}
