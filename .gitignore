@@ -37,6 +37,7 @@ next-env.d.ts
 # AWS
 *.zip
 function-temp/
+cdk.out/
 
 # IDE
 .vscode/
