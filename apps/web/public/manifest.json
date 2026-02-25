@@ -1,0 +1,16 @@
+{
+  "name": "Playground",
+  "short_name": "Playground",
+  "description": "축구 동호회 전용 매니징 서비스",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#059669",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}
