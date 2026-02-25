@@ -7,6 +7,7 @@ import { Home, UserCircle } from "lucide-react";
 import { ChatProvider } from "@/context/ChatContext";
 import { ClubProvider } from "@/context/ClubContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { TeamProvider } from "@/context/TeamContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import ScrollToTop from "@/components/ScrollToTop";
 import HeaderAuth from "@/components/layout/HeaderAuth";
@@ -41,6 +42,7 @@ export default function RootLayout({
       >
         <ThemeProvider>
         <AuthProvider>
+        <TeamProvider>
         <ChatProvider>
         <ClubProvider>
         <div className="flex">
@@ -55,6 +57,7 @@ export default function RootLayout({
         </div>
         </ClubProvider>
         </ChatProvider>
+        </TeamProvider>
         </AuthProvider>
         </ThemeProvider>
       </body>
