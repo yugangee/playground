@@ -156,8 +156,17 @@ export default function VideoPage() {
           </>)}
           <div className="relative group">
             <HelpCircle size={16} className="text-gray-500 cursor-help" />
-            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-1.5 rounded-lg bg-[#222] border border-white/10 text-xs text-gray-300 w-72 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity">
-              <p className="font-semibold mb-1">테스트 영상 사용법</p><p className="mb-1">테스트 영상을 다운받아서 업로드해보세요.</p><p>분석시간 2분 30초정도 소요됩니다.</p>
+            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-4 py-3 rounded-lg bg-[#222] border border-white/10 text-xs text-gray-300 w-80 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
+              <p className="font-semibold text-white mb-1.5">AI 영상 분석 안내</p>
+              <p className="mb-2">촬영한 축구 경기 영상을 업로드하여 경기를 분석해보세요.</p>
+              <p className="font-semibold text-yellow-400 mb-1">⚠ 주의사항</p>
+              <ul className="list-disc list-inside space-y-0.5 text-gray-400 mb-2">
+                <li>20초 이내 영상 권장</li>
+                <li>가로 비율로 촬영</li>
+                <li>선수의 전신이 카메라에 잡혀야 추적 가능</li>
+              </ul>
+              <p className="font-semibold text-white mb-1">테스트 영상 사용법</p>
+              <p className="text-gray-400">테스트 영상을 다운받아 업로드해보세요. 분석시간 약 2분 30초 소요됩니다.</p>
             </div>
           </div>
         </div>
