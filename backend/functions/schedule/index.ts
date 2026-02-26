@@ -3,15 +3,6 @@ import { APIGatewayProxyEvent, APIGatewayProxyHandler } from 'aws-lambda'
 function getUserId(event: APIGatewayProxyEvent): string | undefined {
   const sub = event.requestContext.authorizer?.claims?.sub as string | undefined
   if (sub) return sub
-  const xUser = event.headers['x-user-id']
-  if (xUser) return xUser
-  const auth = event.headers['Authorization'] ?? event.headers['authorization']
-  if (auth?.startsWith('Bearer ')) {
-    try {
-      const payload = JSON.parse(Buffer.from(auth.slice(7).split('.')[1], 'base64').toString('utf8'))
-      return payload.sub as string
-    } catch { /* ignore */ }
-  }
   return undefined
 }
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'

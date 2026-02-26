@@ -176,6 +176,12 @@ export class PlaygroundStack extends cdk.Stack {
       }),
     }
 
+    // GSI for team-members userId queries (for GET /team endpoint)
+    tables.teamMembers.addGlobalSecondaryIndex({
+      indexName: 'userId-index',
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+    })
+
     // GSI for finance teamId+date queries
     tables.finance.addGlobalSecondaryIndex({
       indexName: 'teamId-date-index',
@@ -336,6 +342,16 @@ export class PlaygroundStack extends cdk.Stack {
       },
     })
 
+    const cognitoAuthorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'CognitoAuthorizer', {
+      cognitoUserPools: [userPool],
+      authorizerName: 'playground-cognito-authorizer',
+    })
+
+    const authMethodOptions: apigateway.MethodOptions = {
+      authorizer: cognitoAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    }
+
     const routes: [string, lambda.IFunction][] = [
       ['team', functions.team],
       ['finance', functions.finance],
@@ -348,8 +364,8 @@ export class PlaygroundStack extends cdk.Stack {
 
     routes.forEach(([path, fn]) => {
       const resource = api.root.addResource(path)
-      resource.addMethod('ANY', new apigateway.LambdaIntegration(fn))
-      resource.addResource('{proxy+}').addMethod('ANY', new apigateway.LambdaIntegration(fn))
+      resource.addMethod('ANY', new apigateway.LambdaIntegration(fn), authMethodOptions)
+      resource.addResource('{proxy+}').addMethod('ANY', new apigateway.LambdaIntegration(fn), authMethodOptions)
     })
 
     // ─── Outputs ─────────────────────────────────────────────────────

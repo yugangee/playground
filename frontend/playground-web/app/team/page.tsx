@@ -7,8 +7,7 @@ import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import RatingBadge from "@/components/RatingBadge";
 import { useRouter } from "next/navigation";
-
-const API = process.env.NEXT_PUBLIC_API_URL;
+import { manageFetch } from "@/lib/manageFetch";
 
 const COMPETITIVE_SPORTS = ["축구", "풋살", "농구", "야구", "배구", "아이스하키"];
 const CASUAL_SPORTS = ["러닝크루", "스노보드", "배드민턴"];
@@ -25,27 +24,8 @@ const positionColor: Record<string, string> = {
   PF: "bg-blue-500/20 text-blue-400",
 };
 
-const schedule = [
-  { date: "2026.03.07 (금) 15:00", opponent: "vs 마포 불사조", venue: "마포구민체육센터" },
-  { date: "2026.03.15 (토) 14:00", opponent: "vs 강남 번개FC", venue: "잠원종합운동장" },
-  { date: "2026.03.22 (토) 16:00", opponent: "vs 송파 드래곤즈", venue: "잠실종합운동장" },
-];
-
-const recent = [
-  { result: "W", cls: "text-white", style: { background: "linear-gradient(to right, #c026d3, #7c3aed)" } },
-  { result: "L", cls: "bg-red-500 text-white", style: {} },
-  { result: "W", cls: "text-white", style: { background: "linear-gradient(to right, #c026d3, #7c3aed)" } },
-  { result: "W", cls: "text-white", style: { background: "linear-gradient(to right, #c026d3, #7c3aed)" } },
-  { result: "D", cls: "bg-white/20 text-white", style: {} },
-];
-
-const initialProposals = [
-  { id: 1, team: "동작 피닉스", date: "2026.03.10 (화) 18:00", venue: "동작체육관" },
-  { id: 2, team: "성동 스파크", date: "2026.03.18 (수) 19:00", venue: "성동종합운동장" },
-];
-
 type ChatMsg = { from: "me" | "them"; text: string };
-type Proposal = typeof initialProposals[0];
+type Proposal = { id: number; team: string; date: string; venue: string };
 
 export default function TeamPage() {
   const { user, loading } = useAuth();
@@ -61,18 +41,18 @@ export default function TeamPage() {
   const [editingMember, setEditingMember] = useState<{ email: string; name: string; position: string } | null>(null);
   const [editForm, setEditForm] = useState({ name: "", position: "" });
 
-  const [attendance, setAttendance] = useState<Record<number, boolean | null>>({});
+  const [attendance, setAttendance] = useState<Record<string, boolean | null>>({});
   const [inviteOpen, setInviteOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const inviteLink = typeof window !== "undefined" ? `${window.location.origin}/clubs/${selectedTeamId}` : "";
-  function copy() { navigator.clipboard.writeText(inviteLink); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+  function copy() { navigator.clipboard.writeText(inviteLink).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {}); }
 
   // teamIds가 바뀌면 첫 번째 팀 자동 선택
   useEffect(() => {
     if (teamIds.length > 0 && !selectedTeamId) setSelectedTeamId(teamIds[0]);
-  }, [teamIds.length]);
+  }, [teamIds]);
 
-  const [pending, setPending] = useState(initialProposals.map(p => p.id));
+  const [pending, setPending] = useState<number[]>([]);
   const [chatTeam, setChatTeam] = useState<Proposal | null>(null);
   const [msgs, setMsgs] = useState<Record<number, ChatMsg[]>>({});
   const [input, setInput] = useState("");
@@ -85,10 +65,9 @@ export default function TeamPage() {
     if (!selectedTeamId) { setClub(null); setMembers([]); setLoadingTeam(false); return; }
     setLoadingTeam(true);
     Promise.all([
-      fetch(`${API}/clubs`).then(r => r.json()),
-      fetch(`${API}/club-members/${selectedTeamId}`).then(r => r.json()),
+      manageFetch('/clubs'),
+      manageFetch(`/club-members/${selectedTeamId}`),
     ]).then(([clubsData, membersData]) => {
-      console.log('Club members data:', membersData);
       const allClubsList = clubsData.clubs || [];
       setTeamClubs(allClubsList.filter((c: any) => teamIds.includes(c.clubId)));
       const found = allClubsList.find((c: any) => c.clubId === selectedTeamId);
@@ -110,9 +89,9 @@ export default function TeamPage() {
 
   useEffect(() => {
     if (!selectedTeamId) return;
-    fetch(`${API}/matches?clubId=${selectedTeamId}`).then(r => r.json()).then(d => setMatches(d.matches || [])).catch(() => {});
-    fetch(`${API}/activities?clubId=${selectedTeamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
-    fetch(`${API}/clubs`).then(r => r.json()).then(d => setAllClubs(d.clubs || [])).catch(() => {});
+    manageFetch(`/matches?clubId=${selectedTeamId}`).then(d => setMatches(d.matches || [])).catch(() => {});
+    manageFetch(`/activities?clubId=${selectedTeamId}`).then(d => setActivities(d.activities || [])).catch(() => {});
+    manageFetch('/clubs').then(d => setAllClubs(d.clubs || [])).catch(() => {});
   }, [selectedTeamId]);
 
   const clubNameMap: Record<string, string> = {};
@@ -128,13 +107,13 @@ export default function TeamPage() {
 
   async function acceptMatchAPI(matchId: string) {
     try {
-      await fetch(`${API}/matches/${matchId}/accept`, { method: "PUT" });
+      await manageFetch(`/matches/${matchId}/accept`, { method: "PUT" });
       setMatches(prev => prev.map(m => m.matchId === matchId ? { ...m, status: "scheduled" } : m));
     } catch { alert("수락 실패"); }
   }
   async function declineMatchAPI(matchId: string) {
     try {
-      await fetch(`${API}/matches/${matchId}/decline`, { method: "PUT" });
+      await manageFetch(`/matches/${matchId}/decline`, { method: "PUT" });
       setMatches(prev => prev.filter(m => m.matchId !== matchId));
     } catch { alert("거절 실패"); }
   }
@@ -144,13 +123,11 @@ export default function TeamPage() {
     const theirScore = parseInt(scoreForm.theirScore);
     if (isNaN(ourScore) || isNaN(theirScore)) { alert("스코어를 입력하세요"); return; }
     try {
-      const r = await fetch(`${API}/matches/${scoreModal.matchId}/score`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
+      const data = await manageFetch(`/matches/${scoreModal.matchId}/score`, {
+        method: "PUT",
         body: JSON.stringify({ clubId: selectedTeamId, userEmail: user.email, ourScore, theirScore }),
       });
-      const data = await r.json();
-      if (!r.ok) { alert(data.message); return; }
-      fetch(`${API}/matches?clubId=${selectedTeamId}`).then(r => r.json()).then(d => setMatches(d.matches || [])).catch(() => {});
+      manageFetch(`/matches?clubId=${selectedTeamId}`).then(d => setMatches(d.matches || [])).catch(() => {});
       setScoreModal(null);
       setScoreForm({ ourScore: "", theirScore: "" });
       alert(data.message);
@@ -161,13 +138,11 @@ export default function TeamPage() {
     const goals = Object.entries(goalSelections).filter(([, count]) => count > 0).map(([scorer, count]) => ({ scorer, club: selectedTeamId, count }));
     if (goals.length === 0) { alert("골 기록을 선택하세요"); return; }
     try {
-      const r = await fetch(`${API}/matches/${goalModal.matchId}/goals`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
+      await manageFetch(`/matches/${goalModal.matchId}/goals`, {
+        method: "PUT",
         body: JSON.stringify({ clubId: selectedTeamId, userEmail: user.email, goals }),
       });
-      const data = await r.json();
-      if (!r.ok) { alert(data.message); return; }
-      fetch(`${API}/matches?clubId=${selectedTeamId}`).then(r => r.json()).then(d => setMatches(d.matches || [])).catch(() => {});
+      manageFetch(`/matches?clubId=${selectedTeamId}`).then(d => setMatches(d.matches || [])).catch(() => {});
       setGoalModal(null);
       setGoalSelections({});
     } catch { alert("골 기록 추가 실패"); }
@@ -176,46 +151,42 @@ export default function TeamPage() {
     if (!user || !club) return;
     if (!activityForm.date) { alert("날짜를 입력하세요"); return; }
     try {
-      await fetch(`${API}/activities`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
+      await manageFetch('/activities', {
+        method: "POST",
         body: JSON.stringify({ clubId: selectedTeamId, sport: club.sport, date: activityForm.date, venue: activityForm.venue, createdBy: user.email }),
       });
-      fetch(`${API}/activities?clubId=${selectedTeamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
+      manageFetch(`/activities?clubId=${selectedTeamId}`).then(d => setActivities(d.activities || [])).catch(() => {});
       setActivityForm({ date: "", venue: "" });
     } catch { alert("활동 생성 실패"); }
   }
   async function joinActivityAPI(activityId: string) {
     if (!user) return;
     try {
-      const r = await fetch(`${API}/activities/${activityId}/join`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
+      await manageFetch(`/activities/${activityId}/join`, {
+        method: "PUT",
         body: JSON.stringify({ email: user.email }),
       });
-      const data = await r.json();
-      if (!r.ok) { alert(data.message); return; }
-      fetch(`${API}/activities?clubId=${selectedTeamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
+      manageFetch(`/activities?clubId=${selectedTeamId}`).then(d => setActivities(d.activities || [])).catch(() => {});
     } catch { alert("참가 실패"); }
   }
   async function completeActivityAPI(activityId: string) {
     if (!user) return;
     try {
-      await fetch(`${API}/activities/${activityId}/complete`, {
-        method: "PUT", headers: { "Content-Type": "application/json" },
+      await manageFetch(`/activities/${activityId}/complete`, {
+        method: "PUT",
         body: JSON.stringify({ email: user.email }),
       });
-      fetch(`${API}/activities?clubId=${selectedTeamId}`).then(r => r.json()).then(d => setActivities(d.activities || [])).catch(() => {});
+      manageFetch(`/activities?clubId=${selectedTeamId}`).then(d => setActivities(d.activities || [])).catch(() => {});
     } catch { alert("완료 실패"); }
   }
 
   async function saveCaptain(email: string) {
     setCaptainSaving(true);
     try {
-      const r = await fetch(`${API}/clubs`, {
+      await manageFetch('/clubs', {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clubId: selectedTeamId, captainEmail: email }),
       });
-      if (!r.ok) throw new Error();
       setClub((prev: any) => prev ? { ...prev, captainEmail: email } : prev);
       setCaptainEditing(false);
     } catch {
@@ -228,12 +199,10 @@ export default function TeamPage() {
   async function deleteMember(email: string) {
     if (!confirm("정말 이 멤버를 삭제하시겠습니까?")) return;
     try {
-      const r = await fetch(`${API}/club-members`, {
+      await manageFetch('/club-members', {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clubId: selectedTeamId, email }),
       });
-      if (!r.ok) throw new Error();
       setMembers((prev: any[]) => prev.filter((m: any) => m.email !== email));
     } catch {
       alert("멤버 삭제에 실패했습니다");
@@ -243,12 +212,10 @@ export default function TeamPage() {
   async function saveEditMember() {
     if (!editingMember) return;
     try {
-      const r = await fetch(`${API}/club-members`, {
+      await manageFetch('/club-members', {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clubId: selectedTeamId, email: editingMember.email, name: editForm.name, position: editForm.position }),
       });
-      if (!r.ok) throw new Error();
       setMembers((prev: any[]) => prev.map((m: any) => m.email === editingMember.email ? { ...m, name: editForm.name, position: editForm.position } : m));
       setEditingMember(null);
     } catch {
@@ -258,7 +225,7 @@ export default function TeamPage() {
 
   async function toggleRecruiting(val: boolean) {
     try {
-      await fetch(`${API}/clubs`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clubId: selectedTeamId, recruiting: val }) });
+      await manageFetch('/clubs', { method: "PUT", body: JSON.stringify({ clubId: selectedTeamId, recruiting: val }) });
       setClub((prev: any) => prev ? { ...prev, recruiting: val } : prev);
     } catch {
       alert("모집 상태 변경에 실패했습니다");
@@ -481,25 +448,29 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
             <CalendarDays size={16} className="text-fuchsia-400" />
             <h2 className="text-sm font-semibold text-gray-300">다음 경기 일정</h2>
           </div>
-          {schedule.map((game, i) => (
-            <div key={i} className="border border-white/10 rounded-lg p-4 space-y-3">
-              <div>
-                <p className="text-white font-medium text-sm">{game.opponent}</p>
-                <p className="text-gray-500 text-xs mt-0.5">{game.date} · {game.venue}</p>
+          {(scheduledMatches ?? []).filter((m: any) => m.status === "scheduled").map((m: any, i: number) => {
+            const isHome = m.homeClubId === selectedTeamId;
+            const opponentName = clubNameMap?.[isHome ? m.awayClubId : m.homeClubId] || "상대팀";
+            return (
+              <div key={m.matchId} className="border border-white/10 rounded-lg p-4 space-y-3">
+                <div>
+                  <p className="text-white font-medium text-sm">vs {opponentName}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">{m.date || m.createdAt?.slice(0, 10)} · {m.venue || "장소 미정"}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setAttendance((prev: Record<string, boolean | null>) => ({ ...prev, [m.matchId]: true }))}
+                    className="flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors"
+                    style={attendance[m.matchId] === true ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
+                    참석
+                  </button>
+                  <button onClick={() => setAttendance((prev: Record<string, boolean | null>) => ({ ...prev, [m.matchId]: false }))}
+                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${attendance[m.matchId] === false ? "bg-red-500 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}>
+                    불참
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => setAttendance((prev: Record<number, boolean | null>) => ({ ...prev, [i]: true }))}
-                  className="flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors"
-                  style={attendance[i] === true ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
-                  참석
-                </button>
-                <button onClick={() => setAttendance((prev: Record<number, boolean | null>) => ({ ...prev, [i]: false }))}
-                  className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${attendance[i] === false ? "bg-red-500 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}>
-                  불참
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {proposedMatches && proposedMatches.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs text-gray-500 pt-1">경기 제안 받음</p>
@@ -570,9 +541,18 @@ function TeamPageContent({ club, members, isDemo, record, areas, styles, captain
           <div>
             <p className="text-xs text-gray-500 mb-2">최근 5경기</p>
             <div className="flex gap-2">
-              {recent.map(({ result, cls, style }, i) => (
-                <span key={i} className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${cls}`} style={style}>{result}</span>
-              ))}
+              {(confirmedMatches ?? []).slice(0, 5).map((m: any, i: number) => {
+                const isHome = m.homeClubId === selectedTeamId;
+                const myScore = isHome ? m.homeScore : m.awayScore;
+                const theirScore = isHome ? m.awayScore : m.homeScore;
+                const result = myScore > theirScore ? "W" : myScore < theirScore ? "L" : "D";
+                const cls = result === "W" ? "text-white" : result === "L" ? "bg-red-500 text-white" : "bg-white/20 text-white";
+                const style = result === "W" ? { background: "linear-gradient(to right, #c026d3, #7c3aed)" } : {};
+                return (
+                  <span key={m.matchId ?? i} className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${cls}`} style={style}>{result}</span>
+                );
+              })}
+              {(confirmedMatches ?? []).length === 0 && <p className="text-gray-600 text-xs">경기 기록 없음</p>}
             </div>
           </div>
         </div>

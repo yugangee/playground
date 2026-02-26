@@ -3,15 +3,6 @@ import { APIGatewayProxyEvent, APIGatewayProxyHandler } from 'aws-lambda'
 function getUserId(event: APIGatewayProxyEvent): string | undefined {
   const sub = event.requestContext.authorizer?.claims?.sub as string | undefined
   if (sub) return sub
-  const xUser = event.headers['x-user-id']
-  if (xUser) return xUser
-  const auth = event.headers['Authorization'] ?? event.headers['authorization']
-  if (auth?.startsWith('Bearer ')) {
-    try {
-      const payload = JSON.parse(Buffer.from(auth.slice(7).split('.')[1], 'base64').toString('utf8'))
-      return payload.sub as string
-    } catch { /* ignore */ }
-  }
   return undefined
 }
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
@@ -121,8 +112,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       await db.send(new UpdateCommand({
         TableName: FINES,
         Key: { id: parts[1] },
-        UpdateExpression: 'SET paid = :t',
-        ExpressionAttributeValues: { ':t': true },
+        UpdateExpression: 'SET paid = :t, paidAt = :at',
+        ExpressionAttributeValues: { ':t': true, ':at': new Date().toISOString() },
       }))
       return res(200, { message: 'updated' })
     }
