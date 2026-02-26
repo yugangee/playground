@@ -114,6 +114,16 @@ def analyze_video(input_path: str, output_path: str):
     )
 
     video_frames = read_video(input_path)
+
+    # 480p 리사이즈로 YOLO 처리 속도 향상
+    import cv2
+    if video_frames and video_frames[0].shape[0] > 720:
+        h, w = video_frames[0].shape[:2]
+        new_h = 720
+        new_w = int(w * (new_h / h))
+        video_frames = [cv2.resize(f, (new_w, new_h)) for f in video_frames]
+        print(f"[RESIZE] {w}x{h} → {new_w}x{new_h} ({len(video_frames)} frames)")
+
     tracker = Tracker('models/best.pt')
     tracks = tracker.get_object_tracks(video_frames, read_from_stub=False, stub_path=None)
     tracker.add_positions_to_tracks(tracks)
@@ -231,9 +241,10 @@ def analyze_video(input_path: str, output_path: str):
     total = t1 + t2
     ball_control = {"team1": round(t1/total*100, 1) if total > 0 else 50.0, "team2": round(t2/total*100, 1) if total > 0 else 50.0}
 
+    # BGR → RGB 변환 (OpenCV는 BGR, 프론트는 RGB)
     team_colors_rgb = {}
     for team_id, color in team_assigner.team_colors.items():
-        team_colors_rgb[str(team_id)] = [int(c) for c in color]
+        team_colors_rgb[str(team_id)] = [int(color[2]), int(color[1]), int(color[0])]
 
     return events_list, ball_control, subtitle_data, event_data, team_colors_rgb
 
