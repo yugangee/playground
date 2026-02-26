@@ -124,13 +124,12 @@ async function getMe(accessToken) {
   let profile = {};
   if (email) {
     try {
-      const dbResult = await ddb.send(new QueryCommand({
+      const dbResult = await ddb.send(new GetCommand({
         TableName: USERS_TABLE,
-        KeyConditionExpression: "email = :e",
-        ExpressionAttributeValues: { ":e": email },
+        Key: { email },
       }));
-      if (dbResult.Items && dbResult.Items.length > 0) {
-        profile = dbResult.Items[0];
+      if (dbResult.Item) {
+        profile = dbResult.Item;
       }
     } catch (e) {
       console.error("DynamoDB profile fetch error:", e);
@@ -536,8 +535,13 @@ async function submitScore(matchId, body) {
   const updatedHomeScore = isHome ? homeScore : match.homeScore;
   const updatedAwayScore = isAway ? awayScore : match.awayScore;
   if (updatedHomeScore != null && updatedAwayScore != null) {
-    // 양쪽 주장이 입력한 스코어가 일치하는지 확인
-    const matched = true; // 각 주장이 자기팀/상대팀 스코어를 입력하므로 homeScore/awayScore로 통일됨
+    // 두 번째 주장이 보고한 상대팀 스코어와 첫 번째 주장이 입력한 스코어를 대조
+    // isHome=true이면 홈 주장이 나중에 입력 → 홈의 awayScore view vs 기존 match.awayScore
+    // isAway=true이면 원정 주장이 나중에 입력 → 원정의 homeScore view vs 기존 match.homeScore
+    const matched = isHome
+      ? awayScore === match.awayScore
+      : homeScore === match.homeScore;
+
     if (matched) {
       const now = new Date().toISOString();
       await ddb.send(new UpdateCommand({
@@ -553,6 +557,16 @@ async function submitScore(matchId, body) {
       await applyMatchPoints(match.homeClubId, match.sport, homeResult);
       await applyMatchPoints(match.awayClubId, match.sport, awayResult);
       return res(200, { message: "경기 확정, 포인트 반영 완료", status: "confirmed" });
+    } else {
+      // 스코어 불일치 → 분쟁 상태로 전환
+      await ddb.send(new UpdateCommand({
+        TableName: MATCHES_TABLE,
+        Key: { matchId },
+        UpdateExpression: "SET #s = :s",
+        ExpressionAttributeNames: { "#s": "status" },
+        ExpressionAttributeValues: { ":s": "disputed" },
+      }));
+      return res(200, { message: "스코어 불일치, 관리자 확인이 필요합니다", status: "disputed" });
     }
   }
   return res(200, { message: "스코어 입력 완료" });

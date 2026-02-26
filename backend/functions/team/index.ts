@@ -3,19 +3,10 @@ import { APIGatewayProxyEvent, APIGatewayProxyHandler } from 'aws-lambda'
 function getUserId(event: APIGatewayProxyEvent): string | undefined {
   const sub = event.requestContext.authorizer?.claims?.sub as string | undefined
   if (sub) return sub
-  const xUser = event.headers['x-user-id']
-  if (xUser) return xUser
-  const auth = event.headers['Authorization'] ?? event.headers['authorization']
-  if (auth?.startsWith('Bearer ')) {
-    try {
-      const payload = JSON.parse(Buffer.from(auth.slice(7).split('.')[1], 'base64').toString('utf8'))
-      return payload.sub as string
-    } catch { /* ignore */ }
-  }
   return undefined
 }
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand, ScanCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb'
+import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb'
 import { randomUUID } from 'crypto'
 
 const db = DynamoDBDocumentClient.from(new DynamoDBClient({}))
@@ -43,9 +34,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   try {
     // GET /team
     if (method === 'GET' && parts.length === 0) {
-      const result = await db.send(new ScanCommand({
+      const result = await db.send(new QueryCommand({
         TableName: MEMBERS,
-        FilterExpression: 'userId = :uid',
+        IndexName: 'userId-index',
+        KeyConditionExpression: 'userId = :uid',
         ExpressionAttributeValues: { ':uid': userId },
       }))
       const teamIds = (result.Items ?? []).map(m => m.teamId)

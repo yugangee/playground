@@ -3,15 +3,6 @@ import { APIGatewayProxyEvent, APIGatewayProxyHandler } from 'aws-lambda'
 function getUserId(event: APIGatewayProxyEvent): string | undefined {
   const sub = event.requestContext.authorizer?.claims?.sub as string | undefined
   if (sub) return sub
-  const xUser = event.headers['x-user-id']
-  if (xUser) return xUser
-  const auth = event.headers['Authorization'] ?? event.headers['authorization']
-  if (auth?.startsWith('Bearer ')) {
-    try {
-      const payload = JSON.parse(Buffer.from(auth.slice(7).split('.')[1], 'base64').toString('utf8'))
-      return payload.sub as string
-    } catch { /* ignore */ }
-  }
   return undefined
 }
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
@@ -67,6 +58,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // PATCH /league/:id  (status 변경 등)
     if (method === 'PATCH' && parts.length === 1) {
+      const league = await db.send(new GetCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
+      if (!league.Item) return res(404, { message: 'League not found' })
+      if (league.Item.organizerId !== userId) return res(403, { message: '리그 주최자만 수정할 수 있습니다' })
       const body = JSON.parse(event.body ?? '{}')
       const updates = Object.entries(body)
       const expr = 'SET ' + updates.map(([k], i) => `#f${i} = :v${i}`).join(', ')
@@ -114,6 +108,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // PATCH /league/:id/matches/:matchId  (결과 입력)
     if (method === 'PATCH' && parts[1] === 'matches' && parts[2]) {
+      const league = await db.send(new GetCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
+      if (!league.Item) return res(404, { message: 'League not found' })
+      if (league.Item.organizerId !== userId) return res(403, { message: '리그 주최자만 경기 결과를 수정할 수 있습니다' })
       const body = JSON.parse(event.body ?? '{}')
       const updates = Object.entries(body)
       const expr = 'SET ' + updates.map(([k], i) => `#f${i} = :v${i}`).join(', ')
