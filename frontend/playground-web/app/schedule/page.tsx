@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import { manageFetch } from '@/lib/manageFetch'
 import { useTeam } from '@/context/TeamContext'
 import { useAuth } from '@/context/AuthContext'
-import type { Match, Announcement, Poll } from '@/types/manage'
+import type { Match, Announcement, Poll, Attendance } from '@/types/manage'
+
+const MIN_PLAYERS = 7
 
 // ── 상수 ──────────────────────────────────────────────────────────────────────
 
@@ -149,13 +151,23 @@ function UpcomingMatchCard({ match: m, onRefresh }: { match: Match; onRefresh: (
   const { user } = useAuth()
   const [myStatus, setMyStatus] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [attendances, setAttendances] = useState<Attendance[]>([])
 
-  // 초기 출석 상태 로드
+  // 출석 상태 로드 (내 상태 + 전체 집계)
+  const loadAttendances = async () => {
+    if (m.status !== 'accepted') return
+    try {
+      const all: Attendance[] = await manageFetch(`/schedule/matches/${m.id}/attendance`)
+      setAttendances(all)
+      if (user) {
+        const mine = all.find(a => a.userId === user.userId)
+        if (mine) setMyStatus(mine.status)
+      }
+    } catch {}
+  }
+
   useEffect(() => {
-    if (!user || m.status !== 'accepted') return
-    manageFetch(`/schedule/matches/${m.id}/attendance/me`)
-      .then((d: any) => { if (d?.status) setMyStatus(d.status) })
-      .catch(() => {})
+    loadAttendances()
   }, [m.id, m.status, user])
 
   const respond = async (status: 'attending' | 'absent') => {
@@ -166,6 +178,7 @@ function UpcomingMatchCard({ match: m, onRefresh }: { match: Match; onRefresh: (
         body: JSON.stringify({ status }),
       })
       setMyStatus(status)
+      loadAttendances()
       onRefresh()
     } finally {
       setLoading(false)
@@ -175,9 +188,29 @@ function UpcomingMatchCard({ match: m, onRefresh }: { match: Match; onRefresh: (
   const daysUntil = Math.ceil((new Date(m.scheduledAt).getTime() - Date.now()) / 86400000)
   const dLabel = daysUntil === 0 ? 'D-DAY' : daysUntil > 0 ? `D-${daysUntil}` : null
 
+  const attendingCount = attendances.filter(a => a.status === 'attending').length
+  const absentCount = attendances.filter(a => a.status === 'absent').length
+  const isUnderMin = m.status === 'accepted' && attendances.length > 0 && attendingCount < MIN_PLAYERS
+
   return (
     <div className="rounded-2xl border p-4 space-y-3"
-      style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
+      style={{
+        background: 'var(--card-bg)',
+        borderColor: isUnderMin ? 'rgba(239,68,68,0.4)' : 'var(--card-border)',
+      }}>
+
+      {/* 7명 미달 경고 배지 */}
+      {isUnderMin && (
+        <div className="flex items-center gap-2 rounded-lg px-3 py-2 -mb-1"
+          style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
+          <svg className="h-4 w-4 shrink-0" style={{ color: '#f87171' }} fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+          </svg>
+          <span className="text-xs font-semibold" style={{ color: '#f87171' }}>
+            출석 {attendingCount}명 — {MIN_PLAYERS}명 미달 시 몰수패
+          </span>
+        </div>
+      )}
 
       {/* 상단 행 */}
       <div className="flex items-start justify-between gap-3">
@@ -209,24 +242,59 @@ function UpcomingMatchCard({ match: m, onRefresh }: { match: Match; onRefresh: (
 
       {/* 출석 응답 버튼 (확정된 경기만) */}
       {m.status === 'accepted' && (
-        <div className="flex items-center gap-2 pt-1 border-t" style={{ borderColor: 'var(--card-border)' }}>
-          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>출석 응답</span>
-          <AttendBtn
-            label="참가"
-            active={myStatus === 'attending'}
-            activeClass="bg-violet-600 text-white"
-            inactiveClass="text-sm"
-            disabled={loading}
-            onClick={() => respond('attending')}
-          />
-          <AttendBtn
-            label="불참"
-            active={myStatus === 'absent'}
-            activeClass="bg-red-500 text-white"
-            inactiveClass="text-sm"
-            disabled={loading}
-            onClick={() => respond('absent')}
-          />
+        <div className="pt-1 border-t space-y-2" style={{ borderColor: 'var(--card-border)' }}>
+          {/* 참석 현황 집계 */}
+          {attendances.length > 0 && (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-violet-500" />
+                <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  참가 {attendingCount}명
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-red-400" />
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  불참 {absentCount}명
+                </span>
+              </div>
+              <div className="flex-1" />
+              {/* 7명 게이지 */}
+              <div className="flex items-center gap-1.5">
+                {Array.from({ length: MIN_PLAYERS }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="h-2 w-2 rounded-full transition-colors"
+                    style={{ background: i < attendingCount ? '#7c3aed' : 'var(--card-border)' }}
+                  />
+                ))}
+                <span className="text-[10px] font-bold ml-0.5"
+                  style={{ color: attendingCount >= MIN_PLAYERS ? '#4ade80' : '#f87171' }}>
+                  {attendingCount >= MIN_PLAYERS ? '✓' : `${MIN_PLAYERS - attendingCount}명 부족`}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>출석 응답</span>
+            <AttendBtn
+              label="참가"
+              active={myStatus === 'attending'}
+              activeClass="bg-violet-600 text-white"
+              inactiveClass="text-sm"
+              disabled={loading}
+              onClick={() => respond('attending')}
+            />
+            <AttendBtn
+              label="불참"
+              active={myStatus === 'absent'}
+              activeClass="bg-red-500 text-white"
+              inactiveClass="text-sm"
+              disabled={loading}
+              onClick={() => respond('absent')}
+            />
+          </div>
         </div>
       )}
 

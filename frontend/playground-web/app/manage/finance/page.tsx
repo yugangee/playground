@@ -497,6 +497,44 @@ function SettlementTab({ teamId, isLeader, members }: { teamId: string; isLeader
 
   return (
     <div className="space-y-5">
+
+      {/* 대회 참가비 분담 — KJA 케이스 */}
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-base">🏆</span>
+          <h3 className="text-sm font-semibold text-amber-800">대회 참가비 분담</h3>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-700 font-bold">KJA</span>
+        </div>
+        <p className="text-xs text-amber-700 mb-3">
+          한국기자협회 축구대회 참가비 <strong>30만원</strong>을 출전 선수 인원수로 자동 분배합니다.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: '30만원 ÷ 전체', amount: 300000, useAll: true },
+            { label: '30만원 직접 입력', amount: 300000, useAll: false },
+          ].map(preset => (
+            <button
+              key={preset.label}
+              onClick={() => {
+                setTotalCost(String(preset.amount))
+                if (preset.useAll) setSelectedIds(new Set(members.map(m => m.userId)))
+              }}
+              className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors bg-amber-200 text-amber-800 hover:bg-amber-300"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+        {totalCost === '300000' && count > 0 && (
+          <div className="mt-3 rounded-xl bg-white border border-amber-200 px-4 py-3 flex items-center justify-between">
+            <span className="text-sm text-slate-600">인당 부담금 ({count}명)</span>
+            <span className="text-xl font-bold text-amber-600">
+              {Math.ceil(300000 / count).toLocaleString()}<span className="text-sm font-normal text-slate-400 ml-1">원</span>
+            </span>
+          </div>
+        )}
+      </div>
+
       <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
         <h3 className="mb-5 text-sm font-semibold text-slate-700">경기 비용 1/N 정산</h3>
 

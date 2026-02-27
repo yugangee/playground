@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { ShoppingCart, Users, BarChart2, ArrowRight, Search, Zap, Shield, Check, Newspaper } from "lucide-react";
+import { ShoppingCart, Users, BarChart2, ArrowRight, Search, Zap, Shield, Check, Newspaper, Trophy } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const news = [
@@ -201,6 +201,42 @@ export default function Home() {
   return <LandingHome recentTeams={recentTeams} topMatchTeams={topMatchTeams} />;
 }
 
+function KJABanner() {
+  return (
+    <Link href="/league/kja-51">
+      <div className="relative rounded-2xl overflow-hidden border cursor-pointer group transition-all hover:scale-[1.01]"
+        style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.2) 0%, rgba(192,38,211,0.15) 60%, rgba(16,185,129,0.1) 100%)", borderColor: "rgba(192,38,211,0.35)" }}>
+        {/* 배경 장식 */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none"
+          style={{ backgroundImage: "radial-gradient(circle at 80% 50%, #c026d3 0%, transparent 60%)" }} />
+
+        <div className="relative px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg"
+              style={{ background: "rgba(192,38,211,0.25)", border: "1px solid rgba(192,38,211,0.4)" }}>
+              🏆
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide"
+                  style={{ background: "rgba(251,191,36,0.2)", color: "#fbbf24" }}>LIVE DEMO</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                  style={{ background: "rgba(232,121,249,0.15)", color: "#e879f9" }}>서울경제 4시드</span>
+              </div>
+              <p className="text-sm font-bold text-white">제51회 한국기자협회 서울지역 축구대회</p>
+              <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.5)" }}>52개팀 · 57경기 · 서울경제 어벤져스 선수단 20명</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 text-sm font-semibold shrink-0"
+            style={{ color: "#e879f9" }}>
+            대진표 보기 <ArrowRight size={15} className="group-hover:translate-x-0.5 transition-transform" />
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 function LoggedInHome({ name, recentTeams, topMatchTeams }: { name: string; recentTeams: any[]; topMatchTeams: any[] }) {
   return (
     <div className="max-w-5xl mx-auto space-y-14">
@@ -221,6 +257,9 @@ function LoggedInHome({ name, recentTeams, topMatchTeams }: { name: string; rece
           </div>
         ))}
       </div>
+
+      {/* KJA 배너 */}
+      <KJABanner />
 
       {/* 최근 등록된 팀 */}
       {recentTeams.length > 0 && (
@@ -301,6 +340,9 @@ function LandingHome({ recentTeams, topMatchTeams }: { recentTeams: any[]; topMa
           </div>
         ))}
       </div>
+
+      {/* KJA 배너 */}
+      <KJABanner />
 
       {/* 최근 등록된 팀 */}
       {recentTeams.length > 0 && (
