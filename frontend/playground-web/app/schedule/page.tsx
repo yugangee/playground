@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { manageFetch } from '@/lib/manageFetch'
 import { useTeam } from '@/context/TeamContext'
 import { useAuth } from '@/context/AuthContext'
-import type { Match, Announcement, Poll, Attendance } from '@/types/manage'
+import type { Match, Announcement, Poll, Attendance, TeamMember } from '@/types/manage'
 
 const MIN_PLAYERS = 7
 
@@ -97,20 +97,34 @@ export default function SchedulePage() {
 
   const [matches, setMatches] = useState<Match[]>([])
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
+  const [members, setMembers] = useState<TeamMember[]>([])
+  const [polls, setPolls] = useState<Poll[]>([])
 
-  const loadMatches = async () => {
+  const loadMatches = useCallback(async () => {
     if (!teamId) return
     try { setMatches(await manageFetch(`/schedule/matches?teamId=${teamId}`)) } catch {}
-  }
+  }, [teamId])
 
   const loadAnnouncements = async () => {
     if (!teamId) return
     try { setAnnouncements(await manageFetch(`/schedule/announcements?teamId=${teamId}`)) } catch {}
   }
 
+  const loadMembers = useCallback(async () => {
+    if (!teamId) return
+    try { setMembers(await manageFetch(`/team/${teamId}/members`)) } catch {}
+  }, [teamId])
+
+  const loadPolls = useCallback(async () => {
+    if (!teamId) return
+    try { setPolls(await manageFetch(`/schedule/polls?teamId=${teamId}`)) } catch {}
+  }, [teamId])
+
   useEffect(() => {
     loadMatches()
     loadAnnouncements()
+    loadMembers()
+    loadPolls()
   }, [teamId])
 
   const upcoming = matches
@@ -160,7 +174,9 @@ export default function SchedulePage() {
         ) : (
           <div className="space-y-3">
             {upcoming.map(m => (
-              <UpcomingMatchCard key={m.id} match={m} onRefresh={loadMatches} />
+              <UpcomingMatchCard key={m.id} match={m} onRefresh={loadMatches}
+                isLeader={isLeader} teamId={teamId} members={members}
+                onPollCreated={loadPolls} />
             ))}
           </div>
         )}
@@ -170,6 +186,13 @@ export default function SchedulePage() {
       <section>
         <MonthCalendar matches={matches} />
       </section>
+
+      {/* POTM / 투표 */}
+      {polls.length > 0 && (
+        <section>
+          <PollsSection polls={polls} onVoted={loadPolls} />
+        </section>
+      )}
 
       {/* 최근 공지 */}
       {announcements.length > 0 && (
@@ -202,11 +225,15 @@ export default function SchedulePage() {
 
 // ── 다가오는 경기 카드 ────────────────────────────────────────────────────────
 
-function UpcomingMatchCard({ match: m, onRefresh }: { match: Match; onRefresh: () => void }) {
+function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onPollCreated }: {
+  match: Match; onRefresh: () => void
+  isLeader: boolean; teamId: string; members: TeamMember[]; onPollCreated: () => void
+}) {
   const { user } = useAuth()
   const [myStatus, setMyStatus] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [attendances, setAttendances] = useState<Attendance[]>([])
+  const [showResultModal, setShowResultModal] = useState(false)
 
   // 출석 상태 로드 (내 상태 + 전체 집계)
   const loadAttendances = async () => {
@@ -353,6 +380,37 @@ function UpcomingMatchCard({ match: m, onRefresh }: { match: Match; onRefresh: (
         </div>
       )}
 
+      {/* 완료된 경기 스코어 표시 */}
+      {m.status === 'completed' && m.homeScore != null && m.awayScore != null && (
+        <div className="rounded-xl px-4 py-3 flex items-center justify-center gap-4"
+          style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--card-border)' }}>
+          <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+            {m.homeTeamId === teamId ? '우리팀' : '상대팀'}
+          </span>
+          <span className="text-3xl font-black tabular-nums" style={{ color: 'var(--text-primary)' }}>
+            {m.homeScore}
+          </span>
+          <span className="text-lg font-bold" style={{ color: 'var(--text-muted)' }}>:</span>
+          <span className="text-3xl font-black tabular-nums" style={{ color: 'var(--text-primary)' }}>
+            {m.awayScore}
+          </span>
+          <span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+            {m.awayTeamId === teamId ? '우리팀' : '상대팀'}
+          </span>
+        </div>
+      )}
+
+      {/* 결과 입력 버튼 (리더, 확정된 경기만) */}
+      {isLeader && m.status === 'accepted' && (
+        <button
+          onClick={() => setShowResultModal(true)}
+          className="w-full rounded-xl py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+          style={{ background: 'rgba(124,58,237,0.1)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.25)' }}
+        >
+          ⚽ 경기 결과 입력
+        </button>
+      )}
+
       {/* 내비게이션 링크 */}
       {m.venueAddress && (
         <a
@@ -367,6 +425,21 @@ function UpcomingMatchCard({ match: m, onRefresh }: { match: Match; onRefresh: (
           </svg>
           지도 보기
         </a>
+      )}
+
+      {/* 결과 입력 모달 */}
+      {showResultModal && (
+        <MatchResultModal
+          match={m}
+          teamId={teamId}
+          members={members}
+          onClose={() => setShowResultModal(false)}
+          onSuccess={() => {
+            setShowResultModal(false)
+            onRefresh()
+            onPollCreated()
+          }}
+        />
       )}
     </div>
   )
@@ -677,6 +750,284 @@ function EmptyTeam() {
         </svg>
       </div>
       <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>먼저 팀을 만들거나 팀에 가입하세요</p>
+    </div>
+  )
+}
+
+// ── 경기 결과 입력 모달 (M2-C) ────────────────────────────────────────────────
+
+function MatchResultModal({ match: m, teamId, members, onClose, onSuccess }: {
+  match: Match; teamId: string; members: TeamMember[]; onClose: () => void; onSuccess: () => void
+}) {
+  const isHome = m.homeTeamId === teamId
+  const [ourScore,   setOurScore]   = useState(0)
+  const [theirScore, setTheirScore] = useState(0)
+  const [loading, setLoading]       = useState(false)
+  const [step, setStep]             = useState<'score' | 'potm'>('score')
+  const [potmVote, setPotmVote]     = useState<string | null>(null)
+  const [pollId, setPollId]         = useState<string | null>(null)
+
+  const homeScore = isHome ? ourScore   : theirScore
+  const awayScore = isHome ? theirScore : ourScore
+
+  const submitScore = async () => {
+    setLoading(true)
+    try {
+      // 스코어 + 완료 처리
+      await manageFetch(`/schedule/matches/${m.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ homeScore, awayScore, status: 'completed' }),
+      })
+      // POTM 투표 생성 (팀원이 있을 때만)
+      if (members.length > 0) {
+        const options = members.map(mem => mem.userId)
+        const poll = await manageFetch('/schedule/polls', {
+          method: 'POST',
+          body: JSON.stringify({
+            teamId,
+            question: `⭐ POTM — ${m.venue} (${new Date(m.scheduledAt).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })})`,
+            options,
+          }),
+        })
+        setPollId(poll.id)
+        setStep('potm')
+      } else {
+        onSuccess()
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const submitPOTM = async () => {
+    if (!pollId || !potmVote) { onSuccess(); return }
+    setLoading(true)
+    try {
+      const idx = members.findIndex(mem => mem.userId === potmVote)
+      if (idx >= 0) {
+        await manageFetch(`/schedule/polls/${pollId}/vote`, {
+          method: 'POST',
+          body: JSON.stringify({ optionIndex: idx }),
+        })
+      }
+    } finally {
+      setLoading(false)
+      onSuccess()
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl border shadow-2xl"
+        style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
+        onClick={e => e.stopPropagation()}>
+
+        {step === 'score' ? (
+          <>
+            <div className="flex items-center justify-between p-5 pb-0">
+              <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>경기 결과 입력</h3>
+              <button onClick={onClose} style={{ color: 'var(--text-muted)' }}>
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-5 space-y-5">
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{m.venue} · {formatDateTime(m.scheduledAt)}</p>
+
+              {/* 스코어 입력 */}
+              <div className="flex items-center justify-center gap-6">
+                <div className="text-center">
+                  <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>우리팀</p>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setOurScore(s => Math.max(0, s - 1))}
+                      className="h-9 w-9 rounded-xl text-lg font-bold transition-colors hover:opacity-70"
+                      style={{ background: 'var(--sidebar-bg)', color: 'var(--text-primary)' }}>−</button>
+                    <span className="text-4xl font-black w-12 text-center tabular-nums"
+                      style={{ color: 'var(--text-primary)' }}>{ourScore}</span>
+                    <button onClick={() => setOurScore(s => s + 1)}
+                      className="h-9 w-9 rounded-xl text-lg font-bold transition-colors hover:opacity-70"
+                      style={{ background: 'var(--sidebar-bg)', color: 'var(--text-primary)' }}>+</button>
+                  </div>
+                </div>
+                <span className="text-2xl font-bold" style={{ color: 'var(--text-muted)' }}>:</span>
+                <div className="text-center">
+                  <p className="text-xs font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>상대팀</p>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setTheirScore(s => Math.max(0, s - 1))}
+                      className="h-9 w-9 rounded-xl text-lg font-bold transition-colors hover:opacity-70"
+                      style={{ background: 'var(--sidebar-bg)', color: 'var(--text-primary)' }}>−</button>
+                    <span className="text-4xl font-black w-12 text-center tabular-nums"
+                      style={{ color: 'var(--text-primary)' }}>{theirScore}</span>
+                    <button onClick={() => setTheirScore(s => s + 1)}
+                      className="h-9 w-9 rounded-xl text-lg font-bold transition-colors hover:opacity-70"
+                      style={{ background: 'var(--sidebar-bg)', color: 'var(--text-primary)' }}>+</button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 결과 예고 */}
+              <div className="rounded-xl px-4 py-2 text-center text-sm font-semibold"
+                style={{
+                  background: ourScore > theirScore ? 'rgba(74,222,128,0.12)' : ourScore < theirScore ? 'rgba(248,113,113,0.12)' : 'rgba(148,163,184,0.12)',
+                  color: ourScore > theirScore ? '#4ade80' : ourScore < theirScore ? '#f87171' : 'var(--text-muted)',
+                }}>
+                {ourScore > theirScore ? '승리' : ourScore < theirScore ? '패배' : '무승부'}
+              </div>
+
+              <button onClick={submitScore} disabled={loading}
+                className="w-full rounded-xl py-3 text-sm font-bold text-white disabled:opacity-50"
+                style={{ background: 'linear-gradient(to right, #c026d3, #7c3aed)' }}>
+                {loading ? '저장 중...' : '결과 확정'}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="p-5 space-y-4">
+              <div className="text-center">
+                <div className="text-3xl mb-2">⭐</div>
+                <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>POTM 투표</h3>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>오늘의 MVP를 선택하세요</p>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {members.map(mem => (
+                  <button key={mem.userId}
+                    onClick={() => setPotmVote(mem.userId)}
+                    className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold text-left transition-all"
+                    style={{
+                      background: potmVote === mem.userId ? 'rgba(124,58,237,0.15)' : 'var(--sidebar-bg)',
+                      color: potmVote === mem.userId ? '#a78bfa' : 'var(--text-secondary)',
+                      border: `1px solid ${potmVote === mem.userId ? 'rgba(124,58,237,0.4)' : 'var(--card-border)'}`,
+                    }}>
+                    {potmVote === mem.userId ? '⭐ ' : ''}{mem.userId}
+                    {mem.position && <span className="ml-2 text-xs opacity-60">{mem.position}</span>}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => onSuccess()}
+                  className="flex-1 rounded-xl py-2.5 text-sm font-semibold"
+                  style={{ background: 'var(--sidebar-bg)', color: 'var(--text-muted)' }}>건너뛰기</button>
+                <button onClick={submitPOTM} disabled={!potmVote || loading}
+                  className="flex-1 rounded-xl py-2.5 text-sm font-bold text-white disabled:opacity-50"
+                  style={{ background: 'linear-gradient(to right, #c026d3, #7c3aed)' }}>
+                  {loading ? '...' : '투표하기'}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── POTM / 팀 투표 섹션 (M2-D) ───────────────────────────────────────────────
+
+function PollsSection({ polls, onVoted }: { polls: Poll[]; onVoted: () => void }) {
+  // 최근 3개만 표시
+  const recent = polls.slice(0, 3)
+
+  return (
+    <div>
+      <h2 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
+        투표
+      </h2>
+      <div className="space-y-3">
+        {recent.map(poll => (
+          <PollCard key={poll.id} poll={poll} onVoted={onVoted} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
+  const [votes, setVotes] = useState<{ optionIndex: number; userId: string }[]>([])
+  const [myVote, setMyVote] = useState<number | null>(null)
+  const [loading, setLoading] = useState(false)
+  const { user } = useAuth()
+
+  useEffect(() => {
+    manageFetch(`/schedule/polls/${poll.id}/votes`)
+      .then((data: { optionIndex: number; userId: string }[]) => {
+        setVotes(data)
+        if (user) {
+          const mine = data.find(v => v.userId === user.userId)
+          if (mine) setMyVote(mine.optionIndex)
+        }
+      })
+      .catch(() => {})
+  }, [poll.id, user])
+
+  const vote = async (idx: number) => {
+    if (myVote !== null) return
+    setLoading(true)
+    try {
+      await manageFetch(`/schedule/polls/${poll.id}/vote`, {
+        method: 'POST',
+        body: JSON.stringify({ optionIndex: idx }),
+      })
+      setMyVote(idx)
+      onVoted()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const totalVotes = votes.length
+
+  return (
+    <div className="rounded-2xl border p-4 space-y-3"
+      style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{poll.question}</p>
+        {poll.endsAt && new Date(poll.endsAt) < new Date() && (
+          <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-500">종료</span>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        {poll.options.map((opt, idx) => {
+          const cnt = votes.filter(v => v.optionIndex === idx).length
+          const pct = totalVotes ? Math.round((cnt / totalVotes) * 100) : 0
+          const isMyVote = myVote === idx
+          return (
+            <button key={idx}
+              onClick={() => vote(idx)}
+              disabled={myVote !== null || loading}
+              className="w-full rounded-xl overflow-hidden text-left transition-all"
+              style={{
+                border: `1px solid ${isMyVote ? 'rgba(124,58,237,0.4)' : 'var(--card-border)'}`,
+                background: 'var(--sidebar-bg)',
+              }}>
+              <div className="relative px-3 py-2">
+                {/* 진행 바 */}
+                {myVote !== null && (
+                  <div className="absolute inset-0 rounded-xl"
+                    style={{ width: `${pct}%`, background: isMyVote ? 'rgba(124,58,237,0.12)' : 'rgba(148,163,184,0.08)', transition: 'width 0.5s ease' }} />
+                )}
+                <div className="relative flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium truncate"
+                    style={{ color: isMyVote ? '#a78bfa' : 'var(--text-secondary)' }}>
+                    {isMyVote ? '✓ ' : ''}{opt}
+                  </span>
+                  {myVote !== null && (
+                    <span className="text-xs font-bold shrink-0"
+                      style={{ color: isMyVote ? '#a78bfa' : 'var(--text-muted)' }}>
+                      {pct}%
+                    </span>
+                  )}
+                </div>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+      <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+        총 {totalVotes}표
+        {poll.endsAt && ` · ${new Date(poll.endsAt) > new Date() ? `~${new Date(poll.endsAt).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}` : '마감'}`}
+      </p>
     </div>
   )
 }
