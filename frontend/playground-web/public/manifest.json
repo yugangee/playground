@@ -1,0 +1,21 @@
+{
+  "name": "Playground — 아마추어 스포츠 플랫폼",
+  "short_name": "Playground",
+  "description": "팀 관리, 경기 일정, 회비 정산을 한 곳에서",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#7c3aed",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["sports", "productivity"],
+  "lang": "ko"
+}

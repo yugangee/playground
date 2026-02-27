@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
+  <rect width="512" height="512" rx="96" fill="url(#g)" opacity="0.9"/>
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#c026d3"/>
+    </linearGradient>
+  </defs>
+  <!-- Soccer ball simplified -->
+  <circle cx="256" cy="230" r="110" fill="none" stroke="white" stroke-width="14" opacity="0.9"/>
+  <polygon points="256,140 290,168 278,208 234,208 222,168" fill="white" opacity="0.9"/>
+  <polygon points="256,320 290,292 335,305 326,350 186,350 177,305 222,292" fill="none"/>
+  <line x1="290" y1="168" x2="335" y2="175" stroke="white" stroke-width="10" opacity="0.7"/>
+  <line x1="278" y1="208" x2="326" y2="222" stroke="white" stroke-width="10" opacity="0.7"/>
+  <line x1="234" y1="208" x2="186" y2="222" stroke="white" stroke-width="10" opacity="0.7"/>
+  <line x1="222" y1="168" x2="177" y2="175" stroke="white" stroke-width="10" opacity="0.7"/>
+  <!-- PLAYGROUND text -->
+  <text x="256" y="410" text-anchor="middle" font-family="system-ui, sans-serif" font-size="52" font-weight="900" fill="white" letter-spacing="-1" opacity="0.95">PLAY</text>
+</svg>

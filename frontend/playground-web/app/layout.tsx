@@ -12,6 +12,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import ScrollToTop from "@/components/ScrollToTop";
 import HeaderAuth from "@/components/layout/HeaderAuth";
 import AIChatbot from "@/components/AIChatbot";
+import PWAInstallBanner from "@/components/PWAInstallBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,8 +25,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Playground",
-  description: "축구 선수 마켓 & 팀 관리 플랫폼",
+  title: "Playground — 아마추어 스포츠 플랫폼",
+  description: "팀 관리, 경기 일정, 회비 정산을 한 곳에서",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Playground",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export default function RootLayout({
@@ -37,6 +47,9 @@ export default function RootLayout({
     <html lang="en" className="" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem("theme");if(t==="dark")document.documentElement.classList.add("dark");else document.documentElement.classList.remove("dark")}catch(e){}})()` }} />
+        <meta name="theme-color" content="#7c3aed" />
+        <link rel="apple-touch-icon" href="/icons/icon.svg" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
@@ -62,6 +75,7 @@ export default function RootLayout({
         </AuthProvider>
         </ThemeProvider>
         <AIChatbot />
+        <PWAInstallBanner />
       </body>
     </html>
   );

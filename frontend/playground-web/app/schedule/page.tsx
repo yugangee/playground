@@ -37,6 +37,46 @@ function isFuture(dateStr: string) {
   return new Date(dateStr) > new Date()
 }
 
+function exportToICS(matches: Match[], teamName: string) {
+  const fmtDt = (d: Date) => d.toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z'
+  const now = fmtDt(new Date())
+  const events = matches
+    .filter(m => m.status !== 'rejected')
+    .map(m => {
+      const start = new Date(m.scheduledAt)
+      const end   = new Date(start.getTime() + 90 * 60 * 1000)
+      return [
+        'BEGIN:VEVENT',
+        `UID:playground-${m.id}@fun.sedaily.ai`,
+        `DTSTAMP:${now}`,
+        `DTSTART:${fmtDt(start)}`,
+        `DTEND:${fmtDt(end)}`,
+        `SUMMARY:⚽ ${m.venue}`,
+        m.venueAddress ? `LOCATION:${m.venueAddress.replace(/,/g, '\\,')}` : '',
+        `DESCRIPTION:상태: ${STATUS_LABEL[m.status] ?? m.status}`,
+        'END:VEVENT',
+      ].filter(Boolean).join('\r\n')
+    })
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    `PRODID:-//Playground//${teamName}//KO`,
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    ...events,
+    'END:VCALENDAR',
+  ].join('\r\n')
+
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `${teamName}-일정.ics`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 function formatDateTime(dateStr: string) {
   return new Date(dateStr).toLocaleString('ko-KR', {
     month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit',
@@ -89,7 +129,22 @@ export default function SchedulePage() {
           <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>일정·참석</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>{currentTeam?.name}</p>
         </div>
-        {isLeader && <MatchFormButton teamId={teamId} onSuccess={loadMatches} />}
+        <div className="flex items-center gap-2">
+          {matches.length > 0 && (
+            <button
+              onClick={() => exportToICS(matches, currentTeam?.name ?? '팀')}
+              title="캘린더 내보내기 (.ics)"
+              className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-colors hover:opacity-80"
+              style={{ background: 'var(--card-bg)', color: 'var(--text-secondary)', border: '1px solid var(--card-border)' }}
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5M12 15h.007v.007H12V15Zm0 0h.007v.007H12V15Zm0 0v-3.75" />
+              </svg>
+              .ics
+            </button>
+          )}
+          {isLeader && <MatchFormButton teamId={teamId} onSuccess={loadMatches} />}
+        </div>
       </div>
 
       {/* 다가오는 경기 */}
