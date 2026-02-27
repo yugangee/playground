@@ -183,16 +183,6 @@ export class PlaygroundStack extends cdk.Stack {
       partitionKey: { name: 'leagueId', type: dynamodb.AttributeType.STRING },
     })
 
-    // GSI for matches teamId queries
-    tables.matches.addGlobalSecondaryIndex({
-      indexName: 'homeTeamId-index',
-      partitionKey: { name: 'homeTeamId', type: dynamodb.AttributeType.STRING },
-    })
-    tables.matches.addGlobalSecondaryIndex({
-      indexName: 'awayTeamId-index',
-      partitionKey: { name: 'awayTeamId', type: dynamodb.AttributeType.STRING },
-    })
-
     // GSI for teamId-based queries
     tables.announcements.addGlobalSecondaryIndex({
       indexName: 'teamId-createdAt-index',
