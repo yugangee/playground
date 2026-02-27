@@ -11,7 +11,6 @@ import { TeamProvider } from "@/context/TeamContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import ScrollToTop from "@/components/ScrollToTop";
 import HeaderAuth from "@/components/layout/HeaderAuth";
-import AIChatbot from "@/components/AIChatbot";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -42,26 +41,25 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider>
-        <AuthProvider>
-        <TeamProvider>
-        <ChatProvider>
-        <ClubProvider>
-        <div className="flex">
-          <Sidebar />
-          <div className="flex-1 flex flex-col">
-            <HeaderAuth />
-            <main className="flex-1 px-8 pb-8">
-              <ScrollToTop />
-              {children}
-            </main>
-          </div>
-        </div>
-        </ClubProvider>
-        </ChatProvider>
-        </TeamProvider>
-        </AuthProvider>
+          <AuthProvider>
+            <TeamProvider>
+              <ChatProvider>
+                <ClubProvider>
+                  <div className="flex">
+                    <Sidebar />
+                    <div className="flex-1 flex flex-col">
+                      <HeaderAuth />
+                      <main className="flex-1 px-8 pt-8 pb-8">
+                        <ScrollToTop />
+                        {children}
+                      </main>
+                    </div>
+                  </div>
+                </ClubProvider>
+              </ChatProvider>
+            </TeamProvider>
+          </AuthProvider>
         </ThemeProvider>
-        <AIChatbot />
       </body>
     </html>
   );
