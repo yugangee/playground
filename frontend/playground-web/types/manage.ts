@@ -101,6 +101,12 @@ export interface Fine {
 export type MatchStatus = 'pending' | 'accepted' | 'rejected' | 'completed'
 export type AttendanceStatus = 'attending' | 'absent' | 'pending'
 
+export interface GoalRecord {
+  scorer: string   // userId
+  assist?: string  // userId
+  minute?: number
+}
+
 export interface Match {
   id: string
   homeTeamId: string
@@ -111,6 +117,7 @@ export interface Match {
   status: MatchStatus
   homeScore?: number
   awayScore?: number
+  goals?: GoalRecord[]
   note?: string
   createdAt: string
 }

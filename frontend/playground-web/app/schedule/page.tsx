@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { manageFetch } from '@/lib/manageFetch'
 import { useTeam } from '@/context/TeamContext'
 import { useAuth } from '@/context/AuthContext'
-import type { Match, Announcement, Poll, Attendance, TeamMember } from '@/types/manage'
+import type { Match, Announcement, Poll, Attendance, TeamMember, GoalRecord } from '@/types/manage'
 
 const MIN_PLAYERS = 7
 
@@ -35,6 +35,18 @@ const STATUS_LABEL: Record<string, string> = {
 
 function isFuture(dateStr: string) {
   return new Date(dateStr) > new Date()
+}
+
+function isMatchToday(dateStr: string) {
+  const d = new Date(dateStr)
+  const now = new Date()
+  return d.toDateString() === now.toDateString()
+}
+
+function memberLabel(mem: TeamMember) {
+  const num = mem.number ? `#${mem.number}` : ''
+  const pos = mem.position ? ` ${mem.position.slice(0, 3).toUpperCase()}` : ''
+  return (num + pos).trim() || mem.userId.slice(0, 6) + '…'
 }
 
 function exportToICS(matches: Match[], teamName: string) {
@@ -187,6 +199,13 @@ export default function SchedulePage() {
         <MonthCalendar matches={matches} />
       </section>
 
+      {/* M3-A: 팀 통계 */}
+      {matches.length > 0 && (
+        <section>
+          <TeamStatsSection matches={matches} members={members} teamId={teamId} />
+        </section>
+      )}
+
       {/* POTM / 투표 */}
       {polls.length > 0 && (
         <section>
@@ -234,6 +253,8 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
   const [loading, setLoading] = useState(false)
   const [attendances, setAttendances] = useState<Attendance[]>([])
   const [showResultModal, setShowResultModal] = useState(false)
+  const [showGoalModal, setShowGoalModal] = useState(false)
+  const isGameDay = isMatchToday(m.scheduledAt)
 
   // 출석 상태 로드 (내 상태 + 전체 집계)
   const loadAttendances = async () => {
@@ -251,6 +272,13 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
   useEffect(() => {
     loadAttendances()
   }, [m.id, m.status, user])
+
+  // M2-A: 경기 당일 자동 갱신 (30초)
+  useEffect(() => {
+    if (!isGameDay || m.status !== 'accepted') return
+    const interval = setInterval(loadAttendances, 30000)
+    return () => clearInterval(interval)
+  }, [isGameDay, m.status, m.id])
 
   const respond = async (status: 'attending' | 'absent') => {
     setLoading(true)
@@ -290,6 +318,19 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
           </svg>
           <span className="text-xs font-semibold" style={{ color: '#f87171' }}>
             출석 {attendingCount}명 — {MIN_PLAYERS}명 미달 시 몰수패
+          </span>
+        </div>
+      )}
+
+      {/* M2-A: 경기 당일 배너 */}
+      {isGameDay && m.status === 'accepted' && (
+        <div className="flex items-center gap-2 rounded-xl px-3 py-2"
+          style={{ background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.25)' }}>
+          <div className="h-2 w-2 rounded-full bg-green-400 animate-pulse shrink-0" />
+          <span className="text-xs font-semibold" style={{ color: '#4ade80' }}>경기 당일 — 체크인 현황</span>
+          <span className="ml-auto text-xs font-bold tabular-nums"
+            style={{ color: attendingCount >= MIN_PLAYERS ? '#4ade80' : '#f87171' }}>
+            {attendingCount} / {MIN_PLAYERS}명
           </span>
         </div>
       )}
@@ -358,6 +399,38 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
             </div>
           )}
 
+          {/* M2-A: 경기 당일 멤버 체크인 그리드 */}
+          {isGameDay && members.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {members.map(mem => {
+                const att = attendances.find(a => a.userId === mem.userId)
+                const st = att?.status ?? 'pending'
+                return (
+                  <span key={mem.userId} className="text-xs rounded-lg px-2 py-1 font-medium"
+                    style={{
+                      background: st === 'attending' ? 'rgba(74,222,128,0.15)' : st === 'absent' ? 'rgba(248,113,113,0.12)' : 'var(--sidebar-bg)',
+                      color: st === 'attending' ? '#4ade80' : st === 'absent' ? '#f87171' : 'var(--text-muted)',
+                      border: `1px solid ${st === 'attending' ? 'rgba(74,222,128,0.3)' : st === 'absent' ? 'rgba(248,113,113,0.25)' : 'var(--card-border)'}`,
+                    }}>
+                    {st === 'attending' ? '✓' : st === 'absent' ? '✗' : '?'} {memberLabel(mem)}
+                  </span>
+                )
+              })}
+            </div>
+          )}
+
+          {/* M2-A: 경기 당일 대형 체크인 버튼 */}
+          {isGameDay && myStatus === null && (
+            <button
+              onClick={() => respond('attending')}
+              disabled={loading}
+              className="w-full rounded-2xl py-3 text-sm font-bold text-white transition-opacity disabled:opacity-50"
+              style={{ background: 'linear-gradient(to right, #16a34a, #4ade80)' }}
+            >
+              {loading ? '처리 중...' : '🏃 경기 당일 체크인'}
+            </button>
+          )}
+
           <div className="flex items-center gap-2">
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>출석 응답</span>
             <AttendBtn
@@ -400,6 +473,40 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
         </div>
       )}
 
+      {/* M2-C: 골 기록 목록 */}
+      {m.goals && m.goals.length > 0 && (
+        <div className="rounded-xl px-3 py-2 space-y-1"
+          style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--card-border)' }}>
+          {m.goals.map((g, i) => {
+            const scorer = members.find(mem => mem.userId === g.scorer)
+            const helper = g.assist ? members.find(mem => mem.userId === g.assist) : null
+            return (
+              <div key={i} className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                <span>⚽</span>
+                {g.minute && <span className="font-medium tabular-nums">{g.minute}&apos;</span>}
+                <span className="font-semibold">{scorer ? memberLabel(scorer) : g.scorer.slice(0, 8)}</span>
+                {helper && (
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    (🅰 {memberLabel(helper)})
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* M2-C: 득점 기록 버튼 (리더, 확정된 경기) */}
+      {isLeader && m.status === 'accepted' && (
+        <button
+          onClick={() => setShowGoalModal(true)}
+          className="w-full rounded-xl py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+          style={{ background: 'rgba(74,222,128,0.08)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.2)' }}
+        >
+          ⚽ 득점 기록
+        </button>
+      )}
+
       {/* 결과 입력 버튼 (리더, 확정된 경기만) */}
       {isLeader && m.status === 'accepted' && (
         <button
@@ -407,7 +514,7 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
           className="w-full rounded-xl py-2 text-xs font-semibold transition-opacity hover:opacity-80"
           style={{ background: 'rgba(124,58,237,0.1)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.25)' }}
         >
-          ⚽ 경기 결과 입력
+          📋 경기 결과 입력
         </button>
       )}
 
@@ -438,6 +545,20 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
             setShowResultModal(false)
             onRefresh()
             onPollCreated()
+          }}
+        />
+      )}
+
+      {/* M2-C: 득점 기록 모달 */}
+      {showGoalModal && (
+        <GoalModal
+          match={m}
+          members={members}
+          attendances={attendances}
+          onClose={() => setShowGoalModal(false)}
+          onSuccess={() => {
+            setShowGoalModal(false)
+            onRefresh()
           }}
         />
       )}
@@ -1028,6 +1149,234 @@ function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
         총 {totalVotes}표
         {poll.endsAt && ` · ${new Date(poll.endsAt) > new Date() ? `~${new Date(poll.endsAt).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}` : '마감'}`}
       </p>
+    </div>
+  )
+}
+
+// ── M2-C: 득점 기록 모달 ─────────────────────────────────────────────────────
+
+function GoalModal({ match: m, members, attendances, onClose, onSuccess }: {
+  match: Match; members: TeamMember[]; attendances: Attendance[]; onClose: () => void; onSuccess: () => void
+}) {
+  const [scorer, setScorer] = useState<string | null>(null)
+  const [assist, setAssist] = useState<string | null>(null)
+  const [minute, setMinute] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  // 참가 응답한 멤버 우선, 없으면 전체
+  const attending = attendances.filter(a => a.status === 'attending').map(a => a.userId)
+  const selectable = attending.length > 0
+    ? members.filter(m => attending.includes(m.userId))
+    : members
+
+  const submit = async () => {
+    if (!scorer) return
+    setLoading(true)
+    try {
+      const newGoal: GoalRecord = {
+        scorer,
+        ...(assist ? { assist } : {}),
+        ...(minute ? { minute: parseInt(minute, 10) } : {}),
+      }
+      const updatedGoals = [...(m.goals ?? []), newGoal]
+      await manageFetch(`/schedule/matches/${m.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ goals: updatedGoals }),
+      })
+      onSuccess()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl border shadow-2xl"
+        style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 pb-3">
+          <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>⚽ 득점 기록</h3>
+          <button onClick={onClose} style={{ color: 'var(--text-muted)' }}>
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="px-5 pb-5 space-y-4">
+          {/* 시간 */}
+          <div>
+            <label className={lbl} style={{ color: 'var(--text-muted)' }}>시간 (선택)</label>
+            <input
+              type="number" min="1" max="120" value={minute}
+              onChange={e => setMinute(e.target.value)}
+              placeholder="예: 45"
+              className={inp}
+              style={{ background: 'var(--sidebar-bg)', borderColor: 'var(--card-border)', color: 'var(--text-primary)' }}
+            />
+          </div>
+
+          {/* 득점자 */}
+          <div>
+            <label className={lbl} style={{ color: 'var(--text-muted)' }}>득점자</label>
+            <div className="space-y-1.5 max-h-36 overflow-y-auto">
+              {selectable.map(mem => (
+                <button key={mem.userId}
+                  onClick={() => setScorer(mem.userId === scorer ? null : mem.userId)}
+                  className="w-full rounded-xl px-3 py-2 text-sm text-left font-medium transition-all"
+                  style={{
+                    background: scorer === mem.userId ? 'rgba(74,222,128,0.15)' : 'var(--sidebar-bg)',
+                    color: scorer === mem.userId ? '#4ade80' : 'var(--text-secondary)',
+                    border: `1px solid ${scorer === mem.userId ? 'rgba(74,222,128,0.4)' : 'var(--card-border)'}`,
+                  }}>
+                  {scorer === mem.userId ? '⚽ ' : ''}{memberLabel(mem)}
+                  {mem.role === 'leader' && <span className="ml-1 text-[10px] opacity-50">주장</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 어시스트 */}
+          <div>
+            <label className={lbl} style={{ color: 'var(--text-muted)' }}>어시스트 (선택)</label>
+            <div className="space-y-1.5 max-h-28 overflow-y-auto">
+              {selectable.filter(mem => mem.userId !== scorer).map(mem => (
+                <button key={mem.userId}
+                  onClick={() => setAssist(mem.userId === assist ? null : mem.userId)}
+                  className="w-full rounded-xl px-3 py-2 text-sm text-left font-medium transition-all"
+                  style={{
+                    background: assist === mem.userId ? 'rgba(96,165,250,0.12)' : 'var(--sidebar-bg)',
+                    color: assist === mem.userId ? '#60a5fa' : 'var(--text-secondary)',
+                    border: `1px solid ${assist === mem.userId ? 'rgba(96,165,250,0.3)' : 'var(--card-border)'}`,
+                  }}>
+                  {assist === mem.userId ? '🅰 ' : ''}{memberLabel(mem)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button onClick={submit} disabled={!scorer || loading}
+            className="w-full rounded-xl py-3 text-sm font-bold text-white disabled:opacity-50"
+            style={{ background: 'linear-gradient(to right, #c026d3, #7c3aed)' }}>
+            {loading ? '저장 중...' : '득점 기록하기'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── M3-A: 팀 통계 섹션 ────────────────────────────────────────────────────────
+
+function TeamStatsSection({ matches, members, teamId }: {
+  matches: Match[]; members: TeamMember[]; teamId: string
+}) {
+  const completed = matches.filter(m => m.status === 'completed')
+
+  // 팀 전적 계산
+  let wins = 0, draws = 0, losses = 0
+  for (const m of completed) {
+    if (m.homeScore == null || m.awayScore == null) continue
+    const isHome = m.homeTeamId === teamId
+    const our = isHome ? m.homeScore : m.awayScore
+    const their = isHome ? m.awayScore : m.homeScore
+    if (our > their) wins++
+    else if (our === their) draws++
+    else losses++
+  }
+
+  // 골 집계 (scorer + assist)
+  const goalMap: Record<string, { goals: number; assists: number }> = {}
+  for (const m of completed) {
+    for (const g of m.goals ?? []) {
+      goalMap[g.scorer] = goalMap[g.scorer] ?? { goals: 0, assists: 0 }
+      goalMap[g.scorer].goals++
+      if (g.assist) {
+        goalMap[g.assist] = goalMap[g.assist] ?? { goals: 0, assists: 0 }
+        goalMap[g.assist].assists++
+      }
+    }
+  }
+
+  const scorers = Object.entries(goalMap)
+    .sort((a, b) => (b[1].goals + b[1].assists) - (a[1].goals + a[1].assists))
+    .slice(0, 5)
+
+  const hasStats = completed.length > 0
+
+  return (
+    <div>
+      <h2 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
+        팀 통계
+      </h2>
+      <div className="rounded-2xl border p-4 space-y-4"
+        style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
+
+        {/* 전적 요약 */}
+        <div className="flex items-center gap-4">
+          <div className="text-center">
+            <p className="text-2xl font-black tabular-nums" style={{ color: '#4ade80' }}>{wins}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: 'var(--text-muted)' }}>승</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-black tabular-nums" style={{ color: 'var(--text-secondary)' }}>{draws}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: 'var(--text-muted)' }}>무</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-black tabular-nums" style={{ color: '#f87171' }}>{losses}</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: 'var(--text-muted)' }}>패</p>
+          </div>
+          <div className="flex-1" />
+          <div className="text-right">
+            <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+              {hasStats
+                ? `승률 ${Math.round((wins / completed.length) * 100)}%`
+                : '기록 없음'}
+            </p>
+            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              완료 경기 {completed.length}경기
+            </p>
+          </div>
+        </div>
+
+        {/* 득점 리더보드 */}
+        {scorers.length > 0 && (
+          <div className="border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>득점 기록</p>
+            <div className="space-y-1.5">
+              {scorers.map(([userId, stat], rank) => {
+                const mem = members.find(m => m.userId === userId)
+                return (
+                  <div key={userId} className="flex items-center gap-3">
+                    <span className="text-xs font-bold w-5 text-right tabular-nums"
+                      style={{ color: rank === 0 ? '#fbbf24' : 'var(--text-muted)' }}>
+                      {rank + 1}
+                    </span>
+                    <span className="flex-1 text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                      {mem ? memberLabel(mem) : userId.slice(0, 8) + '…'}
+                    </span>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                        ⚽ {stat.goals}
+                      </span>
+                      {stat.assists > 0 && (
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          🅰 {stat.assists}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {!hasStats && (
+          <p className="text-xs text-center py-2" style={{ color: 'var(--text-muted)' }}>
+            완료된 경기가 없습니다
+          </p>
+        )}
+      </div>
     </div>
   )
 }
