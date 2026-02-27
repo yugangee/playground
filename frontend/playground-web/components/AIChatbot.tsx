@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { MessageCircle, X, Send } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { ensureEC2Running } from "@/lib/ensureEC2";
 
 const API_URL = process.env.NEXT_PUBLIC_VIDEO_API_URL || "https://d2e8khynpnbcpl.cloudfront.net";
 
@@ -26,6 +27,13 @@ export default function AIChatbot() {
     setInput("");
     setLoading(true);
     try {
+      // EC2 서버 확인 및 시작
+      const ec2Ready = await ensureEC2Running();
+      if (!ec2Ready) {
+        setMsgs(prev => [...prev, { role: "assistant", content: "서버가 시작 중이에요. 잠시 후 다시 시도해주세요 ⚽" }]);
+        setLoading(false);
+        return;
+      }
       const res = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -54,7 +62,7 @@ export default function AIChatbot() {
           <div className="flex items-center justify-between px-4 py-3 bg-black text-white">
             <div className="flex items-center gap-2">
               <MessageCircle size={18} />
-              <span className="text-sm font-semibold">AI 어시스턴트</span>
+              <span className="text-sm font-semibold">AI 축구 어시스턴트</span>
             </div>
             <button onClick={() => setOpen(false)} className="hover:bg-white/20 rounded-full p-1 transition-colors"><X size={16} /></button>
           </div>
@@ -63,13 +71,10 @@ export default function AIChatbot() {
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
             {msgs.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm ${
-                  m.role === "user"
-                    ? "bg-black text-white rounded-br-sm"
-                    : "bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-gray-100 rounded-bl-sm"
-                }`}>
+                <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm ${m.role === "user" ? "rounded-br-sm" : "rounded-bl-sm"}`}
+                  style={{ backgroundColor: "var(--chat-bubble-bg)", color: "var(--chat-bubble-color)" }}>
                   {m.role === "assistant" ? (
-                    <div className="prose dark:prose-invert prose-sm max-w-none [&_p]:m-0 [&_ul]:m-0 [&_ol]:m-0 [&_li]:text-gray-800 dark:[&_li]:text-gray-200">
+                    <div className="prose prose-sm max-w-none [&_p]:m-0 [&_ul]:m-0 [&_ol]:m-0" style={{ color: "var(--chat-bubble-color)" }}>
                       <ReactMarkdown>{m.content}</ReactMarkdown>
                     </div>
                   ) : m.content}
@@ -78,11 +83,11 @@ export default function AIChatbot() {
             ))}
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 dark:bg-white/10 px-4 py-2 rounded-2xl rounded-bl-sm">
+                <div className="px-4 py-2 rounded-2xl rounded-bl-sm" style={{ backgroundColor: "var(--chat-bubble-bg)" }}>
                   <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
                 </div>
               </div>

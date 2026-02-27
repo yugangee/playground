@@ -1,0 +1,1 @@
+{"statusCode":200,"headers":{"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"Content-Type","Access-Control-Allow-Methods":"POST,OPTIONS","Content-Type":"application/json"},"body":"{\"status\":\"running\",\"publicIp\":\"44.220.42.110\",\"message\":\"EC2 이미 실행 중\"}"}

@@ -87,20 +87,20 @@ export default function ChatPage() {
   return (
     <div className="max-w-4xl mx-auto h-[calc(100vh-120px)] flex gap-4">
       {/* 채팅 목록 */}
-      <div className="w-56 shrink-0 bg-white/5 border border-white/10 rounded-xl overflow-hidden flex flex-col">
-        <p className="text-xs font-semibold text-gray-400 px-4 py-3 border-b border-white/10">채팅 목록</p>
+      <div className="w-56 shrink-0 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl overflow-hidden flex flex-col">
+        <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 px-4 py-3 border-b border-gray-200 dark:border-white/10">채팅 목록</p>
         <div className="overflow-y-auto flex-1">
           {rooms.filter(r => r.type === "team").length > 0 && (
             <>
               <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-4 pt-3 pb-1">팀 채팅</p>
               {rooms.filter(r => r.type === "team").map(r => (
                 <button key={r.id} onClick={() => setActiveId(r.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-3 text-left border-b border-white/5 transition-colors ${active?.id === r.id ? "bg-fuchsia-500/10" : "hover:bg-white/5"}`}>
+                  className={`w-full flex items-center gap-3 px-3 py-3 text-left border-b border-gray-100 dark:border-white/5 transition-colors ${active?.id === r.id ? "bg-fuchsia-500/10" : "hover:bg-gray-100 dark:hover:bg-white/5"}`}>
                   <div className="w-9 h-9 rounded-full shrink-0 border border-fuchsia-500/30 bg-fuchsia-500/10 flex items-center justify-center">
                     <Users size={16} className="text-fuchsia-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-white text-xs font-semibold block">{r.team}</span>
+                    <span className="text-gray-900 dark:text-white text-xs font-semibold block">{r.team}</span>
                     <span className="text-gray-500 text-xs truncate block mt-0.5">{r.msgs.at(-1)?.text}</span>
                   </div>
                 </button>

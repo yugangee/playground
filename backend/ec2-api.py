@@ -28,7 +28,7 @@ from typing import List, Optional
 coaching_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def generate_coaching(subtitle_data, event_data, ball_control, my_team=None):
-    commentary_text = "\n".join([s for s in subtitle_data if s and s.strip()])
+    commentary_text = "\n".join([s["text"] if isinstance(s, dict) else s for s in subtitle_data if s])
     events_text = "\n".join([e for e in event_data if e and e.strip()])
     ball_info = f"팀1 점유율: {ball_control.get('team1', 0)}%, 팀2 점유율: {ball_control.get('team2', 0)}%"
 
@@ -96,6 +96,29 @@ app.add_middleware(
 s3_client = boto3.client('s3')
 S3_BUCKET = os.getenv('S3_BUCKET_NAME', 'football-analysis-bucket')
 
+# 마지막 API 활동 시간 기록 (자동 정지용)
+LAST_ACTIVITY_FILE = "/tmp/ec2_last_activity"
+
+def touch_activity():
+    """API 요청이 올 때마다 마지막 활동 시간 기록"""
+    try:
+        with open(LAST_ACTIVITY_FILE, "w") as f:
+            f.write(str(datetime.now().timestamp()))
+    except:
+        pass
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request as StarletteRequest
+
+class ActivityTracker(BaseHTTPMiddleware):
+    async def dispatch(self, request: StarletteRequest, call_next):
+        # health check 제외, 실제 API 요청만 추적
+        if request.url.path not in ["/health", "/", "/docs", "/openapi.json"]:
+            touch_activity()
+        return await call_next(request)
+
+app.add_middleware(ActivityTracker)
+
 # 작업 상태 저장 (메모리)
 jobs = {}
 
@@ -109,13 +132,27 @@ class AnalyzeResponse(BaseModel):
     team_ball_control: dict = {}
     message: str
 
-def analyze_video(input_path: str, output_path: str):
+def analyze_video(input_path: str, output_path: str, job_id: str = None):
     """영상 분석 메인 로직"""
     vector_store_path = os.path.abspath(
         os.path.join("commentary_ai", "generator", "vector_store.pkl")
     )
 
     video_frames = read_video(input_path)
+
+    # fps 구하기
+    import cv2 as cv2_cap
+    cap = cv2_cap.VideoCapture(input_path)
+    video_fps = cap.get(cv2_cap.CAP_PROP_FPS) or 24
+    cap.release()
+
+    # 진행 단계 업데이트 헬퍼
+    def update_stage(stage_text, stage_progress):
+        if job_id and job_id in jobs:
+            jobs[job_id]["progress"] = stage_progress
+            jobs[job_id]["stage"] = stage_text
+
+    update_stage("영상 전처리 중...", 5)
 
     # 480p 리사이즈로 YOLO 처리 속도 향상
     import cv2
@@ -126,21 +163,25 @@ def analyze_video(input_path: str, output_path: str):
         video_frames = [cv2.resize(f, (new_w, new_h)) for f in video_frames]
         print(f"[RESIZE] {w}x{h} → {new_w}x{new_h} ({len(video_frames)} frames)")
 
+    update_stage("선수/볼 추적 중...", 10)
     tracker = Tracker('models/best.pt')
     tracks = tracker.get_object_tracks(video_frames, read_from_stub=False, stub_path=None)
     tracker.add_positions_to_tracks(tracks)
 
+    update_stage("카메라 움직임 분석 중...", 30)
     camera_movement_estimator = CameraMovementEstimator(video_frames[0])
     camera_movement_per_frame = camera_movement_estimator.get_camera_movement(
         video_frames, read_from_stub=False, stub_path=None
     )
     camera_movement_estimator.add_adjust_positions_to_tracks(tracks, camera_movement_per_frame)
 
+    update_stage("좌표 변환 중...", 40)
     view_transformer = ViewTransformer()
     view_transformer.add_transformed_position_to_tracks(tracks)
 
     tracks["ball"] = tracker.interpolate_ball_positions(tracks["ball"])
 
+    update_stage("속도/거리 계산 중...", 45)
     speed_and_distance_estimator = SpeedAndDistance_Estimator()
     speed_and_distance_estimator.add_speed_and_distance_to_tracks(tracks)
 
@@ -161,7 +202,22 @@ def analyze_video(input_path: str, output_path: str):
     event_data = []
     events_list = []
 
+    def frame_to_time(f):
+        total_sec = int(f / video_fps)
+        m, s = divmod(total_sec, 60)
+        return f"{m}:{s:02d}"
+
+    total_frames = len(tracks['players'])
+
     for frame_num, player_track in enumerate(tracks['players']):
+        # 진행률 업데이트 (50~90% 범위, 10프레임마다)
+        if job_id and job_id in jobs and frame_num % 10 == 0:
+            frame_progress = 50 + ((frame_num + 1) / total_frames * 40)
+            jobs[job_id]["progress"] = round(frame_progress, 1)
+            jobs[job_id]["stage"] = "이벤트 분석 중..."
+            jobs[job_id]["live_subtitles"] = subtitle_data.copy()
+            jobs[job_id]["live_events"] = events_list.copy()
+
         ball_bbox = tracks['ball'][frame_num][1]['bbox']
         ball_speed = tracks['ball'][frame_num].get('speed', 0)
         assigned_player = player_assigner.assign_ball_to_player(player_track, ball_bbox)
@@ -180,7 +236,7 @@ def analyze_video(input_path: str, output_path: str):
             if assigned_player != -1:
                 event_text = f"패스 성공! 플레이어 {previous_player_with_ball} ➡ 플레이어 {assigned_player}"
                 event_texts.append(event_text)
-                events_list.append({"frame": frame_num, "type": "pass", "description": event_text})
+                events_list.append({"frame": frame_num, "time": frame_to_time(frame_num), "type": "pass", "description": event_text})
         elif assigned_player != -1:
             speed = tracks['players'][frame_num][assigned_player].get('speed', 0)
             if speed > 1.5:
@@ -190,18 +246,18 @@ def analyze_video(input_path: str, output_path: str):
         if previous_team_with_ball is not None and current_team_with_ball != previous_team_with_ball:
             event_text = "태클 성공! 상대 팀이 볼을 차단했습니다."
             event_texts.append(event_text)
-            events_list.append({"frame": frame_num, "type": "tackle", "description": event_text})
+            events_list.append({"frame": frame_num, "time": frame_to_time(frame_num), "type": "tackle", "description": event_text})
 
         if ball_speed > 8:
             event_text = "슛! 볼이 빠른 속도로 움직입니다."
             event_texts.append(event_text)
-            events_list.append({"frame": frame_num, "type": "shot", "description": event_text})
+            events_list.append({"frame": frame_num, "time": frame_to_time(frame_num), "type": "shot", "description": event_text})
 
         goal_area = ((100, 50), (200, 100))
         if goal_area[0][0] < ball_bbox[0] < goal_area[1][0] and goal_area[0][1] < ball_bbox[1] < goal_area[1][1]:
             event_text = "골! 볼이 골대에 들어갔습니다!"
             event_texts.append(event_text)
-            events_list.append({"frame": frame_num, "type": "goal", "description": event_text})
+            events_list.append({"frame": frame_num, "time": frame_to_time(frame_num), "type": "goal", "description": event_text})
 
         event_text = "\n".join(event_texts)
         event_data.append(event_text)
@@ -211,18 +267,37 @@ def analyze_video(input_path: str, output_path: str):
         else:
             speed = 0
 
-        if frame_num % 48 == 0:
+        if frame_num % 72 == 0:
+            # 최근 이벤트 수집 (이 구간 동안 발생한 이벤트)
+            recent_events = [e for e in events_list if e["frame"] > max(0, frame_num - 72) and e["frame"] <= frame_num]
+            recent_events_text = ""
+            if recent_events:
+                recent_events_text = "최근 이벤트: " + ", ".join([e["description"] for e in recent_events[-5:]])
+            else:
+                recent_events_text = "최근 특별한 이벤트 없음"
+
+            # 점유율 계산
+            if len(team_ball_control) > 0:
+                recent_control = team_ball_control[-72:] if len(team_ball_control) >= 72 else team_ball_control
+                t1 = sum(1 for t in recent_control if t == 1)
+                t2 = sum(1 for t in recent_control if t == 2)
+                total = t1 + t2
+                possession_text = f"최근 점유율 - 팀1: {t1*100//max(total,1)}%, 팀2: {t2*100//max(total,1)}%"
+            else:
+                possession_text = "점유율 데이터 없음"
+
             query = (
-                f"프레임 {frame_num}에서, "
-                f"플레이어 {assigned_player}은(는) 속도 {speed:.2f}로 이동 중이며, "
-                f"볼의 속도는 {ball_speed:.2f}입니다. "
-                f"현재 볼 소유 팀은 {current_team_with_ball}이고, "
-                f"볼의 위치는 {ball_bbox}입니다. "
-                f"이 상황에 대해 해설해주세요."
+                f"축구 경기 중계를 해주세요. 현재 상황:\n"
+                f"- 볼 소유: 팀{current_team_with_ball}의 플레이어 {assigned_player}\n"
+                f"- 플레이어 이동 속도: {speed:.2f}\n"
+                f"- 볼 속도: {ball_speed:.2f}\n"
+                f"- {possession_text}\n"
+                f"- {recent_events_text}\n"
+                f"짧고 생동감 있게 실제 축구 중계처럼 해설해주세요. 1~2문장으로."
             )
 
             subtitle_text = generate_commentary(query, vector_store_path)
-            subtitle_data.append(subtitle_text)
+            subtitle_data.append({"frame": frame_num, "time": frame_to_time(frame_num), "text": subtitle_text})
 
         previous_player_with_ball = assigned_player
         previous_team_with_ball = current_team_with_ball
@@ -262,9 +337,13 @@ def run_analysis_job(job_id, s3_key):
         print(f"[{job_id}] Downloading video from S3: {s3_key}")
         s3_client.download_file(S3_BUCKET, s3_key, input_local_path)
 
+        if jobs[job_id]["status"] == "cancelled":
+            print(f"[{job_id}] Cancelled before analysis")
+            return
+
         jobs[job_id]["status"] = "analyzing"
         print(f"[{job_id}] Starting analysis...")
-        events, ball_control, subtitles, event_texts, team_colors = analyze_video(input_local_path, output_local_path)
+        events, ball_control, subtitles, event_texts, team_colors = analyze_video(input_local_path, output_local_path, job_id)
 
         jobs[job_id]["status"] = "uploading"
         output_s3_key = f"outputs/analyzed_{timestamp}_{job_id}.mp4"
@@ -350,11 +429,31 @@ async def get_job_status(job_id: str):
             "status": "error",
             "error": job["error"],
         }
+    elif job["status"] == "cancelled":
+        return {
+            "status": "cancelled",
+            "message": "분석이 중지되었습니다",
+        }
     else:
         return {
             "status": job["status"],
-            "message": "분석 진행 중...",
+            "message": job.get("stage", "분석 진행 중..."),
+            "progress": job.get("progress", 0),
+            "live_subtitles": job.get("live_subtitles", []),
+            "live_events": job.get("live_events", []),
         }
+
+
+@app.post("/api/cancel/{job_id}")
+async def cancel_job(job_id: str):
+    """분석 작업 취소"""
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="작업을 찾을 수 없습니다")
+    job = jobs[job_id]
+    if job["status"] in ("done", "error", "cancelled"):
+        return {"status": job["status"], "message": "이미 완료된 작업입니다"}
+    job["status"] = "cancelled"
+    return {"status": "cancelled", "message": "분석이 중지되었습니다"}
 
 
 @app.post("/api/coaching")
@@ -391,44 +490,32 @@ async def get_presigned_upload_url(filename: str):
 # ═══════════════════════════════════════════
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict
 
-chat_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7, max_tokens=800, api_key=os.getenv("OPENAI_API_KEY"))
-chat_embeddings = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
+chat_llm = ChatOpenAI(
+    model=os.getenv("CHATBOT_MODEL_ID", "gpt-4o-mini"),
+    temperature=0.7,
+    max_tokens=800,
+)
+chat_embeddings = OpenAIEmbeddings(model=os.getenv("EMBEDDING_MODEL_ID", "text-embedding-3-small"))
 
 VECTOR_STORE_PATH = os.path.join(os.path.dirname(__file__), "football_knowledge")
+FOOTBALL_RULES_PDF = os.path.join(os.path.dirname(__file__), "football_rules.pdf")
 vectorstore = None
 chat_graph = None
 analysis_store = {}  # 분석 결과 저장
 
-def get_football_knowledge():
-    return [
-        "축구는 11명으로 구성된 두 팀이 경기하며, 전반 45분 후반 45분 총 90분 경기한다.",
-        "오프사이드: 공격 선수가 상대 진영에서 볼보다 앞에 있고, 상대 수비수 뒤에서 두 번째 선수보다 골라인에 가까이 있을 때 오프사이드다.",
-        "페널티킥: 페널티 에어리어 안에서 수비팀이 파울을 범하면 페널티킥이 주어진다.",
-        "프리킥: 직접 프리킥은 바로 골을 넣을 수 있고, 간접 프리킥은 다른 선수가 터치해야 골이 인정된다.",
-        "옐로카드는 경고, 레드카드는 퇴장이다. 한 경기에서 옐로카드 2장을 받으면 퇴장된다.",
-        "VAR(비디오 판독)은 골, 페널티, 레드카드, 선수 오인 상황에서 사용된다.",
-        "4-3-3 포메이션: 수비수 4명, 미드필더 3명, 공격수 3명. 공격적이며 측면 공격에 강하다.",
-        "4-4-2 포메이션: 가장 전통적인 포메이션. 균형 잡힌 공수 밸런스.",
-        "3-5-2 포메이션: 윙백이 공수를 오가며 측면을 담당. 미드필드 지배력이 높다.",
-        "4-2-3-1 포메이션: 더블 피봇으로 수비 안정성을 확보하면서 공격형 미드필더가 창의적 플레이를 담당.",
-        "티키타카: 짧은 패스를 빠르게 연결하며 점유율을 높이는 전술. 바르셀로나가 대표적.",
-        "게겐프레싱: 볼을 잃은 직후 즉시 전방에서 압박하여 볼을 되찾는 전술. 클롭 감독의 리버풀이 대표적.",
-        "카운터어택: 수비적으로 진영을 낮추고 볼을 빼앗은 후 빠른 전환으로 공격하는 전술.",
-        "하이프레스: 상대 진영 높은 곳에서부터 압박하여 빌드업을 방해하는 전술.",
-        "골키퍼(GK): 골대를 지키는 포지션. 현대 축구에서는 빌드업 참여 능력도 중요.",
-        "센터백(CB): 중앙 수비수. 공중볼 경합, 태클, 위치 선정이 핵심.",
-        "풀백(LB/RB): 측면 수비수. 공격 가담과 크로스 능력도 요구된다.",
-        "수비형 미드필더(CDM): 볼 탈취와 패스 배급이 핵심.",
-        "윙어(LW/RW): 드리블과 속도로 수비를 돌파하고 크로스나 컷인 슈팅.",
-        "스트라이커(ST): 최전방 공격수. 골 결정력이 가장 중요.",
-        "론도 훈련: 원 안에서 패스를 돌리며 패스 정확도와 판단력을 기르는 훈련.",
-        "체력 훈련: 인터벌 러닝, 셔틀런으로 90분 경기를 뛸 수 있는 체력을 만든다.",
-    ]
+def load_football_knowledge_from_pdf():
+    """FIFA 24/25 Laws of the Game PDF에서 텍스트 추출"""
+    from langchain_community.document_loaders import PyPDFLoader
+    print(f"[CHATBOT] Loading PDF: {FOOTBALL_RULES_PDF}")
+    loader = PyPDFLoader(FOOTBALL_RULES_PDF)
+    pages = loader.load()
+    print(f"[CHATBOT] Loaded {len(pages)} pages from PDF")
+    return pages
 
 class ChatState(TypedDict):
     messages: list
@@ -457,12 +544,35 @@ def retrieve_knowledge(state: ChatState) -> ChatState:
 
 def generate_chat_response(state: ChatState) -> ChatState:
     system_parts = [
-        "너는 축구 전문 AI 어시스턴트야. 한국어로 친절하고 전문적으로 답변해. 답변은 간결하되 핵심을 놓치지 마."
+        "# Role\n"
+        "너는 축구 전문 AI 어시스턴트야. 축구에 관한 모든 주제(규칙, 전술, 선수, 리그, 월드컵, 이적, 역사 등)에 대해 한국어로 친절하고 전문적으로 답변해.\n\n"
+        "# Task\n"
+        "1. 축구 규칙/판정 관련 질문: 제공된 [Context]의 축구 규칙 데이터(FIFA Laws of the Game)를 최우선으로 참고하여 정확하게 답변한다.\n"
+        "   - 규칙이 모호한 상황에서는 IFAB 가이드라인에 따라 '심판의 재량'임을 언급하되, 판단 근거가 되는 규칙 조항을 설명한다.\n"
+        "   - 최신 개정 사항(예: 핸드볼 규정 변화, 오프사이드 판정 기준 등)이 있다면 강조해서 설명한다.\n"
+        "2. 그 외 축구 관련 질문(선수, 리그, 월드컵, 전술, 이적 등): 너의 일반 지식을 활용하여 자유롭게 답변한다.\n\n"
+        "# Guidelines\n"
+        "- 규칙 질문 시 [Context]가 제공되면 이를 최우선으로 한다.\n"
+        "- 규칙 번호(예: 제12조 반칙과 불법 행위)를 명시하고, 불렛 포인트를 사용하여 깔끔하게 정리한다.\n"
+        "- 전문적이면서도 축구 팬들이 이해하기 쉽게 친절하게 설명한다.\n"
+        "- 특정 팀에 대한 편향된 판정 의견을 내지 않는다.\n"
+        "- 답변에 적절한 이모티콘(⚽🏆🥅🟨🟥🏟️👟💪🎯📋 등)을 활용하여 가독성과 재미를 높인다.\n\n"
+        "# Output Format\n"
+        "규칙/판정 관련 질문일 경우 아래 형식을 사용한다:\n\n"
+        "### 📢 판정 가이드\n"
+        "> (핵심 결론 한 줄 요약)\n\n"
+        "---\n\n"
+        "### 📖 관련 규칙: 제OO조 (규칙 이름)\n"
+        "* **핵심 내용**: (규칙의 핵심 문구 요약)\n"
+        "* **판단 근거**: (왜 이런 판정이 나왔는지 설명)\n\n"
+        "### 💡 심판의 팁 (상황 예시)\n"
+        "* (실제 경기 상황을 예로 들어 짧게 설명)\n\n"
+        "그 외 일반 축구 질문에는 자유로운 형식으로 답변한다."
     ]
     if state["analysis_data"]:
         system_parts.append(f"\n[경기 분석 데이터]\n{state['analysis_data']}\n이 데이터를 참고하여 경기에 대한 질문에 답변해.")
     if state["context"] and state["context"] != "rag":
-        system_parts.append(f"\n[참고 자료]\n{state['context']}\n이 자료를 바탕으로 답변해.")
+        system_parts.append(f"\n[Context]\n{state['context']}")
 
     msgs = [SystemMessage(content="\n".join(system_parts))]
     for m in state["messages"]:
@@ -477,16 +587,19 @@ def generate_chat_response(state: ChatState) -> ChatState:
 def init_chatbot():
     global vectorstore, chat_graph
     try:
+        print("[CHATBOT] Initializing...")
         if os.path.exists(VECTOR_STORE_PATH):
             vectorstore = FAISS.load_local(VECTOR_STORE_PATH, chat_embeddings, allow_dangerous_deserialization=True)
-            print("[CHATBOT] Loaded vectorstore")
+            print("[CHATBOT] Loaded vectorstore from disk")
         else:
-            docs = get_football_knowledge()
-            splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-            chunks = splitter.create_documents(docs)
+            print("[CHATBOT] Building vectorstore from FIFA rules PDF...")
+            pages = load_football_knowledge_from_pdf()
+            splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+            chunks = splitter.split_documents(pages)
+            print(f"[CHATBOT] Split into {len(chunks)} chunks, creating embeddings...")
             vectorstore = FAISS.from_documents(chunks, chat_embeddings)
             vectorstore.save_local(VECTOR_STORE_PATH)
-            print("[CHATBOT] Created vectorstore")
+            print("[CHATBOT] Created and saved vectorstore")
 
         graph = StateGraph(ChatState)
         graph.add_node("classify", classify_intent)
@@ -500,10 +613,17 @@ def init_chatbot():
         print("[CHATBOT] LangGraph ready")
     except Exception as e:
         print(f"[CHATBOT] Init error: {e}")
+        import traceback
+        traceback.print_exc()
+
 
 @app.on_event("startup")
 async def startup_event():
-    init_chatbot()
+    # 백그라운드 스레드에서 챗봇 초기화 (서버 시작 차단 방지)
+    thread = threading.Thread(target=init_chatbot, daemon=True)
+    thread.start()
+    # 서버 시작 시 활동 기록
+    touch_activity()
 
 @app.post("/api/chat")
 async def chat_endpoint(request: dict):

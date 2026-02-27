@@ -24,7 +24,7 @@
                                                                                                           "TLSv1.2"
                                                                                                       ]
                                                                                         },
-                                                                 "OriginReadTimeout":  360,
+                                                                 "OriginReadTimeout":  60,
                                                                  "OriginKeepaliveTimeout":  5
                                                              },
                                       "ConnectionAttempts":  3,
