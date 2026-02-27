@@ -18,6 +18,7 @@ const generalNavItems = [
   { href: "/clubs",     label: "클럽 탐색",    icon: Shield },
   { href: "/league",    label: "리그 탐색",    icon: Trophy },
   { href: "/players",   label: "선수 탐색",    icon: UserSearch },
+  { href: "/schedule",  label: "일정·참석",    icon: Calendar },
   { href: "/chat",      label: "채팅",         icon: MessageCircle },
   { href: "/community", label: "커뮤니티",     icon: Globe },
   { href: "/market",    label: "마켓",         icon: ShoppingCart },
