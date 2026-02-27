@@ -127,7 +127,7 @@
 - [x] AI 영상 분석 (EC2 FastAPI + YOLO)
 - [x] 다크/라이트 테마 토글
 - [x] S3 + CloudFront 배포 자동화
-- [x] manage/ 백오피스 (CDK 스택 — finance, league, schedule, social, discover)
+- [x] manage/ 백오피스 (CDK 스택 — finance, league, schedule, social, discover) ※ `functions/notifications/index.ts`가 실제로 social/discover 라우트 담당 (파일명 오해 주의)
 - [x] LangGraph AI 챗봇 (RAG + 분석 컨텍스트)
 - [x] 로그인/API URL 버그 수정 (11건), CDK Cognito 기존 풀 연동
 
@@ -194,14 +194,14 @@
 - [ ] 최소 인원 미달 경고
 - [ ] .ics 캘린더 내보내기 (구글/아이폰)
 
-#### 1-B. 회비 관리 ★
+#### 1-B. 회비 관리 ★ (핵심 UI 완료, 알림 미구현)
 
-- [ ] 월별 납부 현황 대시보드 (납부/미납 현황 카드)
-- [ ] 미납자 자동 알림 발송
-- [ ] 지출 내역 공개 (구장비, 음료비 등)
-- [ ] 경기별 1/N 더치페이 자동 계산
+- [x] 월별 납부 현황 대시보드 — transactions, dues, fines 탭 (`manage/finance/page.tsx`, Manage API 연동)
+- [x] 지출 내역 공개 (구장비, 음료비 등 거래 내역 목록)
+- [x] 경기별 1/N 더치페이 자동 계산 (`perPerson = Math.ceil(total / count)` 구현됨)
+- [x] 백엔드: CDK finance Lambda — `/finance/transactions`, `/finance/dues`, `/finance/fines` 완비
+- [ ] 미납자 자동 알림 발송 (1-C 알림톡 브릿지 의존)
 - [ ] **대회 참가비 분담** — 팀당 30만원을 인원수로 자동 분배 계산 (KJA 케이스)
-- [ ] 백엔드: `playground-finance` 테이블 활용 또는 신규 API
 
 #### 1-C. 카카오 알림톡 브릿지 ★★ (킬러피처)
 
