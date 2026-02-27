@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { MapPin, Trophy, Users, X, Swords, Send, Plus, ImageIcon } from "lucide-react";
+import { MapPin, Trophy, Users, X, Swords, Send, Plus, ImageIcon, Search } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useClub } from "@/context/ClubContext";
 import { useAuth } from "@/context/AuthContext";
@@ -9,6 +9,18 @@ import { regionData } from "../signup/regions";
 import RatingBadge from "@/components/RatingBadge";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
+
+interface Toast { id: number; message: string; type: 'success' | 'error' }
+
+function useToast() {
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const show = (message: string, type: 'success' | 'error' = 'success') => {
+    const id = Date.now();
+    setToasts(p => [...p, { id, message, type }]);
+    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000);
+  };
+  return { toasts, show };
+}
 
 type DbClub = {
   clubId: string;
@@ -51,6 +63,8 @@ export default function ClubsPage() {
     { sido: "", sigungu: "" },
   ]);
   const [joining, setJoining] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const { toasts, show } = useToast();
   const PER_PAGE = 8;
 
   // 유저가 이미 가입한 클럽인지 확인
@@ -63,8 +77,8 @@ export default function ClubsPage() {
 
   // 클럽 가입 처리
   const handleJoinClub = async (club: DbClub) => {
-    if (!user) { alert("로그인이 필요합니다"); return; }
-    if (isAlreadyMember(club.clubId)) { alert("이미 가입한 클럽입니다"); return; }
+    if (!user) { show("로그인이 필요합니다", "error"); return; }
+    if (isAlreadyMember(club.clubId)) { show("이미 가입한 클럽입니다", "error"); return; }
     setJoining(club.clubId);
     try {
       // 1) 멤버 등록
@@ -94,11 +108,11 @@ export default function ClubsPage() {
       const r = await fetch(`${API}/clubs`);
       const d = await r.json();
       setAllClubs(d.clubs || []);
-      alert(`${club.name}에 가입했습니다!`);
+      show(`${club.name}에 가입했습니다! 🎉`, "success");
       setSelected(null);
     } catch (e) {
       console.error(e);
-      alert("가입 처리 중 오류가 발생했습니다");
+      show("가입 처리 중 오류가 발생했습니다", "error");
     } finally {
       setJoining(null);
     }
@@ -113,7 +127,7 @@ export default function ClubsPage() {
         setAllClubs(list);
         setAiPool([...list].sort(() => Math.random() - 0.5).slice(0, 4));
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const aiMatches = aiPool.filter((c) => !dismissed.includes(c.clubId));
@@ -126,6 +140,7 @@ export default function ClubsPage() {
     : [];
 
   const filtered = allClubs.filter((c) => {
+    if (searchQuery && !c.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     if (filterSport !== "전체" && c.sport !== filterSport) return false;
     if (sido !== "전체" && !c.areas?.some(a => a.sido === sido)) return false;
     if (sigungu !== "전체" && !c.areas?.some(a => a.sigungu === sigungu)) return false;
@@ -199,19 +214,64 @@ export default function ClubsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Toast 알림 */}
+      <div className="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
+        {toasts.map(t => (
+          <div
+            key={t.id}
+            className="px-4 py-3 rounded-xl text-sm font-medium shadow-xl border animate-toast-in"
+            style={{
+              background: t.type === 'success'
+                ? 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.15))'
+                : 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.15))',
+              borderColor: t.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)',
+              color: t.type === 'success' ? '#10b981' : '#ef4444',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            {t.message}
+          </div>
+        ))}
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">클럽 탐색</h1>
           <p className="text-gray-400 text-sm mt-1">주변 클럽을 찾고 경기를 제안해보세요</p>
         </div>
-        <button onClick={() => { if (!user) { alert("로그인이 필요합니다"); return; } setCreating(true); }} className="w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+        <button onClick={() => { if (!user) { show("로그인이 필요합니다", "error"); return; } setCreating(true); }} className="w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
           <Plus size={18} />
         </button>
       </div>
 
+      {/* 검색창 */}
+      <div className="relative">
+        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+          placeholder="클럽 이름으로 검색..."
+          className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm outline-none transition-all"
+          style={{
+            background: 'var(--input-bg)',
+            border: '1px solid var(--input-border)',
+            color: 'var(--text-primary)',
+          }}
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
+
       <div className="space-y-2">
         <div className="flex gap-2 flex-wrap">
-          {["전체","축구","풋살","농구","야구","배구","배드민턴","아이스하키","스노보드","러닝크루","기타"].map((s) => (
+          {["전체", "축구", "풋살", "농구", "야구", "배구", "배드민턴", "아이스하키", "스노보드", "러닝크루", "기타"].map((s) => (
             <button key={s} onClick={() => { setFilterSport(s); setPage(1); }}
               className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
               style={chipStyle(filterSport === s)}
@@ -276,8 +336,8 @@ export default function ClubsPage() {
                   </div>
                   <button
                     onClick={async () => {
-                      if (!user) { alert("로그인이 필요합니다"); return; }
-                      if (!user.teamId) { alert("소속 팀이 필요합니다"); return; }
+                      if (!user) { show("로그인이 필요합니다", "error"); return; }
+                      if (!user.teamId) { show("소속 팀이 필요합니다", "error"); return; }
                       if (user.teamId === r.clubId) return;
                       try {
                         const res = await fetch(`${API}/matches`, {
@@ -285,9 +345,9 @@ export default function ClubsPage() {
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ homeClubId: user.teamId, awayClubId: r.clubId, sport: r.sport, createdBy: user.email }),
                         });
-                        if (res.ok) setProposed((p) => [...p, r.clubId]);
-                        else { const d = await res.json(); alert(d.message); }
-                      } catch { alert("경기 제안 실패"); }
+                        if (res.ok) { setProposed((p) => [...p, r.clubId]); show("경기를 제안했습니다! ⚔️", "success"); }
+                        else { const d = await res.json(); show(d.message || "경기 제안 실패", "error"); }
+                      } catch { show("경기 제안 실패", "error"); }
                     }}
                     disabled={proposed.includes(r.clubId)}
                     className="w-full py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
@@ -297,7 +357,7 @@ export default function ClubsPage() {
                     }
                   >
                     <Send size={12} />
-                    {proposed.includes(r.clubId) ? "제안 완료" : "경기 제안"}
+                    {proposed.includes(r.clubId) ? "제안 완료 ✓" : "경기 제안"}
                   </button>
                 </div>
               </div>
@@ -505,14 +565,14 @@ export default function ClubsPage() {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ clubId: newClubId, email: user.email, name: user.name, position: user.position || "" }),
-                    }).catch(() => {});
+                    }).catch(() => { });
 
                     // 2) 캡틴으로 설정
                     await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clubs`, {
                       method: "PUT",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ clubId: newClubId, captainEmail: user.email }),
-                    }).catch(() => {});
+                    }).catch(() => { });
 
                     // 3) 내 프로필에 팀 설정
                     const token = localStorage.getItem("accessToken");
@@ -521,7 +581,7 @@ export default function ClubsPage() {
                         method: "PUT",
                         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
                         body: JSON.stringify({ hasTeam: true, teamSport: clubSport, teamId: newClubId, teamIds: [...(user.teamIds || (user.teamId ? [user.teamId] : [])), newClubId], position: user.position || "" }),
-                      }).catch(() => {});
+                      }).catch(() => { });
                       await refresh();
                     }
                   }
@@ -529,7 +589,7 @@ export default function ClubsPage() {
                 setMyClub({ name: newClub.name, sido: areas[0]?.sido || "", sigungu: areas[0]?.sigungu || "", style: clubStyles.join(", "), image: imageUrl || newClub.image });
                 setCreating(false);
                 // 목록 새로고침
-                fetch(`${API}/clubs`).then(r => r.json()).then(d => setAllClubs(d.clubs || [])).catch(() => {});
+                fetch(`${API}/clubs`).then(r => r.json()).then(d => setAllClubs(d.clubs || [])).catch(() => { });
                 setNewClub({ name: "", sido: "", sigungu: "", image: "", imagePreview: "", members: "" });
                 setClubStyles([]);
                 setClubSport("");
@@ -576,7 +636,7 @@ export default function ClubsPage() {
             <div className="grid grid-cols-3 gap-3">
               {[
                 { icon: Trophy, label: "전적", value: selected.record },
-                { icon: Users,  label: "멤버", value: `${selected.members}명` },
+                { icon: Users, label: "멤버", value: `${selected.members}명` },
                 { icon: Trophy, label: "승률", value: `${selected.winRate}%` },
               ].map(({ icon: Icon, label, value }) => (
                 <div key={label} className="bg-white/5 rounded-lg p-3">
@@ -618,9 +678,9 @@ export default function ClubsPage() {
 
             <button
               onClick={async () => {
-                if (!user) { alert("로그인이 필요합니다"); return; }
-                if (!user.teamId) { alert("소속 팀이 필요합니다"); return; }
-                if (user.teamId === selected.clubId) { alert("자기 팀에는 경기를 제안할 수 없습니다"); return; }
+                if (!user) { show("로그인이 필요합니다", "error"); return; }
+                if (!user.teamId) { show("소속 팀이 필요합니다", "error"); return; }
+                if (user.teamId === selected.clubId) { show("자기 팀에는 경기를 제안할 수 없습니다", "error"); return; }
                 try {
                   const r = await fetch(`${API}/matches`, {
                     method: "POST",
@@ -628,15 +688,15 @@ export default function ClubsPage() {
                     body: JSON.stringify({ homeClubId: user.teamId, awayClubId: selected.clubId, sport: selected.sport, createdBy: user.email }),
                   });
                   const data = await r.json();
-                  if (!r.ok) { alert(data.message); return; }
-                  alert("경기 제안 완료!");
+                  if (!r.ok) { show(data.message || "경기 제안 실패", "error"); return; }
+                  show("경기를 제안했습니다! ⚔️", "success");
                   setSelected(null);
-                } catch { alert("경기 제안 실패"); }
+                } catch { show("경기 제안 실패", "error"); }
               }}
-              className="w-full py-2.5 rounded-lg font-semibold text-sm text-white"
+              className="w-full py-2.5 rounded-lg font-semibold text-sm text-white transition-opacity hover:opacity-90"
               style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
             >
-              경기 제안하기
+              경기 제안하기 ⚔️
             </button>
           </div>
         </div>
