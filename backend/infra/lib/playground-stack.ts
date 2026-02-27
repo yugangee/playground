@@ -13,30 +13,11 @@ export class PlaygroundStack extends cdk.Stack {
     super(scope, id, props)
 
     // ─── Cognito User Pool ───────────────────────────────────────────
-    const userPool = new cognito.UserPool(this, 'UserPool', {
-      userPoolName: 'playground-user-pool',
-      selfSignUpEnabled: true,
-      signInAliases: { email: true },
-      standardAttributes: {
-        fullname: { required: true, mutable: true },
-      },
-      passwordPolicy: {
-        minLength: 8,
-        requireUppercase: false,
-        requireSymbols: false,
-      },
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-    })
-
-    // Google, Apple 소셜 로그인은 추후 Identity Provider로 추가
-    const userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
-      userPool,
-      generateSecret: false,
-      authFlows: {
-        userPassword: true,
-        userSrp: true,
-      },
-    })
+    // 기존 playground-users 풀 (us-east-1_dolZhFZDJ) import — 실제 사용자 데이터 보존
+    const userPool = cognito.UserPool.fromUserPoolId(this, 'UserPool', 'us-east-1_dolZhFZDJ')
+    const userPoolClient = cognito.UserPoolClient.fromUserPoolClientId(
+      this, 'UserPoolClient', '2m16g04t6prj9p79m7h12adn11'
+    )
 
     // ─── DynamoDB Tables ─────────────────────────────────────────────
     const tables = {
