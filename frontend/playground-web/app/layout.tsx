@@ -11,6 +11,7 @@ import { TeamProvider } from "@/context/TeamContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import ScrollToTop from "@/components/ScrollToTop";
 import HeaderAuth from "@/components/layout/HeaderAuth";
+import AIChatbot from "@/components/AIChatbot";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -60,6 +61,7 @@ export default function RootLayout({
         </TeamProvider>
         </AuthProvider>
         </ThemeProvider>
+        <AIChatbot />
       </body>
     </html>
   );

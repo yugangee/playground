@@ -717,6 +717,37 @@ async function completeActivity(activityId, body) {
   return res(200, { message: "활동 완료, 포인트 반영 완료" });
 }
 
+async function aiChat(body) {
+  const { messages } = body;
+  if (!messages || !messages.length) return res(400, { message: "messages 필요" });
+
+  const OPENAI_KEY = process.env.OPENAI_API_KEY;
+  if (!OPENAI_KEY) return res(500, { message: "AI 서비스 설정 오류" });
+
+  const openaiMessages = [
+    {
+      role: "system",
+      content: "너는 축구 전문 AI 어시스턴트야. 축구 전술, 훈련, 규칙, 선수 관리, 팀 운영 등 축구 관련 질문에 친절하고 전문적으로 답변해. 한국어로 답변하고, 답변은 간결하게 해. 축구와 관련 없는 질문에도 친절하게 답변하되, 축구 관련 조언을 곁들여줘."
+    },
+    ...messages.map(m => ({ role: m.role, content: m.content }))
+  ];
+
+  const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
+    body: JSON.stringify({ model: "gpt-4o-mini", messages: openaiMessages, max_tokens: 500, temperature: 0.7 }),
+  });
+
+  if (!openaiRes.ok) {
+    const err = await openaiRes.text();
+    console.error("[AI-CHAT] OpenAI error:", err);
+    return res(500, { message: "AI 응답 실패" });
+  }
+
+  const data = await openaiRes.json();
+  return res(200, { reply: data.choices[0].message.content });
+}
+
 export const handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return res(200, {});
 
@@ -807,6 +838,11 @@ export const handler = async (event) => {
     if (method === "PUT" && path.match(/^\/activities\/[^/]+\/complete$/)) {
       const activityId = path.split("/")[2];
       return await completeActivity(activityId, JSON.parse(event.body));
+    }
+
+    // ─── AI 챗봇 ───
+    if (method === "POST" && path === "/ai-chat") {
+      return await aiChat(JSON.parse(event.body));
     }
 
     return res(404, { message: "Not found" });

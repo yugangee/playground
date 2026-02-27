@@ -22,6 +22,8 @@ from view_transformer import ViewTransformer
 from speed_and_distance_estimator import SpeedAndDistance_Estimator
 from retriever.generate_commentary import generate_commentary
 from openai import OpenAI
+import json
+from typing import List, Optional
 
 coaching_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -382,6 +384,155 @@ async def get_presigned_upload_url(filename: str):
         return {"upload_url": presigned_url, "s3_key": s3_key}
     except ClientError as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate presigned URL: {str(e)}")
+
+
+# ═══════════════════════════════════════════
+# LangGraph 기반 AI 챗봇
+# ═══════════════════════════════════════════
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langgraph.graph import StateGraph, START, END
+from typing import TypedDict
+
+chat_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7, max_tokens=800, api_key=os.getenv("OPENAI_API_KEY"))
+chat_embeddings = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
+
+VECTOR_STORE_PATH = os.path.join(os.path.dirname(__file__), "football_knowledge")
+vectorstore = None
+chat_graph = None
+analysis_store = {}  # 분석 결과 저장
+
+def get_football_knowledge():
+    return [
+        "축구는 11명으로 구성된 두 팀이 경기하며, 전반 45분 후반 45분 총 90분 경기한다.",
+        "오프사이드: 공격 선수가 상대 진영에서 볼보다 앞에 있고, 상대 수비수 뒤에서 두 번째 선수보다 골라인에 가까이 있을 때 오프사이드다.",
+        "페널티킥: 페널티 에어리어 안에서 수비팀이 파울을 범하면 페널티킥이 주어진다.",
+        "프리킥: 직접 프리킥은 바로 골을 넣을 수 있고, 간접 프리킥은 다른 선수가 터치해야 골이 인정된다.",
+        "옐로카드는 경고, 레드카드는 퇴장이다. 한 경기에서 옐로카드 2장을 받으면 퇴장된다.",
+        "VAR(비디오 판독)은 골, 페널티, 레드카드, 선수 오인 상황에서 사용된다.",
+        "4-3-3 포메이션: 수비수 4명, 미드필더 3명, 공격수 3명. 공격적이며 측면 공격에 강하다.",
+        "4-4-2 포메이션: 가장 전통적인 포메이션. 균형 잡힌 공수 밸런스.",
+        "3-5-2 포메이션: 윙백이 공수를 오가며 측면을 담당. 미드필드 지배력이 높다.",
+        "4-2-3-1 포메이션: 더블 피봇으로 수비 안정성을 확보하면서 공격형 미드필더가 창의적 플레이를 담당.",
+        "티키타카: 짧은 패스를 빠르게 연결하며 점유율을 높이는 전술. 바르셀로나가 대표적.",
+        "게겐프레싱: 볼을 잃은 직후 즉시 전방에서 압박하여 볼을 되찾는 전술. 클롭 감독의 리버풀이 대표적.",
+        "카운터어택: 수비적으로 진영을 낮추고 볼을 빼앗은 후 빠른 전환으로 공격하는 전술.",
+        "하이프레스: 상대 진영 높은 곳에서부터 압박하여 빌드업을 방해하는 전술.",
+        "골키퍼(GK): 골대를 지키는 포지션. 현대 축구에서는 빌드업 참여 능력도 중요.",
+        "센터백(CB): 중앙 수비수. 공중볼 경합, 태클, 위치 선정이 핵심.",
+        "풀백(LB/RB): 측면 수비수. 공격 가담과 크로스 능력도 요구된다.",
+        "수비형 미드필더(CDM): 볼 탈취와 패스 배급이 핵심.",
+        "윙어(LW/RW): 드리블과 속도로 수비를 돌파하고 크로스나 컷인 슈팅.",
+        "스트라이커(ST): 최전방 공격수. 골 결정력이 가장 중요.",
+        "론도 훈련: 원 안에서 패스를 돌리며 패스 정확도와 판단력을 기르는 훈련.",
+        "체력 훈련: 인터벌 러닝, 셔틀런으로 90분 경기를 뛸 수 있는 체력을 만든다.",
+    ]
+
+class ChatState(TypedDict):
+    messages: list
+    context: str
+    analysis_data: str
+    response: str
+
+def classify_intent(state: ChatState) -> ChatState:
+    last_msg = state["messages"][-1]["content"]
+    if state["analysis_data"]:
+        return state
+    keywords = ["규칙", "전술", "포메이션", "오프사이드", "페널티", "포지션", "훈련",
+                "카드", "VAR", "티키타카", "게겐프레싱", "역습", "프리킥", "코너킥",
+                "수비", "공격", "미드필더", "골키퍼", "윙어", "스트라이커", "풀백", "센터백"]
+    if any(k in last_msg for k in keywords):
+        state["context"] = "rag"
+    return state
+
+def retrieve_knowledge(state: ChatState) -> ChatState:
+    if state["context"] != "rag" or not vectorstore:
+        return state
+    last_msg = state["messages"][-1]["content"]
+    docs = vectorstore.similarity_search(last_msg, k=3)
+    state["context"] = "\n".join([d.page_content for d in docs])
+    return state
+
+def generate_chat_response(state: ChatState) -> ChatState:
+    system_parts = [
+        "너는 축구 전문 AI 어시스턴트야. 한국어로 친절하고 전문적으로 답변해. 답변은 간결하되 핵심을 놓치지 마."
+    ]
+    if state["analysis_data"]:
+        system_parts.append(f"\n[경기 분석 데이터]\n{state['analysis_data']}\n이 데이터를 참고하여 경기에 대한 질문에 답변해.")
+    if state["context"] and state["context"] != "rag":
+        system_parts.append(f"\n[참고 자료]\n{state['context']}\n이 자료를 바탕으로 답변해.")
+
+    msgs = [SystemMessage(content="\n".join(system_parts))]
+    for m in state["messages"]:
+        if m["role"] == "user":
+            msgs.append(HumanMessage(content=m["content"]))
+        else:
+            msgs.append(AIMessage(content=m["content"]))
+    result = chat_llm.invoke(msgs)
+    state["response"] = result.content
+    return state
+
+def init_chatbot():
+    global vectorstore, chat_graph
+    try:
+        if os.path.exists(VECTOR_STORE_PATH):
+            vectorstore = FAISS.load_local(VECTOR_STORE_PATH, chat_embeddings, allow_dangerous_deserialization=True)
+            print("[CHATBOT] Loaded vectorstore")
+        else:
+            docs = get_football_knowledge()
+            splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+            chunks = splitter.create_documents(docs)
+            vectorstore = FAISS.from_documents(chunks, chat_embeddings)
+            vectorstore.save_local(VECTOR_STORE_PATH)
+            print("[CHATBOT] Created vectorstore")
+
+        graph = StateGraph(ChatState)
+        graph.add_node("classify", classify_intent)
+        graph.add_node("retrieve", retrieve_knowledge)
+        graph.add_node("generate", generate_chat_response)
+        graph.add_edge(START, "classify")
+        graph.add_edge("classify", "retrieve")
+        graph.add_edge("retrieve", "generate")
+        graph.add_edge("generate", END)
+        chat_graph = graph.compile()
+        print("[CHATBOT] LangGraph ready")
+    except Exception as e:
+        print(f"[CHATBOT] Init error: {e}")
+
+@app.on_event("startup")
+async def startup_event():
+    init_chatbot()
+
+@app.post("/api/chat")
+async def chat_endpoint(request: dict):
+    messages = request.get("messages", [])
+    analysis_id = request.get("analysis_id")
+    if not messages:
+        raise HTTPException(status_code=400, detail="messages 필요")
+
+    if not chat_graph:
+        raise HTTPException(status_code=503, detail="챗봇 초기화 중")
+
+    analysis_data = ""
+    if analysis_id and analysis_id in analysis_store:
+        analysis_data = json.dumps(analysis_store[analysis_id], ensure_ascii=False)
+
+    state = {"messages": messages, "context": "", "analysis_data": analysis_data, "response": ""}
+    result = chat_graph.invoke(state)
+    return {"reply": result["response"]}
+
+@app.post("/api/chat/analysis")
+async def store_analysis_for_chat(request: dict):
+    analysis_id = request.get("analysis_id", "latest")
+    analysis_store[analysis_id] = {
+        "events": request.get("events", []),
+        "team_ball_control": request.get("team_ball_control", {}),
+        "coaching": request.get("coaching", ""),
+    }
+    return {"status": "ok", "analysis_id": analysis_id}
+
 
 if __name__ == "__main__":
     import uvicorn
