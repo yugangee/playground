@@ -1,4 +1,4 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL!
+const BASE = process.env.NEXT_PUBLIC_MANAGE_API_URL || process.env.NEXT_PUBLIC_API_URL!
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null

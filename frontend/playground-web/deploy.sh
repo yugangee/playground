@@ -2,9 +2,7 @@
 set -e
 
 echo "📦 빌드 중..."
-sed -i 's/const nextConfig: NextConfig = {/const nextConfig: NextConfig = {\n  output: "export",/' next.config.ts
 npm run build
-sed -i '/  output: "export",/d' next.config.ts
 
 echo "☁️ S3 업로드 중..."
 aws s3 sync out/ s3://playground-web-sedaily-us --delete --exclude "uploads/*" --no-verify-ssl

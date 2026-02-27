@@ -62,9 +62,15 @@ npm run destroy  # Tear down AWS stack
 
 | Resource | Value |
 |---|---|
-| REST API | `https://ayeyr9vgsc.execute-api.us-east-1.amazonaws.com/prod` |
+| Auth API (`NEXT_PUBLIC_API_URL`) | `https://ayeyr9vgsc.execute-api.us-east-1.amazonaws.com/prod` |
+| Manage API (`NEXT_PUBLIC_MANAGE_API_URL`) | `https://91iv3etr0h.execute-api.us-east-1.amazonaws.com/prod` |
 | WebSocket | `wss://s2b7iclwcj.execute-api.us-east-1.amazonaws.com/prod` |
-| Frontend | `fun.sedaily.ai` → S3 bucket `playground-web-sedaily-us` via CloudFront |
+| Frontend | `fun.sedaily.ai` → S3 bucket `playground-web-sedaily-us` via CloudFront `E1U8HJ0871GR0O` |
+
+**두 API의 역할 구분:**
+- **Auth API** (`ayeyr9vgsc`): `/auth/login`, `/auth/signup`, `/auth/me`, `/clubs`, `/matches`, `/activities` — 수동 배포된 별도 Lambda
+- **Manage API** (`91iv3etr0h`, CDK PlaygroundStack): `/team`, `/finance`, `/league`, `/schedule`, `/social`, `/discover` — CDK로 관리
+- **Cognito Pool**: `us-east-1_dolZhFZDJ` (playground-users, 7명 이상) — 두 API 모두 이 풀 사용
 
 ## Key Domain Logic
 
