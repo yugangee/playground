@@ -161,8 +161,10 @@ export default function ChatPage() {
                     {m.from === "them" && active.type === "team" && m.userName && (
                       <span className="text-[10px] text-gray-500 mb-0.5 px-1">{m.userName}</span>
                     )}
-                    <span className={`text-xs px-3 py-2 rounded-2xl ${m.from === "me" ? "text-white" : "bg-white/10 text-gray-200"}`}
-                      style={m.from === "me" ? { background: "linear-gradient(to right, #c026d3, #7c3aed)" } : {}}>
+                    <span className={`text-xs px-3 py-2 rounded-2xl text-white`}
+                      style={m.from === "me"
+                        ? { background: "linear-gradient(to right, #c026d3, #7c3aed)" }
+                        : { background: "#000000" }}>
                       {m.text}
                     </span>
                   </div>
@@ -184,7 +186,7 @@ export default function ChatPage() {
                   className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:border-fuchsia-500/50" style={{ colorScheme: "dark" }} />
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {["09:00","10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00"].map(t => (
+                {["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"].map(t => (
                   <button key={t} type="button" onClick={() => setCalTimes(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t])}
                     className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
                     style={calTimes.includes(t) ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
