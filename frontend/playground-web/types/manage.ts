@@ -1,6 +1,11 @@
 // ── Team ──────────────────────────────────────────────
 export type TeamRole = 'leader' | 'member'
 export type AgeGroup = 'elementary' | 'middle' | 'high' | 'university' | 'worker' | 'senior' | 'mixed'
+export type SportCategory = 'competitive' | 'club'
+export type SportType =
+  | 'soccer' | 'futsal'
+  | 'basketball' | 'baseball' | 'volleyball' | 'ice_hockey'
+  | 'running' | 'snowboard' | 'badminton'
 
 export interface Team {
   id: string
@@ -11,6 +16,7 @@ export interface Team {
   activityDays: string[]
   activityTime?: string
   ageGroup: AgeGroup
+  sportType?: SportType
   isPublic: boolean
   leaderId: string
   createdAt: string

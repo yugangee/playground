@@ -344,7 +344,7 @@ export default function SchedulePage() {
       {/* M3-A: 팀 통계 */}
       {matches.length > 0 && (
         <section>
-          <TeamStatsSection matches={matches} members={members} teamId={teamId} polls={polls} />
+          <TeamStatsSection matches={matches} members={members} teamId={teamId} polls={polls} sportType={currentTeam?.sportType} />
         </section>
       )}
 
@@ -3083,20 +3083,65 @@ function RecentResultsSection({ matches, teamId, isLeader, onRefresh }: {
   )
 }
 
-// ── M3-A + M3-B: 팀 통계 섹션 ────────────────────────────────────────────────
+// ── M3-A + M3-B + M3-D: 팀 통계 섹션 ────────────────────────────────────────
 
-const TEAM_TIERS = [
+type TierDef = { name: string; min: number; color: string; minWins: number; minGames?: number }
+
+const COMPETITIVE_TIERS: readonly TierDef[] = [
   { name: 'Legend', min: 2001, color: '#fbbf24', minWins: 50 },
   { name: 'Elite',  min: 801,  color: '#a78bfa', minWins: 20 },
   { name: 'Crew',   min: 251,  color: '#60a5fa', minWins: 10 },
   { name: 'Club',   min: 51,   color: '#4ade80', minWins: 5  },
   { name: 'Rookie', min: 0,    color: '#94a3b8', minWins: 0  },
-] as const
+]
+
+const BASKETBALL_TIERS: readonly TierDef[] = [
+  { name: 'Legend', min: 1501, color: '#fbbf24', minWins: 40 },
+  { name: 'Elite',  min: 601,  color: '#a78bfa', minWins: 15 },
+  { name: 'Crew',   min: 201,  color: '#60a5fa', minWins: 8  },
+  { name: 'Club',   min: 41,   color: '#4ade80', minWins: 4  },
+  { name: 'Rookie', min: 0,    color: '#94a3b8', minWins: 0  },
+]
+
+// M3-D: 동아리형 — 활동 횟수 기반 승급 (minWins=0, minGames 사용)
+const CLUB_TIERS: readonly TierDef[] = [
+  { name: '마스터', min: 301, color: '#fbbf24', minWins: 0, minGames: 100 },
+  { name: '전문가', min: 181, color: '#a78bfa', minWins: 0, minGames: 60  },
+  { name: '마니아', min: 91,  color: '#60a5fa', minWins: 0, minGames: 30  },
+  { name: '동호인', min: 31,  color: '#4ade80', minWins: 0, minGames: 10  },
+  { name: '새내기', min: 0,   color: '#94a3b8', minWins: 0, minGames: 0   },
+]
+
+const SPORT_CATEGORY: Record<string, 'competitive' | 'club'> = {
+  soccer: 'competitive', futsal: 'competitive',
+  basketball: 'competitive', baseball: 'competitive', volleyball: 'competitive', ice_hockey: 'competitive',
+  running: 'club', snowboard: 'club', badminton: 'club',
+}
+
+function getTeamTiers(sportType?: string): readonly TierDef[] {
+  if (!sportType) return COMPETITIVE_TIERS
+  if (SPORT_CATEGORY[sportType] === 'club') return CLUB_TIERS
+  if (sportType === 'basketball') return BASKETBALL_TIERS
+  return COMPETITIVE_TIERS
+}
+
+// M3-D: 종목별 PIS 축 레이블
+const SPORT_PIS_LABELS: Record<string, [string, string, string, string, string]> = {
+  baseball:  ['안타/득점', 'RBI',    '공격P', '규율', '활약도'],
+  running:   ['기록',      '참가',   '활동P', '규율', '활약도'],
+  snowboard: ['기록',      '참가',   '활동P', '규율', '활약도'],
+  badminton: ['득점',      '서브',   '공격P', '규율', '활약도'],
+  volleyball:['득점',      '세터',   '공격P', '규율', '활약도'],
+}
+
+function getPisLabels(sportType?: string): [string, string, string, string, string] {
+  return SPORT_PIS_LABELS[sportType ?? ''] ?? ['득점', '어시스트', '공격P', '규율', '활약도']
+}
 
 type SeasonFilter = 'all' | '6m' | '3m'
 
-function TeamStatsSection({ matches, members, teamId, polls = [] }: {
-  matches: Match[]; members: TeamMember[]; teamId: string; polls?: Poll[]
+function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
+  matches: Match[]; members: TeamMember[]; teamId: string; polls?: Poll[]; sportType?: string
 }) {
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null)
   const [seasonFilter, setSeasonFilter] = useState<SeasonFilter>('all')
@@ -3179,12 +3224,15 @@ function TeamStatsSection({ matches, members, teamId, polls = [] }: {
   const homeGames = homeWins + homeDraws + homeLosses
   const awayGames = awayWins + awayDraws + awayLosses
 
-  // 팀 등급
-  const tierIdx    = TEAM_TIERS.findIndex(t => teamPoints >= t.min)
+  // 팀 등급 (M3-D: 종목별 티어 사용)
+  const TEAM_TIERS = getTeamTiers(sportType)
+  const isClubSport = sportType ? SPORT_CATEGORY[sportType] === 'club' : false
+  const tierMetric  = isClubSport ? completed.length : teamPoints  // 동아리형: 총 경기수 기준
+  const tierIdx    = TEAM_TIERS.findIndex(t => tierMetric >= t.min)
   const tier       = TEAM_TIERS[tierIdx === -1 ? TEAM_TIERS.length - 1 : tierIdx]
   const nextTier   = tierIdx > 0 ? TEAM_TIERS[tierIdx - 1] : null
   const tierPct    = nextTier
-    ? Math.min(100, Math.round(((teamPoints - tier.min) / (nextTier.min - tier.min)) * 100))
+    ? Math.min(100, Math.round(((tierMetric - tier.min) / (nextTier.min - tier.min)) * 100))
     : 100
 
   // 선수별 기록 집계 (시즌 필터 적용 — goals + cards)
@@ -3317,8 +3365,10 @@ function TeamStatsSection({ matches, members, teamId, polls = [] }: {
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <span className="text-sm font-black" style={{ color: tier.color }}>{tier.name}</span>
-              <span className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-muted)' }}>{teamPoints} pt</span>
-              {curStreak >= 2 && (
+              <span className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                {isClubSport ? `${completed.length}회 활동` : `${teamPoints} pt`}
+              </span>
+              {!isClubSport && curStreak >= 2 && (
                 <span className="rounded-full px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
                   🔥 {curStreak}연승
                 </span>
@@ -3326,7 +3376,10 @@ function TeamStatsSection({ matches, members, teamId, polls = [] }: {
             </div>
             {nextTier && (
               <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
-                → {nextTier.name} ({nextTier.min - teamPoints}pt)
+                {isClubSport
+                  ? `→ ${nextTier.name} (${(nextTier.minGames ?? 0) - completed.length}회)`
+                  : `→ ${nextTier.name} (${nextTier.min - teamPoints}pt)`
+                }
               </span>
             )}
           </div>
@@ -3334,29 +3387,42 @@ function TeamStatsSection({ matches, members, teamId, polls = [] }: {
             <div className="h-full rounded-full transition-all duration-700"
               style={{ width: `${tierPct}%`, background: `linear-gradient(to right, ${tier.color}88, ${tier.color})` }} />
           </div>
-          {/* 승급 조건 체크리스트 */}
+          {/* 승급 조건 체크리스트 (M3-D: 동아리형은 활동 횟수 조건) */}
           {nextTier && (() => {
-            const ptOk   = teamPoints >= nextTier.min
-            const winOk  = wins >= nextTier.minWins
-            const allOk  = ptOk && winOk
+            const metricOk = tierMetric >= nextTier.min
+            const winOk    = isClubSport
+              ? completed.length >= (nextTier.minGames ?? 0)
+              : wins >= nextTier.minWins
+            const allOk  = metricOk && winOk
             return (
               <div className="mt-2 rounded-xl px-3 py-2 space-y-1"
                 style={{ background: allOk ? 'rgba(74,222,128,0.08)' : 'var(--sidebar-bg)', border: `1px solid ${allOk ? 'rgba(74,222,128,0.3)' : 'var(--card-border)'}` }}>
                 <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>
                   {nextTier.name} 승급 조건
                 </p>
-                <div className="flex items-center gap-2 text-[11px]">
-                  <span>{ptOk ? '✅' : '⬜'}</span>
-                  <span style={{ color: ptOk ? '#4ade80' : 'var(--text-secondary)' }}>
-                    포인트 {teamPoints} / {nextTier.min}pt
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-[11px]">
-                  <span>{winOk ? '✅' : '⬜'}</span>
-                  <span style={{ color: winOk ? '#4ade80' : 'var(--text-secondary)' }}>
-                    누적 승리 {wins} / {nextTier.minWins}승
-                  </span>
-                </div>
+                {isClubSport ? (
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span>{winOk ? '✅' : '⬜'}</span>
+                    <span style={{ color: winOk ? '#4ade80' : 'var(--text-secondary)' }}>
+                      활동 횟수 {completed.length} / {nextTier.minGames ?? 0}회
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <span>{metricOk ? '✅' : '⬜'}</span>
+                      <span style={{ color: metricOk ? '#4ade80' : 'var(--text-secondary)' }}>
+                        포인트 {teamPoints} / {nextTier.min}pt
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <span>{winOk ? '✅' : '⬜'}</span>
+                      <span style={{ color: winOk ? '#4ade80' : 'var(--text-secondary)' }}>
+                        누적 승리 {wins} / {nextTier.minWins}승
+                      </span>
+                    </div>
+                  </>
+                )}
                 {allOk && (
                   <p className="text-[11px] font-bold mt-1" style={{ color: '#4ade80' }}>
                     🎉 모든 조건 충족 — {nextTier.name} 승급 가능!
@@ -3524,17 +3590,22 @@ function TeamStatsSection({ matches, members, teamId, polls = [] }: {
                         {/* M3-A: PIS Spider Chart */}
                         <div style={{ height: '130px' }}>
                           <ResponsiveContainer width="100%" height="100%">
+                            {(() => {
+                              const [l0, l1, l2, l3, l4] = getPisLabels(sportType)
+                              return (
                             <RadarChart data={[
-                              { s: '득점',    v: Math.round(s.goals / pisMaxGoals * 100) },
-                              { s: '어시스트', v: Math.round(s.assists / pisMaxAssists * 100) },
-                              { s: '공격P',   v: Math.round((s.goals + s.assists) / pisMaxGA * 100) },
-                              { s: '규율',    v: Math.max(0, 100 - s.yellows * 15 - s.reds * 40) },
-                              { s: '활약도',  v: Math.round((involvementMap[userId] ?? 0) / maxInvolvement * 100) },
+                              { s: l0, v: Math.round(s.goals / pisMaxGoals * 100) },
+                              { s: l1, v: Math.round(s.assists / pisMaxAssists * 100) },
+                              { s: l2, v: Math.round((s.goals + s.assists) / pisMaxGA * 100) },
+                              { s: l3, v: Math.max(0, 100 - s.yellows * 15 - s.reds * 40) },
+                              { s: l4, v: Math.round((involvementMap[userId] ?? 0) / maxInvolvement * 100) },
                             ]} cx="50%" cy="50%" outerRadius="65%">
                               <PolarGrid stroke="rgba(148,163,184,0.15)" />
                               <PolarAngleAxis dataKey="s" tick={{ fontSize: 8, fill: '#94a3b8', fontWeight: 600 }} />
                               <Radar dataKey="v" stroke="#7c3aed" fill="#7c3aed" fillOpacity={0.25} strokeWidth={1.5} />
                             </RadarChart>
+                              )
+                            })()}
                           </ResponsiveContainer>
                         </div>
                         {/* 경기별 G/A 내역 */}
