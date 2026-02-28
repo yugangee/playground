@@ -279,8 +279,8 @@
 - [x] **시즌별 개인 기록 (경기별 G/A 확장)** — 선수 행 클릭 시 ▼ 경기날짜·구장별 득점/어시스트 breakdown 표시 (`TeamStatsSection` expandedPlayer 상태)
 - [x] **PIS Spider Chart** — 선수 행 클릭 시 recharts RadarChart (득점/어시스트/공격P/규율/활약도 5축, 팀 내 정규화)
 - [x] 팀 내 리더보드 (득점왕 G·어시스트왕 A·경고 🟨🟥) — 선수 기록 테이블 (G/A/🟨/🟥 컬럼)
-- [ ] 출석왕 (attendance 다회 로딩 필요, 미구현)
-- [ ] POTM 횟수 집계 (poll 투표 결과 집계 필요, 미구현)
+- [x] **출석왕** — "불러오기" 버튼 트리거, 완료 경기 attendance 병렬 로드, Top5 표시 (`loadAttendanceStats`)
+- [x] **POTM 횟수 집계** — ⭐ POTM 접두사 poll 투표 자동 집계, 선수 이름 옆 🏆N 뱃지 표시
 - [ ] 시즌 리셋 / 감쇠 로직 구현
 
 #### 3-B. 팀 통계 대시보드

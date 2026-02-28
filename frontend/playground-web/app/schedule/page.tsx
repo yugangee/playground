@@ -224,7 +224,7 @@ export default function SchedulePage() {
       {/* M3-A: 팀 통계 */}
       {matches.length > 0 && (
         <section>
-          <TeamStatsSection matches={matches} members={members} teamId={teamId} />
+          <TeamStatsSection matches={matches} members={members} teamId={teamId} polls={polls} />
         </section>
       )}
 
@@ -2088,10 +2088,36 @@ const TEAM_TIERS = [
   { name: 'Rookie', min: 0,    color: '#94a3b8' },
 ] as const
 
-function TeamStatsSection({ matches, members, teamId }: {
-  matches: Match[]; members: TeamMember[]; teamId: string
+function TeamStatsSection({ matches, members, teamId, polls = [] }: {
+  matches: Match[]; members: TeamMember[]; teamId: string; polls?: Poll[]
 }) {
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null)
+  const [potmWins, setPotmWins] = useState<Record<string, number>>({})
+  const [attendanceMap, setAttendanceMap] = useState<Record<string, number> | null>(null)
+  const [loadingAttendance, setLoadingAttendance] = useState(false)
+
+  // M3-A: POTM 횟수 집계 — ⭐ POTM 접두사 poll 투표 집계
+  useEffect(() => {
+    const potmPolls = polls.filter(p => p.question.startsWith('⭐ POTM'))
+    if (potmPolls.length === 0) { setPotmWins({}); return }
+    Promise.all(
+      potmPolls.map(p =>
+        manageFetch(`/schedule/polls/${p.id}/votes`)
+          .then((votes: { optionIndex: number; userId: string }[]) => {
+            if (votes.length === 0) return null
+            const counts: Record<number, number> = {}
+            votes.forEach(v => { counts[v.optionIndex] = (counts[v.optionIndex] ?? 0) + 1 })
+            const topIdx = parseInt(Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0])
+            return p.options[topIdx] ?? null
+          })
+          .catch(() => null)
+      )
+    ).then(winners => {
+      const winsMap: Record<string, number> = {}
+      winners.forEach(uid => { if (uid) winsMap[uid] = (winsMap[uid] ?? 0) + 1 })
+      setPotmWins(winsMap)
+    })
+  }, [polls.length, teamId])
 
   const completed = [...matches.filter(m => m.status === 'completed')]
     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
@@ -2180,6 +2206,30 @@ function TeamStatsSection({ matches, members, teamId }: {
   const maxInvolvement = Math.max(...Object.values(involvementMap), 1)
 
   const hasStats = completed.length > 0
+
+  // M3-A: 출석왕 — 완료 경기 attendance 병렬 로드 (사용자 트리거)
+  const loadAttendanceStats = async () => {
+    if (completed.length === 0) return
+    setLoadingAttendance(true)
+    try {
+      const allAttendances = await Promise.all(
+        completed.map(m =>
+          manageFetch(`/schedule/matches/${m.id}/attendance`)
+            .then((a: { userId: string; status: string }[]) =>
+              a.filter(x => x.status === 'attending')
+            )
+            .catch(() => [])
+        )
+      )
+      const countMap: Record<string, number> = {}
+      allAttendances.flat().forEach(a => {
+        countMap[a.userId] = (countMap[a.userId] ?? 0) + 1
+      })
+      setAttendanceMap(countMap)
+    } finally {
+      setLoadingAttendance(false)
+    }
+  }
 
   return (
     <div>
@@ -2338,6 +2388,11 @@ function TeamStatsSection({ matches, members, teamId }: {
                         <span className="text-xs font-medium truncate" style={{ color: 'var(--text-secondary)' }}>
                           {mem ? memberLabel(mem) : userId.slice(0, 8) + '…'}
                         </span>
+                        {potmWins[userId] > 0 && (
+                          <span className="shrink-0 text-[9px] font-bold" style={{ color: '#fbbf24' }}>
+                            🏆{potmWins[userId]}
+                          </span>
+                        )}
                         <span className="ml-auto shrink-0 text-[9px] pl-1" style={{ color: 'var(--text-muted)' }}>
                           {isExpanded ? '▲' : '▼'}
                         </span>
@@ -2400,6 +2455,53 @@ function TeamStatsSection({ matches, members, teamId }: {
                 )
               })}
             </div>
+          </div>
+        )}
+
+        {/* M3-A: 출석왕 */}
+        {hasStats && (
+          <div className="border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                출석왕
+              </p>
+              {attendanceMap === null && (
+                <button
+                  onClick={loadAttendanceStats}
+                  disabled={loadingAttendance}
+                  className="text-[10px] font-semibold rounded-lg px-2.5 py-1 transition-opacity hover:opacity-70 disabled:opacity-50"
+                  style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)' }}>
+                  {loadingAttendance ? '불러오는 중…' : '불러오기'}
+                </button>
+              )}
+            </div>
+            {attendanceMap !== null && (
+              <div className="space-y-1">
+                {Object.entries(attendanceMap)
+                  .sort((a, b) => b[1] - a[1])
+                  .slice(0, 5)
+                  .map(([uid, count], rank) => {
+                    const mem = members.find(m => m.userId === uid)
+                    const medal = ['🥇', '🥈', '🥉'][rank] ?? ''
+                    return (
+                      <div key={uid} className="flex items-center justify-between py-1">
+                        <div className="flex items-center gap-1.5">
+                          {medal && <span className="text-[10px]">{medal}</span>}
+                          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                            {mem ? memberLabel(mem) : uid.slice(0, 8) + '…'}
+                          </span>
+                        </div>
+                        <span className="text-xs font-bold tabular-nums" style={{ color: '#60a5fa' }}>
+                          {count}/{completed.length}경기
+                        </span>
+                      </div>
+                    )
+                  })}
+                {Object.keys(attendanceMap).length === 0 && (
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>출석 데이터 없음</p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
