@@ -6,6 +6,7 @@ import { useTeam } from '@/context/TeamContext'
 import type { League } from '@/types/manage'
 
 type View = 'list' | 'create' | 'detail'
+type MainTab = 'mine' | 'discover'
 
 interface LeagueMatch {
   id: string
@@ -22,20 +23,77 @@ interface LeagueMatch {
 
 interface LeagueTeam { leagueId: string; teamId: string; joinedAt: string }
 
+// ── Bracket / Schedule generation ─────────────────────────────────────────────
+
+function firstRoundName(n: number): string {
+  if (n <= 2) return '결승'
+  if (n <= 4) return '준결승'
+  if (n <= 8) return '8강'
+  if (n <= 16) return '16강'
+  return '1라운드'
+}
+
+function generateTournamentPairs(teamIds: string[]) {
+  const shuffled = [...teamIds].sort(() => Math.random() - 0.5)
+  const rName = firstRoundName(shuffled.length)
+  const pairs: Array<{ homeTeamId: string; awayTeamId: string; round: string }> = []
+  for (let i = 0; i + 1 < shuffled.length; i += 2) {
+    pairs.push({ homeTeamId: shuffled[i], awayTeamId: shuffled[i + 1], round: rName })
+  }
+  return pairs
+}
+
+function generateRoundRobin(teamIds: string[]) {
+  const pairs: Array<{ homeTeamId: string; awayTeamId: string; round: string }> = []
+  let roundNum = 1
+  for (let i = 0; i < teamIds.length; i++) {
+    for (let j = i + 1; j < teamIds.length; j++) {
+      pairs.push({ homeTeamId: teamIds[i], awayTeamId: teamIds[j], round: `${roundNum}라운드` })
+      roundNum++
+    }
+  }
+  return pairs
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function LeaguePage() {
   const { currentTeam, isLeader } = useTeam()
   const teamId = currentTeam?.id ?? ''
   const [view, setView] = useState<View>('list')
+  const [mainTab, setMainTab] = useState<MainTab>('mine')
   const [leagues, setLeagues] = useState<League[]>([])
+  const [publicLeagues, setPublicLeagues] = useState<League[]>([])
   const [selected, setSelected] = useState<League | null>(null)
   const [loading, setLoading] = useState(true)
+  const [joining, setJoining] = useState<string | null>(null)
 
   const load = async () => {
     if (!teamId) { setLoading(false); return }
     try { setLeagues(await manageFetch(`/league?organizerTeamId=${teamId}`)) }
     finally { setLoading(false) }
   }
+
+  const loadPublic = async () => {
+    try {
+      const all: League[] = await manageFetch('/league')
+      setPublicLeagues(all.filter(l => l.organizerTeamId !== teamId))
+    } catch {}
+  }
+
   useEffect(() => { load() }, [teamId])
+  useEffect(() => { if (mainTab === 'discover') loadPublic() }, [mainTab, teamId])
+
+  const joinLeague = async (leagueId: string) => {
+    if (!teamId) return
+    setJoining(leagueId)
+    try {
+      await manageFetch(`/league/${leagueId}/teams`, { method: 'POST', body: JSON.stringify({ teamId }) })
+      await loadPublic()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '참가 신청 실패')
+    } finally { setJoining(null) }
+  }
 
   if (!teamId) return (
     <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 py-20">
@@ -55,13 +113,20 @@ export default function LeaguePage() {
   )
 
   if (view === 'create') return <CreateForm teamId={teamId} onSuccess={() => { load(); setView('list') }} onCancel={() => setView('list')} />
-  if (view === 'detail' && selected) return <LeagueDetail league={selected} onBack={() => setView('list')} isLeader={isLeader} />
+  if (view === 'detail' && selected) return (
+    <LeagueDetail
+      league={selected}
+      onBack={() => { load(); setSelected(null); setView('list') }}
+      isLeader={isLeader}
+      currentTeamId={teamId}
+    />
+  )
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">리그 & 토너먼트</h1>
+          <h1 className="text-2xl font-bold text-slate-900">리그 &amp; 토너먼트</h1>
           <p className="mt-1 text-sm text-slate-500">리그 생성, 팀 초대, 대진표, 전적을 관리합니다</p>
         </div>
         {isLeader && (
@@ -75,44 +140,97 @@ export default function LeaguePage() {
         )}
       </div>
 
-      {leagues.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 py-20">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-            <svg className="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 0 0 2.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 0 1 2.916.52 6.003 6.003 0 0 1-5.395 4.972m0 0a6.726 6.726 0 0 1-2.749 1.35m0 0a6.772 6.772 0 0 1-3.044 0" />
-            </svg>
+      {/* 탭 */}
+      <div className="mb-6 flex gap-1 rounded-xl bg-slate-100 p-1 w-fit">
+        {([['mine', '내 리그'], ['discover', '공개 리그 탐색']] as [MainTab, string][]).map(([key, label]) => (
+          <button key={key} onClick={() => setMainTab(key)}
+            className={`rounded-lg px-5 py-2 text-sm font-medium transition-all ${
+              mainTab === key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* 내 리그 탭 */}
+      {mainTab === 'mine' && (
+        leagues.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 py-20">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+              <svg className="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 0 0 2.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 0 1 2.916.52 6.003 6.003 0 0 1-5.395 4.972m0 0a6.726 6.726 0 0 1-2.749 1.35m0 0a6.772 6.772 0 0 1-3.044 0" />
+              </svg>
+            </div>
+            <p className="text-sm font-medium text-slate-600">주최한 리그 또는 토너먼트가 없습니다</p>
+            {isLeader && (
+              <button onClick={() => setView('create')}
+                className="mt-5 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
+                첫 리그 만들기
+              </button>
+            )}
           </div>
-          <p className="text-sm font-medium text-slate-600">리그 또는 토너먼트가 없습니다</p>
-          {isLeader && (
-            <button onClick={() => setView('create')}
-              className="mt-5 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
-              첫 리그 만들기
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {leagues.map(l => (
-            <button key={l.id} onClick={() => { setSelected(l); setView('detail') }}
-              className="group rounded-2xl border border-slate-100 bg-white p-6 text-left shadow-sm transition-all hover:border-emerald-200 hover:shadow-md">
-              <div className="mb-3 flex items-center justify-between">
-                <TypeBadge type={l.type} />
-                <StatusBadge status={l.status} />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {leagues.map(l => (
+              <button key={l.id} onClick={() => { setSelected(l); setView('detail') }}
+                className="group rounded-2xl border border-slate-100 bg-white p-6 text-left shadow-sm transition-all hover:border-emerald-200 hover:shadow-md">
+                <div className="mb-3 flex items-center justify-between">
+                  <TypeBadge type={l.type} />
+                  <StatusBadge status={l.status} />
+                </div>
+                <div className="text-lg font-semibold text-slate-900">{l.name}</div>
+                {l.region && <div className="mt-1 text-sm text-slate-400">{l.region}</div>}
+                {l.startDate && (
+                  <div className="mt-2 text-xs text-slate-400">{l.startDate} ~ {l.endDate ?? '미정'}</div>
+                )}
+                <div className="mt-4 flex items-center gap-1 text-xs font-medium text-emerald-600 opacity-0 transition-opacity group-hover:opacity-100">
+                  <span>상세 보기</span>
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                  </svg>
+                </div>
+              </button>
+            ))}
+          </div>
+        )
+      )}
+
+      {/* 공개 리그 탐색 탭 */}
+      {mainTab === 'discover' && (
+        publicLeagues.length === 0 ? (
+          <Empty text="참가 가능한 공개 리그가 없습니다" />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {publicLeagues.map(l => (
+              <div key={l.id} className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <TypeBadge type={l.type} />
+                  <StatusBadge status={l.status} />
+                </div>
+                <div className="text-lg font-semibold text-slate-900">{l.name}</div>
+                {l.region && <div className="mt-1 text-sm text-slate-400">{l.region}</div>}
+                {l.startDate && (
+                  <div className="mt-2 text-xs text-slate-400">{l.startDate} ~ {l.endDate ?? '미정'}</div>
+                )}
+                {l.description && (
+                  <p className="mt-2 line-clamp-2 text-xs text-slate-500">{l.description}</p>
+                )}
+                {l.status === 'recruiting' ? (
+                  <button
+                    onClick={() => joinLeague(l.id)}
+                    disabled={joining === l.id}
+                    className="mt-4 w-full rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">
+                    {joining === l.id ? '신청 중...' : '참가 신청'}
+                  </button>
+                ) : (
+                  <div className="mt-4 rounded-xl bg-slate-50 py-2.5 text-center text-sm text-slate-400">
+                    {l.status === 'ongoing' ? '이미 진행 중' : '종료된 리그'}
+                  </div>
+                )}
               </div>
-              <div className="text-lg font-semibold text-slate-900">{l.name}</div>
-              {l.region && <div className="mt-1 text-sm text-slate-400">{l.region}</div>}
-              {l.startDate && (
-                <div className="mt-2 text-xs text-slate-400">{l.startDate} ~ {l.endDate ?? '미정'}</div>
-              )}
-              <div className="mt-4 flex items-center gap-1 text-xs font-medium text-emerald-600 opacity-0 transition-opacity group-hover:opacity-100">
-                <span>상세 보기</span>
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                </svg>
-              </div>
-            </button>
-          ))}
-        </div>
+            ))}
+          </div>
+        )
       )}
     </div>
   )
@@ -154,8 +272,8 @@ function CreateForm({ teamId, onSuccess, onCancel }: { teamId: string; onSuccess
         </Field>
         <Field label="유형">
           <select value={form.type} onChange={e => set('type', e.target.value)} className={inp}>
-            <option value="league">리그</option>
-            <option value="tournament">토너먼트</option>
+            <option value="league">리그 (라운드 로빈)</option>
+            <option value="tournament">토너먼트 (단판 승부)</option>
           </select>
         </Field>
         <Field label="지역">
@@ -175,7 +293,7 @@ function CreateForm({ teamId, onSuccess, onCancel }: { teamId: string; onSuccess
         <label className="flex items-center gap-2.5 text-sm text-slate-700">
           <input type="checkbox" checked={form.isPublic} onChange={e => set('isPublic', e.target.checked)}
             className="h-4 w-4 rounded accent-emerald-600" />
-          공개 리그로 설정
+          공개 리그로 설정 (다른 팀이 탐색·참가 신청 가능)
         </label>
 
         {error && <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
@@ -191,11 +309,15 @@ function CreateForm({ teamId, onSuccess, onCancel }: { teamId: string; onSuccess
 
 // ── Detail ────────────────────────────────────────────────────────────────────
 
-function LeagueDetail({ league, onBack, isLeader }: { league: League; onBack: () => void; isLeader: boolean }) {
+function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }: {
+  league: League; onBack: () => void; isLeader: boolean; currentTeamId: string
+}) {
+  const [league, setLeague] = useState(initialLeague)
   const [tab, setTab] = useState<'teams' | 'matches' | 'standings'>('teams')
   const [teams, setTeams] = useState<LeagueTeam[]>([])
   const [matches, setMatches] = useState<LeagueMatch[]>([])
   const [inviteTeamId, setInviteTeamId] = useState('')
+  const [generating, setGenerating] = useState(false)
 
   const loadTeams = async () => { try { setTeams(await manageFetch(`/league/${league.id}/teams`)) } catch {} }
   const loadMatches = async () => { try { setMatches(await manageFetch(`/league/${league.id}/matches`)) } catch {} }
@@ -207,6 +329,61 @@ function LeagueDetail({ league, onBack, isLeader }: { league: League; onBack: ()
     await manageFetch(`/league/${league.id}/teams`, { method: 'POST', body: JSON.stringify({ teamId: inviteTeamId }) })
     setInviteTeamId('')
     loadTeams()
+  }
+
+  // 대회 시작: 대진표 자동 생성 + 상태를 ongoing으로 변경
+  const startLeague = async () => {
+    const typeLabel = league.type === 'tournament' ? '토너먼트 대진표' : '라운드 로빈 일정'
+    if (!confirm(`${typeLabel}을 자동 생성하고 대회를 시작하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return
+    setGenerating(true)
+    try {
+      const leagueTeams: LeagueTeam[] = await manageFetch(`/league/${league.id}/teams`)
+      const teamIds = leagueTeams.map(t => t.teamId)
+      if (teamIds.length < 2) { alert('최소 2팀 이상 참가해야 대회를 시작할 수 있습니다'); return }
+
+      const pairs = league.type === 'tournament'
+        ? generateTournamentPairs(teamIds)
+        : generateRoundRobin(teamIds)
+
+      const defaultDate = league.startDate
+        ? new Date(league.startDate).toISOString()
+        : new Date().toISOString()
+      const venue = league.region ?? '미정'
+
+      await Promise.all(
+        pairs.map(p =>
+          manageFetch(`/league/${league.id}/matches`, {
+            method: 'POST',
+            body: JSON.stringify({ ...p, scheduledAt: defaultDate, venue }),
+          })
+        )
+      )
+
+      await manageFetch(`/league/${league.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'ongoing' }),
+      })
+
+      setLeague(l => ({ ...l, status: 'ongoing' }))
+      setTab('matches')
+      await loadMatches()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '대회 시작 실패')
+    } finally { setGenerating(false) }
+  }
+
+  // 대회 종료
+  const endLeague = async () => {
+    if (!confirm('대회를 종료하시겠습니까?')) return
+    try {
+      await manageFetch(`/league/${league.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'finished' }),
+      })
+      setLeague(l => ({ ...l, status: 'finished' }))
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '종료 실패')
+    }
   }
 
   const standings = teams.map(t => {
@@ -225,28 +402,70 @@ function LeagueDetail({ league, onBack, isLeader }: { league: League; onBack: ()
   }).sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga))
 
   const detailTabs = [
-    { key: 'teams' as const, label: '참가팀' },
-    { key: 'matches' as const, label: '경기' },
+    { key: 'teams' as const, label: `참가팀 (${teams.length})` },
+    { key: 'matches' as const, label: `경기 (${matches.length})` },
     { key: 'standings' as const, label: '순위' },
   ]
 
   return (
     <div>
-      <div className="mb-8 flex items-center gap-3">
-        <button onClick={onBack} className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+      <div className="mb-8 flex items-start gap-3">
+        <button onClick={onBack} className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
           </svg>
         </button>
-        <div>
-          <div className="flex items-center gap-2">
+        <div className="flex-1">
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold text-slate-900">{league.name}</h1>
             <TypeBadge type={league.type} />
             <StatusBadge status={league.status} />
           </div>
           {league.region && <p className="mt-0.5 text-sm text-slate-500">{league.region}</p>}
+          {league.description && <p className="mt-1 text-sm text-slate-400">{league.description}</p>}
         </div>
+
+        {/* 라이프사이클 버튼 (주최 팀 리더만) */}
+        {isLeader && (
+          <div className="flex flex-shrink-0 gap-2">
+            {league.status === 'recruiting' && (
+              <button
+                onClick={startLeague}
+                disabled={generating}
+                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">
+                {generating ? (
+                  <>
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    생성 중...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+                    </svg>
+                    대회 시작
+                  </>
+                )}
+              </button>
+            )}
+            {league.status === 'ongoing' && (
+              <button
+                onClick={endLeague}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50">
+                대회 종료
+              </button>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* 대회 시작 안내 배너 */}
+      {isLeader && league.status === 'recruiting' && (
+        <div className="mb-6 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          <span className="font-semibold">모집중</span> — 팀을 초대한 후 <span className="font-semibold">"대회 시작"</span> 버튼을 누르면
+          {league.type === 'tournament' ? ' 토너먼트 대진표가 자동으로 생성' : ' 라운드 로빈 일정이 자동으로 생성'}됩니다.
+        </div>
+      )}
 
       <div className="mb-6 flex gap-1 rounded-xl bg-slate-100 p-1 w-fit">
         {detailTabs.map(t => (
@@ -261,7 +480,7 @@ function LeagueDetail({ league, onBack, isLeader }: { league: League; onBack: ()
 
       {tab === 'teams' && (
         <div className="space-y-4">
-          {isLeader && (
+          {isLeader && league.status === 'recruiting' && (
             <div className="flex gap-2">
               <input value={inviteTeamId} onChange={e => setInviteTeamId(e.target.value)}
                 className={`${inp} max-w-xs`} placeholder="팀 ID 입력" />
@@ -276,14 +495,21 @@ function LeagueDetail({ league, onBack, isLeader }: { league: League; onBack: ()
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50">
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">팀 ID</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">팀</th>
                     <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">참가일</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {teams.map(t => (
                     <tr key={t.teamId} className="hover:bg-slate-50/50">
-                      <td className="px-5 py-3.5 font-medium text-slate-900">{t.teamId}</td>
+                      <td className="px-5 py-3.5 font-medium text-slate-900">
+                        {t.teamId === currentTeamId ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            {t.teamId}
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">우리팀</span>
+                          </span>
+                        ) : t.teamId}
+                      </td>
                       <td className="px-5 py-3.5 text-slate-500">{new Date(t.joinedAt).toLocaleDateString('ko-KR')}</td>
                     </tr>
                   ))}
@@ -295,7 +521,7 @@ function LeagueDetail({ league, onBack, isLeader }: { league: League; onBack: ()
       )}
 
       {tab === 'matches' && (
-        <MatchesSection leagueId={league.id} matches={matches} onRefresh={loadMatches} isLeader={isLeader} />
+        <MatchesSection leagueId={league.id} matches={matches} onRefresh={loadMatches} isLeader={isLeader} leagueStatus={league.status} />
       )}
 
       {tab === 'standings' && (
@@ -319,7 +545,11 @@ function LeagueDetail({ league, onBack, isLeader }: { league: League; onBack: ()
                         i === 0 ? 'bg-emerald-500 text-white' : i === 1 ? 'bg-slate-300 text-slate-700' : i === 2 ? 'bg-amber-400 text-white' : 'text-slate-500'
                       }`}>{i + 1}</span>
                     </td>
-                    <td className="px-4 py-3.5 font-medium text-slate-900">{s.teamId}</td>
+                    <td className="px-4 py-3.5 font-medium text-slate-900">
+                      {s.teamId === currentTeamId
+                        ? <span className="text-emerald-700 font-semibold">{s.teamId} ★</span>
+                        : s.teamId}
+                    </td>
                     <td className="px-4 py-3.5 text-center font-semibold text-emerald-600">{s.w}</td>
                     <td className="px-4 py-3.5 text-center text-slate-500">{s.d}</td>
                     <td className="px-4 py-3.5 text-center text-red-500">{s.l}</td>
@@ -336,7 +566,9 @@ function LeagueDetail({ league, onBack, isLeader }: { league: League; onBack: ()
   )
 }
 
-function MatchesSection({ leagueId, matches, onRefresh, isLeader }: { leagueId: string; matches: LeagueMatch[]; onRefresh: () => void; isLeader: boolean }) {
+function MatchesSection({ leagueId, matches, onRefresh, isLeader, leagueStatus }: {
+  leagueId: string; matches: LeagueMatch[]; onRefresh: () => void; isLeader: boolean; leagueStatus: string
+}) {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ homeTeamId: '', awayTeamId: '', scheduledAt: '', venue: '', round: '' })
   const [scores, setScores] = useState<Record<string, { home: string; away: string }>>({})
@@ -362,9 +594,13 @@ function MatchesSection({ leagueId, matches, onRefresh, isLeader }: { leagueId: 
     onRefresh()
   }
 
+  // 라운드별 그룹핑
+  const rounds = Array.from(new Set(matches.map(m => m.round ?? ''))).filter(Boolean)
+  const ungrouped = matches.filter(m => !m.round)
+
   return (
     <div className="space-y-4">
-      {isLeader && (
+      {isLeader && leagueStatus !== 'finished' && (
         <>
           <button onClick={() => setShowForm(v => !v)}
             className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">
@@ -374,58 +610,85 @@ function MatchesSection({ leagueId, matches, onRefresh, isLeader }: { leagueId: 
             경기 추가
           </button>
           {showForm && (
-        <form onSubmit={submit} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <h3 className="mb-4 text-sm font-semibold text-slate-700">경기 추가</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div><label className={lbl}>홈팀 ID</label><input value={form.homeTeamId} onChange={e => setForm(f => ({ ...f, homeTeamId: e.target.value }))} required className={inp} /></div>
-            <div><label className={lbl}>원정팀 ID</label><input value={form.awayTeamId} onChange={e => setForm(f => ({ ...f, awayTeamId: e.target.value }))} required className={inp} /></div>
-            <div><label className={lbl}>일시</label><input type="datetime-local" value={form.scheduledAt} onChange={e => setForm(f => ({ ...f, scheduledAt: e.target.value }))} required className={inp} /></div>
-            <div><label className={lbl}>구장</label><input value={form.venue} onChange={e => setForm(f => ({ ...f, venue: e.target.value }))} required className={inp} /></div>
-            <div><label className={lbl}>라운드</label><input value={form.round} onChange={e => setForm(f => ({ ...f, round: e.target.value }))} className={inp} placeholder="8강, 준결승..." /></div>
-          </div>
-          <button type="submit" disabled={loading}
-            className="mt-4 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
-            {loading ? '추가 중...' : '추가'}
-          </button>
-        </form>
+            <form onSubmit={submit} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+              <h3 className="mb-4 text-sm font-semibold text-slate-700">경기 추가</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className={lbl}>홈팀 ID</label><input value={form.homeTeamId} onChange={e => setForm(f => ({ ...f, homeTeamId: e.target.value }))} required className={inp} /></div>
+                <div><label className={lbl}>원정팀 ID</label><input value={form.awayTeamId} onChange={e => setForm(f => ({ ...f, awayTeamId: e.target.value }))} required className={inp} /></div>
+                <div><label className={lbl}>일시</label><input type="datetime-local" value={form.scheduledAt} onChange={e => setForm(f => ({ ...f, scheduledAt: e.target.value }))} required className={inp} /></div>
+                <div><label className={lbl}>구장</label><input value={form.venue} onChange={e => setForm(f => ({ ...f, venue: e.target.value }))} required className={inp} /></div>
+                <div><label className={lbl}>라운드</label><input value={form.round} onChange={e => setForm(f => ({ ...f, round: e.target.value }))} className={inp} placeholder="8강, 준결승..." /></div>
+              </div>
+              <button type="submit" disabled={loading}
+                className="mt-4 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                {loading ? '추가 중...' : '추가'}
+              </button>
+            </form>
           )}
         </>
       )}
 
-      {matches.length === 0 ? <Empty text="경기가 없습니다" /> : (
-        <div className="space-y-3">
-          {matches.map(m => (
-            <div key={m.id} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-              {m.round && (
-                <span className="mb-3 inline-block rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">{m.round}</span>
-              )}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 text-sm font-semibold">
-                  <span className="text-slate-900">{m.homeTeamId}</span>
-                  {m.status === 'completed'
-                    ? <span className="rounded-xl bg-slate-900 px-4 py-2 text-lg font-bold text-white tabular-nums">{m.homeScore} : {m.awayScore}</span>
-                    : <span className="text-slate-300">vs</span>}
-                  <span className="text-slate-900">{m.awayTeamId}</span>
-                </div>
-                <StatusBadge status={m.status} />
+      {matches.length === 0 ? (
+        <Empty text={leagueStatus === 'recruiting' ? '대회 시작 시 경기가 자동 생성됩니다' : '경기가 없습니다'} />
+      ) : (
+        <div className="space-y-6">
+          {rounds.map(round => (
+            <div key={round}>
+              <div className="mb-3 flex items-center gap-3">
+                <span className="rounded-lg bg-slate-800 px-3 py-1 text-xs font-bold text-white">{round}</span>
+                <div className="h-px flex-1 bg-slate-100" />
               </div>
-              <div className="mt-2 text-xs text-slate-400">{new Date(m.scheduledAt).toLocaleString('ko-KR')} · {m.venue}</div>
-
-              {m.status !== 'completed' && isLeader && (
-                <div className="mt-4 flex items-center gap-3 border-t border-slate-50 pt-4">
-                  <input type="number" placeholder="홈" value={scores[m.id]?.home ?? ''} onChange={e => setScores(s => ({ ...s, [m.id]: { ...s[m.id], home: e.target.value } }))}
-                    className="w-16 rounded-xl border border-slate-200 px-3 py-2 text-center text-sm outline-none focus:border-emerald-500" />
-                  <span className="text-slate-300">:</span>
-                  <input type="number" placeholder="원정" value={scores[m.id]?.away ?? ''} onChange={e => setScores(s => ({ ...s, [m.id]: { ...s[m.id], away: e.target.value } }))}
-                    className="w-16 rounded-xl border border-slate-200 px-3 py-2 text-center text-sm outline-none focus:border-emerald-500" />
-                  <button onClick={() => saveResult(m.id)}
-                    className="rounded-xl bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100">
-                    결과 저장
-                  </button>
-                </div>
-              )}
+              <div className="space-y-3">
+                {matches.filter(m => m.round === round).map(m => (
+                  <MatchCard key={m.id} match={m} isLeader={isLeader} leagueStatus={leagueStatus}
+                    scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} />
+                ))}
+              </div>
             </div>
           ))}
+          {ungrouped.length > 0 && ungrouped.map(m => (
+            <MatchCard key={m.id} match={m} isLeader={isLeader} leagueStatus={leagueStatus}
+              scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MatchCard({ match: m, isLeader, leagueStatus, scores, setScores, onSave }: {
+  match: LeagueMatch
+  isLeader: boolean
+  leagueStatus: string
+  scores: Record<string, { home: string; away: string }>
+  setScores: React.Dispatch<React.SetStateAction<Record<string, { home: string; away: string }>>>
+  onSave: () => void
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4 text-sm font-semibold">
+          <span className="text-slate-900">{m.homeTeamId}</span>
+          {m.status === 'completed'
+            ? <span className="rounded-xl bg-slate-900 px-4 py-2 text-lg font-bold text-white tabular-nums">{m.homeScore} : {m.awayScore}</span>
+            : <span className="text-slate-300">vs</span>}
+          <span className="text-slate-900">{m.awayTeamId}</span>
+        </div>
+        <StatusBadge status={m.status} />
+      </div>
+      <div className="mt-2 text-xs text-slate-400">{new Date(m.scheduledAt).toLocaleString('ko-KR')} · {m.venue}</div>
+
+      {m.status !== 'completed' && isLeader && leagueStatus === 'ongoing' && (
+        <div className="mt-4 flex items-center gap-3 border-t border-slate-50 pt-4">
+          <input type="number" placeholder="홈" value={scores[m.id]?.home ?? ''} onChange={e => setScores(s => ({ ...s, [m.id]: { ...s[m.id], home: e.target.value } }))}
+            className="w-16 rounded-xl border border-slate-200 px-3 py-2 text-center text-sm outline-none focus:border-emerald-500" />
+          <span className="text-slate-300">:</span>
+          <input type="number" placeholder="원정" value={scores[m.id]?.away ?? ''} onChange={e => setScores(s => ({ ...s, [m.id]: { ...s[m.id], away: e.target.value } }))}
+            className="w-16 rounded-xl border border-slate-200 px-3 py-2 text-center text-sm outline-none focus:border-emerald-500" />
+          <button onClick={onSave}
+            className="rounded-xl bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100">
+            결과 저장
+          </button>
         </div>
       )}
     </div>
