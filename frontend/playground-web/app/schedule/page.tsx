@@ -349,7 +349,7 @@ export default function SchedulePage() {
       )}
 
       {/* M3-E: 최근 경기 결과 + 이의 신청 */}
-      {matches.filter(m => m.status === 'completed').length > 0 && (
+      {matches.filter(m => m.status === 'completed' && m.matchType !== 'training' && m.awayTeamId !== 'training').length > 0 && (
         <section>
           <RecentResultsSection matches={matches} teamId={teamId} isLeader={isLeader} onRefresh={loadMatches} />
         </section>
@@ -2782,7 +2782,7 @@ function CardTrackerSection({ matches, members, isLeader, onRefresh }: {
 
   const doReset = async () => {
     const latestCompleted = matches
-      .filter(m => m.status === 'completed')
+      .filter(m => m.status === 'completed' && m.matchType !== 'training' && m.awayTeamId !== 'training')
       .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())[0]
     if (!latestCompleted) return
     setResetting(true)
@@ -2918,8 +2918,9 @@ function RecentResultsSection({ matches, teamId, isLeader, onRefresh }: {
   const [saving, setSaving] = useState(false)
   const [sharedId, setSharedId] = useState<string | null>(null)
 
-  const completed = [...matches.filter(m => m.status === 'completed')]
-    .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
+  const completed = [...matches.filter(m =>
+    m.status === 'completed' && m.matchType !== 'training' && m.awayTeamId !== 'training'
+  )].sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
     .slice(0, 5)
 
   if (completed.length === 0) return null
@@ -3136,6 +3137,7 @@ function TeamStatsSection({ matches, members, teamId, polls = [] }: {
 
   const completed = [...matches.filter(m =>
     m.status === 'completed' &&
+    m.matchType !== 'training' && m.awayTeamId !== 'training' &&
     (seasonCutoff === null || new Date(m.scheduledAt) >= seasonCutoff)
   )].sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
 
