@@ -6,6 +6,7 @@ import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } fro
 import { manageFetch } from '@/lib/manageFetch'
 import { useTeam } from '@/context/TeamContext'
 import { useAuth } from '@/context/AuthContext'
+import { GpsTracker } from '@/components/GpsTracker'
 import type { Match, Announcement, Poll, Attendance, TeamMember, GoalRecord, CardRecord, Lineup, League, LeagueMatch } from '@/types/manage'
 
 const MIN_PLAYERS = 7
@@ -181,6 +182,7 @@ export default function SchedulePage() {
   const [members, setMembers] = useState<TeamMember[]>([])
   const [polls, setPolls] = useState<Poll[]>([])
   const [checkInMatchId, setCheckInMatchId] = useState<string | null>(null)
+  const [showGps, setShowGps] = useState(false)
 
   // M2-A: QR URL ?match=ID 감지 → 체크인 배너 노출
   useEffect(() => {
@@ -394,6 +396,21 @@ export default function SchedulePage() {
           </div>
         </section>
       )}
+
+      {/* M4: GPS 퍼포먼스 트래커 플로팅 버튼 */}
+      <button
+        onClick={() => setShowGps(true)}
+        title="GPS 퍼포먼스 트래커"
+        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95"
+        style={{ background: 'linear-gradient(135deg,#059669,#10b981)' }}
+      >
+        <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+        </svg>
+      </button>
+
+      {showGps && <GpsTracker onClose={() => setShowGps(false)} />}
     </div>
   )
 }
