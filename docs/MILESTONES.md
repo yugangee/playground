@@ -277,7 +277,7 @@
 
 - [x] 팀 전적 요약 (승/무/패, 승률) + 득점 리더보드 — schedule 페이지 `TeamStatsSection`, `GoalRecord` 누적 집계
 - [x] **시즌별 개인 기록 (경기별 G/A 확장)** — 선수 행 클릭 시 ▼ 경기날짜·구장별 득점/어시스트 breakdown 표시 (`TeamStatsSection` expandedPlayer 상태)
-- [ ] PIS (Performance Impact Score) 시각화 (Spider Chart — fbref 스타일)
+- [x] **PIS Spider Chart** — 선수 행 클릭 시 recharts RadarChart (득점/어시스트/공격P/규율/활약도 5축, 팀 내 정규화)
 - [x] 팀 내 리더보드 (득점왕 G·어시스트왕 A·경고 🟨🟥) — 선수 기록 테이블 (G/A/🟨/🟥 컬럼)
 - [ ] 출석왕 (attendance 다회 로딩 필요, 미구현)
 - [ ] POTM 횟수 집계 (poll 투표 결과 집계 필요, 미구현)
@@ -287,7 +287,7 @@
 
 - [x] **팀 전체 성적 (평균 득점/실점, 최장 연승)** — 평균 득/실점·최장연승 수치 카드 (`TeamStatsSection` avgGoalsFor/avgGoalsAgainst)
 - [x] 팀 등급 승급 진행 바 — `TeamStatsSection`에 TEAM_TIERS 상수 + 진행 바 + pt 표시 (scoring.mjs 동일 룰 적용: base 3 + win 4 + draw 1 + streakBonus)
-- [ ] 상대 팀별 상대전적
+- [x] **상대 팀별 상대전적** — 완료 경기 상대팀 ID별 W/D/L·승률 집계 (`TeamStatsSection` opponentRecord)
 - [x] **홈/원정 성적 분리** — 홈 W/D/L·승률, 원정 W/D/L·승률 2열 카드 (`TeamStatsSection` home/awayWins 분리 집계)
 - [ ] **토너먼트 전적 통계** — KJA 대회처럼 외부 대회 참가 기록 별도 집계
 
@@ -306,7 +306,7 @@
 
 #### 3-E. 알림 시스템 완성
 
-- [ ] 경기 제안 시 상대팀 전원 WebSocket/푸시 알림 (현재 DB 저장만)
+- [x] **경기 제안 수신 알림 배너** — pending + awayTeamId=우리팀인 경기 감지, 스케줄 페이지 상단 amber 배너 표시
 - [ ] 주장 채팅방 자동 생성 (매치 scheduled 시 양쪽 주장 1:1 채팅방)
 - [ ] 스코어 불일치(disputed) 처리 UI
 
@@ -400,4 +400,4 @@
 
 ---
 
-*최종 업데이트: 2026-02-28 (M1-E 구장 즐겨찾기 + M2-A 용병 임시 등록 + M3-A/B 통계 강화)*
+*최종 업데이트: 2026-02-28 (M3-A PIS Spider Chart + M3-B 상대전적 + M3-E 경기 알림 배너)*

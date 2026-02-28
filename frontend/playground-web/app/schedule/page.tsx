@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts'
 import { manageFetch } from '@/lib/manageFetch'
 import { useTeam } from '@/context/TeamContext'
 import { useAuth } from '@/context/AuthContext'
@@ -144,6 +145,11 @@ export default function SchedulePage() {
     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
     .slice(0, 3)
 
+  // M3-E: 상대팀이 제안한 대기 중 경기 (awayTeam = 우리팀)
+  const pendingProposals = matches.filter(
+    m => m.status === 'pending' && m.awayTeamId === teamId && isFuture(m.scheduledAt)
+  )
+
   if (!teamId) return <EmptyTeam />
 
   return (
@@ -172,6 +178,22 @@ export default function SchedulePage() {
           {isLeader && <MatchFormButton teamId={teamId} onSuccess={loadMatches} />}
         </div>
       </div>
+
+      {/* M3-E: 경기 제안 수신 알림 배너 */}
+      {pendingProposals.length > 0 && (
+        <div className="flex items-start gap-3 rounded-2xl px-4 py-3"
+          style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)' }}>
+          <span className="text-lg mt-0.5">🔔</span>
+          <div className="min-w-0">
+            <p className="text-sm font-bold" style={{ color: '#f59e0b' }}>
+              경기 제안 {pendingProposals.length}건 수신
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+              상대팀에서 경기를 제안했습니다 — 아래에서 수락 또는 거절해 주세요
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 다가오는 경기 */}
       <section>
@@ -2079,6 +2101,7 @@ function TeamStatsSection({ matches, members, teamId }: {
   let homeWins = 0, homeDraws = 0, homeLosses = 0
   let awayWins = 0, awayDraws = 0, awayLosses = 0
   let totalGoalsFor = 0, totalGoalsAgainst = 0
+  const opponentRecord: Record<string, { wins: number; draws: number; losses: number }> = {}
   for (const m of completed) {
     if (m.homeScore == null || m.awayScore == null) continue
     const isHome = m.homeTeamId === teamId
@@ -2088,15 +2111,20 @@ function TeamStatsSection({ matches, members, teamId }: {
     totalGoalsAgainst += their
     const streakBonus = our > their && curStreak >= 1 ? curStreak : 0
     teamPoints += 3 + (our > their ? 4 : our === their ? 1 : 0) + streakBonus
+    const oppId = isHome ? m.awayTeamId : m.homeTeamId
+    opponentRecord[oppId] = opponentRecord[oppId] ?? { wins: 0, draws: 0, losses: 0 }
     if (our > their) {
       wins++;   curStreak++
       if (isHome) homeWins++;   else awayWins++
+      opponentRecord[oppId].wins++
     } else if (our === their) {
       draws++;  curStreak = 0
       if (isHome) homeDraws++;  else awayDraws++
+      opponentRecord[oppId].draws++
     } else {
       losses++; curStreak = 0
       if (isHome) homeLosses++; else awayLosses++
+      opponentRecord[oppId].losses++
     }
     maxStreak = Math.max(maxStreak, curStreak)
   }
@@ -2135,6 +2163,21 @@ function TeamStatsSection({ matches, members, teamId }: {
   const activePlayers = Object.entries(pMap)
     .filter(([, s]) => s.goals + s.assists + s.yellows + s.reds > 0)
     .sort((a, b) => (b[1].goals + b[1].assists) - (a[1].goals + a[1].assists))
+
+  // PIS 정규화 기준 (팀 내 최대값 대비 %)
+  const pisMaxGoals   = Math.max(...activePlayers.map(([, s]) => s.goals), 1)
+  const pisMaxAssists = Math.max(...activePlayers.map(([, s]) => s.assists), 1)
+  const pisMaxGA      = Math.max(...activePlayers.map(([, s]) => s.goals + s.assists), 1)
+
+  // 활약도: 완료 경기 중 기록(골/어시/카드)이 있는 경기 수
+  const involvementMap: Record<string, number> = {}
+  for (const m of completed) {
+    const involved = new Set<string>()
+    m.goals?.forEach(g => { involved.add(g.scorer); if (g.assist) involved.add(g.assist) })
+    m.cards?.forEach(c => involved.add(c.playerId))
+    involved.forEach(uid => { involvementMap[uid] = (involvementMap[uid] ?? 0) + 1 })
+  }
+  const maxInvolvement = Math.max(...Object.values(involvementMap), 1)
 
   const hasStats = completed.length > 0
 
@@ -2295,11 +2338,9 @@ function TeamStatsSection({ matches, members, teamId }: {
                         <span className="text-xs font-medium truncate" style={{ color: 'var(--text-secondary)' }}>
                           {mem ? memberLabel(mem) : userId.slice(0, 8) + '…'}
                         </span>
-                        {matchBreakdown.length > 0 && (
-                          <span className="ml-auto shrink-0 text-[9px] pl-1" style={{ color: 'var(--text-muted)' }}>
-                            {isExpanded ? '▲' : '▼'}
-                          </span>
-                        )}
+                        <span className="ml-auto shrink-0 text-[9px] pl-1" style={{ color: 'var(--text-muted)' }}>
+                          {isExpanded ? '▲' : '▼'}
+                        </span>
                       </div>
                       <span className="text-xs font-bold tabular-nums"
                         style={{ color: s.goals > 0 ? '#4ade80' : 'var(--text-muted)' }}>
@@ -2318,26 +2359,82 @@ function TeamStatsSection({ matches, members, teamId }: {
                         {s.reds || '–'}
                       </span>
                     </div>
-                    {isExpanded && matchBreakdown.length > 0 && (
-                      <div className="border-b px-2 py-2 space-y-1.5"
+                    {isExpanded && (
+                      <div className="border-b"
                         style={{ borderColor: 'var(--card-border)', background: 'var(--sidebar-bg)' }}>
-                        {matchBreakdown.map(mb => (
-                          <div key={mb.matchId} className="flex items-center justify-between">
-                            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                              {new Date(mb.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })} · {mb.venue}
-                            </span>
-                            <span className="text-[10px] font-bold flex items-center gap-2">
-                              {mb.goals > 0 && <span style={{ color: '#4ade80' }}>⚽ {mb.goals}</span>}
-                              {mb.assists > 0 && <span style={{ color: '#60a5fa' }}>🅰 {mb.assists}</span>}
-                            </span>
+                        {/* M3-A: PIS Spider Chart */}
+                        <div style={{ height: '130px' }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <RadarChart data={[
+                              { s: '득점',    v: Math.round(s.goals / pisMaxGoals * 100) },
+                              { s: '어시스트', v: Math.round(s.assists / pisMaxAssists * 100) },
+                              { s: '공격P',   v: Math.round((s.goals + s.assists) / pisMaxGA * 100) },
+                              { s: '규율',    v: Math.max(0, 100 - s.yellows * 15 - s.reds * 40) },
+                              { s: '활약도',  v: Math.round((involvementMap[userId] ?? 0) / maxInvolvement * 100) },
+                            ]} cx="50%" cy="50%" outerRadius="65%">
+                              <PolarGrid stroke="rgba(148,163,184,0.15)" />
+                              <PolarAngleAxis dataKey="s" tick={{ fontSize: 8, fill: '#94a3b8', fontWeight: 600 }} />
+                              <Radar dataKey="v" stroke="#7c3aed" fill="#7c3aed" fillOpacity={0.25} strokeWidth={1.5} />
+                            </RadarChart>
+                          </ResponsiveContainer>
+                        </div>
+                        {/* 경기별 G/A 내역 */}
+                        {matchBreakdown.length > 0 && (
+                          <div className="px-3 pb-2.5 space-y-1.5 border-t" style={{ borderColor: 'var(--card-border)' }}>
+                            {matchBreakdown.map(mb => (
+                              <div key={mb.matchId} className="flex items-center justify-between">
+                                <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                                  {new Date(mb.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })} · {mb.venue}
+                                </span>
+                                <span className="text-[10px] font-bold flex items-center gap-2">
+                                  {mb.goals > 0 && <span style={{ color: '#4ade80' }}>⚽ {mb.goals}</span>}
+                                  {mb.assists > 0 && <span style={{ color: '#60a5fa' }}>🅰 {mb.assists}</span>}
+                                </span>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        )}
                       </div>
                     )}
                   </div>
                 )
               })}
             </div>
+          </div>
+        )}
+
+        {/* M3-B: 상대전적 */}
+        {Object.keys(opponentRecord).length > 0 && (
+          <div className="border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
+              상대전적
+            </p>
+            {Object.entries(opponentRecord)
+              .sort((a, b) => (b[1].wins - b[1].losses) - (a[1].wins - a[1].losses))
+              .map(([oppId, rec]) => {
+                const total = rec.wins + rec.draws + rec.losses
+                const winRate = total > 0 ? Math.round((rec.wins / total) * 100) : 0
+                return (
+                  <div key={oppId} className="flex items-center justify-between py-1.5 border-b last:border-0"
+                    style={{ borderColor: 'var(--card-border)' }}>
+                    <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                      vs {oppId.slice(0, 8)}…
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[11px] tabular-nums font-semibold">
+                        <span style={{ color: '#4ade80' }}>{rec.wins}</span>
+                        <span style={{ color: 'var(--text-muted)' }}> / </span>
+                        <span style={{ color: 'var(--text-secondary)' }}>{rec.draws}</span>
+                        <span style={{ color: 'var(--text-muted)' }}> / </span>
+                        <span style={{ color: '#f87171' }}>{rec.losses}</span>
+                      </span>
+                      <span className="text-[10px] w-8 text-right" style={{ color: 'var(--text-muted)' }}>
+                        {winRate}%
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
           </div>
         )}
 
