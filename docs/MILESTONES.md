@@ -363,7 +363,7 @@
 
 | 항목 | 우선순위 | 상태 |
 |------|:---:|:---:|
-| 다크/라이트 테마 — date input colorScheme 대응 | 낮 | 미완 |
+| 다크/라이트 테마 — date input colorScheme 대응 | 낮 | ✅ globals.css `color-scheme: dark/light` |
 | 일부 페이지 하드코딩 인라인 스타일 | 낮 | 미완 |
 | MatchesTable GSI 재추가 (homeTeamId-index, awayTeamId-index) | 중 | CDK에서 제거됨, 별도 배포 필요 |
 | 팀 승급 조건 검증 (20승, 팀원 평균 등급 조건) | 중 | 미구현 |
