@@ -3086,11 +3086,11 @@ function RecentResultsSection({ matches, teamId, isLeader, onRefresh }: {
 // ── M3-A + M3-B: 팀 통계 섹션 ────────────────────────────────────────────────
 
 const TEAM_TIERS = [
-  { name: 'Legend', min: 2001, color: '#fbbf24' },
-  { name: 'Elite',  min: 801,  color: '#a78bfa' },
-  { name: 'Crew',   min: 251,  color: '#60a5fa' },
-  { name: 'Club',   min: 51,   color: '#4ade80' },
-  { name: 'Rookie', min: 0,    color: '#94a3b8' },
+  { name: 'Legend', min: 2001, color: '#fbbf24', minWins: 50 },
+  { name: 'Elite',  min: 801,  color: '#a78bfa', minWins: 20 },
+  { name: 'Crew',   min: 251,  color: '#60a5fa', minWins: 10 },
+  { name: 'Club',   min: 51,   color: '#4ade80', minWins: 5  },
+  { name: 'Rookie', min: 0,    color: '#94a3b8', minWins: 0  },
 ] as const
 
 type SeasonFilter = 'all' | '6m' | '3m'
@@ -3334,6 +3334,37 @@ function TeamStatsSection({ matches, members, teamId, polls = [] }: {
             <div className="h-full rounded-full transition-all duration-700"
               style={{ width: `${tierPct}%`, background: `linear-gradient(to right, ${tier.color}88, ${tier.color})` }} />
           </div>
+          {/* 승급 조건 체크리스트 */}
+          {nextTier && (() => {
+            const ptOk   = teamPoints >= nextTier.min
+            const winOk  = wins >= nextTier.minWins
+            const allOk  = ptOk && winOk
+            return (
+              <div className="mt-2 rounded-xl px-3 py-2 space-y-1"
+                style={{ background: allOk ? 'rgba(74,222,128,0.08)' : 'var(--sidebar-bg)', border: `1px solid ${allOk ? 'rgba(74,222,128,0.3)' : 'var(--card-border)'}` }}>
+                <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                  {nextTier.name} 승급 조건
+                </p>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span>{ptOk ? '✅' : '⬜'}</span>
+                  <span style={{ color: ptOk ? '#4ade80' : 'var(--text-secondary)' }}>
+                    포인트 {teamPoints} / {nextTier.min}pt
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span>{winOk ? '✅' : '⬜'}</span>
+                  <span style={{ color: winOk ? '#4ade80' : 'var(--text-secondary)' }}>
+                    누적 승리 {wins} / {nextTier.minWins}승
+                  </span>
+                </div>
+                {allOk && (
+                  <p className="text-[11px] font-bold mt-1" style={{ color: '#4ade80' }}>
+                    🎉 모든 조건 충족 — {nextTier.name} 승급 가능!
+                  </p>
+                )}
+              </div>
+            )
+          })()}
         </div>
 
         {/* 전적 요약 */}
