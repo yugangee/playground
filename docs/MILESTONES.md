@@ -291,7 +291,7 @@
 - [x] 팀 등급 승급 진행 바 — `TeamStatsSection`에 TEAM_TIERS 상수 + 진행 바 + pt 표시 (scoring.mjs 동일 룰 적용: base 3 + win 4 + draw 1 + streakBonus)
 - [x] **상대 팀별 상대전적** — 완료 경기 상대팀 ID별 W/D/L·승률 집계 (`TeamStatsSection` opponentRecord)
 - [x] **홈/원정 성적 분리** — 홈 W/D/L·승률, 원정 W/D/L·승률 2열 카드 (`TeamStatsSection` home/awayWins 분리 집계)
-- [ ] **토너먼트 전적 통계** — KJA 대회처럼 외부 대회 참가 기록 별도 집계
+- [x] **토너먼트 전적 통계** — 팀이 주최한 토너먼트 리그 경기 W/D/L 집계, 승률·상태(모집중/진행중/종료) 카드 표시 (`TeamStatsSection` 하단 "🏆 토너먼트 기록" 섹션, `/league?organizerTeamId` + `/league/:id/matches` API 활용)
 
 #### 3-C. 미디어 아카이브
 
@@ -404,4 +404,4 @@
 
 ---
 
-*최종 업데이트: 2026-03-01 (M3-D 다종목 등급 커트라인 — SportType/SportCategory 타입, CLUB_TIERS/BASKETBALL_TIERS, 종목별 PIS 레이블, 팀 생성 종목 선택, 동아리형 승급 조건 UI)*
+*최종 업데이트: 2026-03-01 (M3-B 토너먼트 전적 통계 추가 / M3-D 다종목 등급 커트라인 — SportType/SportCategory 타입, CLUB_TIERS/BASKETBALL_TIERS, 종목별 PIS 레이블, 팀 생성 종목 선택, 동아리형 승급 조건 UI)*

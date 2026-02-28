@@ -6,7 +6,7 @@ import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } fro
 import { manageFetch } from '@/lib/manageFetch'
 import { useTeam } from '@/context/TeamContext'
 import { useAuth } from '@/context/AuthContext'
-import type { Match, Announcement, Poll, Attendance, TeamMember, GoalRecord, CardRecord, Lineup } from '@/types/manage'
+import type { Match, Announcement, Poll, Attendance, TeamMember, GoalRecord, CardRecord, Lineup, League, LeagueMatch } from '@/types/manage'
 
 const MIN_PLAYERS = 7
 
@@ -3149,6 +3149,9 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
   const [attendanceMap, setAttendanceMap] = useState<Record<string, number> | null>(null)
   const [loadingAttendance, setLoadingAttendance] = useState(false)
   const [statsCopied, setStatsCopied] = useState(false)
+  // M3-B: 토너먼트 전적
+  type TournamentStat = { league: League; w: number; d: number; l: number; total: number }
+  const [tournamentStats, setTournamentStats] = useState<TournamentStat[]>([])
 
   // 시즌 필터 변경 시 출석 데이터 초기화
   useEffect(() => { setAttendanceMap(null) }, [seasonFilter])
@@ -3175,6 +3178,36 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
       setPotmWins(winsMap)
     })
   }, [polls.length, teamId])
+
+  // M3-B: 토너먼트 전적 — 이 팀이 주최한 토너먼트 경기 결과 집계
+  useEffect(() => {
+    if (!teamId) return
+    const fetchTournamentStats = async () => {
+      try {
+        const leagues: League[] = await manageFetch(`/league?organizerTeamId=${teamId}`)
+        const tournamentLeagues = leagues.filter(l => l.type === 'tournament')
+        if (tournamentLeagues.length === 0) { setTournamentStats([]); return }
+        const stats = await Promise.all(
+          tournamentLeagues.map(async (league) => {
+            const lMatches: LeagueMatch[] = await manageFetch(`/league/${league.id}/matches`).catch(() => [])
+            let w = 0, d = 0, l = 0
+            lMatches.forEach(m => {
+              if (m.status !== 'completed' || m.homeScore == null || m.awayScore == null) return
+              const isHome = m.homeTeamId === teamId
+              const our = isHome ? m.homeScore : m.awayScore
+              const their = isHome ? m.awayScore : m.homeScore
+              if (our > their) w++
+              else if (our === their) d++
+              else l++
+            })
+            return { league, w, d, l, total: w + d + l }
+          })
+        )
+        setTournamentStats(stats.filter(s => s.total > 0))
+      } catch {}
+    }
+    fetchTournamentStats()
+  }, [teamId])
 
   const seasonCutoff = seasonFilter === 'all' ? null
     : seasonFilter === '6m' ? new Date(Date.now() - 180 * 24 * 60 * 60 * 1000)
@@ -3712,6 +3745,46 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
                   </div>
                 )
               })}
+          </div>
+        )}
+
+        {/* M3-B: 토너먼트 전적 */}
+        {tournamentStats.length > 0 && (
+          <div className="border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
+              🏆 토너먼트 기록
+            </p>
+            <div className="space-y-2">
+              {tournamentStats.map(({ league, w, d, l, total }) => {
+                const winRate = total > 0 ? Math.round((w / total) * 100) : 0
+                const statusColor = league.status === 'finished' ? '#94a3b8' : league.status === 'ongoing' ? '#4ade80' : '#fbbf24'
+                return (
+                  <div key={league.id} className="rounded-xl px-3 py-2" style={{ background: 'var(--sidebar-bg)' }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                          {league.name}
+                        </span>
+                        <span className="text-[10px] rounded-full px-1.5 py-0.5 font-medium"
+                          style={{ background: `${statusColor}20`, color: statusColor }}>
+                          {league.status === 'finished' ? '종료' : league.status === 'ongoing' ? '진행중' : '모집중'}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                        {total}경기 · {winRate}%
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold tabular-nums">
+                      <span style={{ color: '#4ade80' }}>{w}승</span>
+                      <span style={{ color: 'var(--text-muted)' }}>·</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>{d}무</span>
+                      <span style={{ color: 'var(--text-muted)' }}>·</span>
+                      <span style={{ color: '#f87171' }}>{l}패</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )}
 
