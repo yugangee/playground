@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
+import QRCode from 'qrcode'
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts'
 import { manageFetch } from '@/lib/manageFetch'
 import { useTeam } from '@/context/TeamContext'
@@ -285,6 +286,7 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
   const [showGoalModal, setShowGoalModal] = useState(false)
   const [showCardModal, setShowCardModal] = useState(false)
   const [showLineup, setShowLineup] = useState(false)
+  const [showQRModal, setShowQRModal] = useState(false)
   const isGameDay = isMatchToday(m.scheduledAt)
 
   // 출석 상태 로드 (내 상태 + 전체 집계)
@@ -544,15 +546,26 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
         </div>
       )}
 
-      {/* 결과 입력 버튼 (리더, 확정된 경기만) */}
-      {isLeader && m.status === 'accepted' && (
-        <button
-          onClick={() => setShowResultModal(true)}
-          className="w-full rounded-xl py-2 text-xs font-semibold transition-opacity hover:opacity-80"
-          style={{ background: 'rgba(124,58,237,0.1)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.25)' }}
-        >
-          📋 경기 결과 입력
-        </button>
+      {/* 결과 입력 + QR 공유 버튼 (확정된 경기) */}
+      {m.status === 'accepted' && (
+        <div className="flex gap-2">
+          {isLeader && (
+            <button
+              onClick={() => setShowResultModal(true)}
+              className="flex-1 rounded-xl py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+              style={{ background: 'rgba(124,58,237,0.1)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.25)' }}
+            >
+              📋 경기 결과 입력
+            </button>
+          )}
+          <button
+            onClick={() => setShowQRModal(true)}
+            className="rounded-xl px-3 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+            style={{ background: 'rgba(96,165,250,0.08)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.25)' }}
+          >
+            QR
+          </button>
+        </div>
       )}
 
       {/* 내비게이션 링크 */}
@@ -612,6 +625,11 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
             onRefresh()
           }}
         />
+      )}
+
+      {/* M2-A: QR 체크인 모달 */}
+      {showQRModal && (
+        <QRModal match={m} onClose={() => setShowQRModal(false)} />
       )}
     </div>
   )
@@ -1280,6 +1298,80 @@ function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
         총 {totalVotes}표
         {poll.endsAt && ` · ${new Date(poll.endsAt) > new Date() ? `~${new Date(poll.endsAt).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}` : '마감'}`}
       </p>
+    </div>
+  )
+}
+
+// ── M2-A: QR 체크인 모달 ──────────────────────────────────────────────────────
+
+function QRModal({ match: m, onClose }: { match: Match; onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [copied, setCopied] = useState(false)
+
+  const qrData = `https://fun.sedaily.ai/schedule?match=${m.id}`
+
+  useEffect(() => {
+    if (!canvasRef.current) return
+    QRCode.toCanvas(canvasRef.current, qrData, {
+      width: 220,
+      margin: 2,
+      color: { dark: '#1e1b4b', light: '#ffffff' },
+    }).catch(() => {})
+  }, [qrData])
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(qrData)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {}
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="relative w-full max-w-xs rounded-2xl border p-5 space-y-4"
+        style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
+
+        {/* 헤더 */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>QR 체크인 공유</h3>
+          <button onClick={onClose}
+            className="rounded-full p-1.5 hover:opacity-70 transition-opacity"
+            style={{ color: 'var(--text-muted)' }}>
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* QR 코드 */}
+        <div className="flex flex-col items-center gap-3">
+          <div className="rounded-2xl overflow-hidden p-3" style={{ background: 'white' }}>
+            <canvas ref={canvasRef} />
+          </div>
+          <div className="text-center space-y-0.5">
+            <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{m.venue}</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{formatDateTime(m.scheduledAt)}</p>
+          </div>
+          <p className="text-[10px] text-center" style={{ color: 'var(--text-muted)' }}>
+            팀원이 QR을 스캔하면 경기 페이지로 이동합니다
+          </p>
+        </div>
+
+        {/* 링크 복사 */}
+        <button
+          onClick={copyLink}
+          className="w-full rounded-xl py-2.5 text-sm font-semibold transition-all"
+          style={{
+            background: copied ? 'rgba(74,222,128,0.1)' : 'var(--sidebar-bg)',
+            color: copied ? '#4ade80' : 'var(--text-secondary)',
+            border: `1px solid ${copied ? 'rgba(74,222,128,0.3)' : 'var(--card-border)'}`,
+          }}>
+          {copied ? '✓ 링크 복사됨' : '🔗 링크 복사'}
+        </button>
+      </div>
     </div>
   )
 }
