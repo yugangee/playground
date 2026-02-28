@@ -325,7 +325,7 @@
 - [x] **2D 축구장 GPS 히트맵 렌더링** — 이동 포인트 밀도 그리드(18×18) → amber 열지도 SVG 오버레이, 이동 경로 polyline, 시작/종료 마커 (`FieldHeatmap` 컴포넌트)
 - [x] **속도 구간별 분석** — 걷기(<4)/조깅(<8)/달리기(<15)/스프린트(15+) km/h 구분, recharts PieChart 도넛 차트
 - [x] **수치 데이터** — 이동 거리(m/km), 최고 속도, 평균 속도, 추적 시간 스탯 카드
-- [ ] 2D 필드 리플레이어 (경기 중 움직임 궤적 애니메이션)
+- [x] **2D 필드 리플레이어** — 추적 완료 후 재생 버튼으로 궤적 애니메이션 재생, stroke-dashoffset 기법 + requestAnimationFrame 20× 배속, 속도 구간별 컬러 플레이어 도트, 진행 바 (`FieldReplayer` 컴포넌트)
 - [ ] `PlayerPerformance` DynamoDB 엔티티 설계 및 저장 (백엔드 필요)
 - [ ] 스마트워치 연동 검토 (Phase 3)
 
@@ -404,4 +404,4 @@
 
 ---
 
-*최종 업데이트: 2026-03-01 (M4 GPS 트래커 — GpsTracker.tsx, FieldHeatmap SVG, 속도 구간 PieChart / M5-B 외부 리그 참가 신청 + 대진표 자동화 / M3-B 토너먼트 전적 통계 / M3-D 다종목 등급 커트라인)*
+*최종 업데이트: 2026-03-01 (M4 GPS 트래커 — GpsTracker.tsx, FieldHeatmap SVG, 속도 구간 PieChart, FieldReplayer 궤적 애니메이션 / M5-B 외부 리그 참가 신청 + 대진표 자동화 / M3-B 토너먼트 전적 통계 / M3-D 다종목 등급 커트라인)*

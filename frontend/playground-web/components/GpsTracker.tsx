@@ -121,6 +121,181 @@ function FieldHeatmap({ points }: { points: GpsPoint[] }) {
   )
 }
 
+// ── Field replayer (SVG + requestAnimationFrame) ───────────────────────────────
+
+function FieldReplayer({ points }: { points: GpsPoint[] }) {
+  const SPEED = 20 // 20x real-time
+  const W = 300, H = 180, PAD = 16
+
+  const norm = useMemo(() => {
+    if (points.length < 2) return []
+    const lats = points.map(p => p.lat)
+    const lngs = points.map(p => p.lng)
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats)
+    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs)
+    const latRange = maxLat - minLat || 0.0001
+    const lngRange = maxLng - minLng || 0.0001
+    return points.map(p => ({
+      x: PAD + ((p.lng - minLng) / lngRange) * (W - PAD * 2),
+      y: PAD + (1 - (p.lat - minLat) / latRange) * (H - PAD * 2),
+    }))
+  }, [points])
+
+  const segZones = useMemo(
+    () => points.slice(1).map((p, i) => classifyZone(calcSpeedKmh(points[i], p))),
+    [points]
+  )
+
+  // Cumulative SVG path lengths for stroke-dashoffset animation
+  const { cumLens, totalSvgLen, pathD } = useMemo(() => {
+    if (norm.length < 2) return { cumLens: [0], totalSvgLen: 0, pathD: '' }
+    const lens = [0]
+    for (let i = 1; i < norm.length; i++) {
+      const dx = norm[i].x - norm[i - 1].x
+      const dy = norm[i].y - norm[i - 1].y
+      lens.push(lens[i - 1] + Math.sqrt(dx * dx + dy * dy))
+    }
+    const d = `M ${norm.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ')}`
+    return { cumLens: lens, totalSvgLen: lens[lens.length - 1], pathD: d }
+  }, [norm])
+
+  const [frameIdx, setFrameIdx] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const rafRef = useRef<number | null>(null)
+  const loopRef = useRef({ playing: false, replayMs: 0, lastNow: 0 })
+
+  const totalMs = points.length > 1 ? points[points.length - 1].ts - points[0].ts : 1
+
+  const findIdx = (ms: number) => {
+    const target = points[0].ts + ms
+    let lo = 0, hi = points.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1
+      if (points[mid].ts <= target) lo = mid
+      else hi = mid - 1
+    }
+    return lo
+  }
+
+  useEffect(() => {
+    if (!playing) return
+    const L = loopRef.current
+    L.lastNow = 0
+    const loop = (now: number) => {
+      if (!L.playing) return
+      const delta = L.lastNow ? now - L.lastNow : 0
+      L.lastNow = now
+      L.replayMs = Math.min(L.replayMs + delta * SPEED, totalMs)
+      const idx = findIdx(L.replayMs)
+      setFrameIdx(idx)
+      if (idx < points.length - 1) {
+        rafRef.current = requestAnimationFrame(loop)
+      } else {
+        L.playing = false
+        setPlaying(false)
+      }
+    }
+    L.playing = true
+    rafRef.current = requestAnimationFrame(loop)
+    return () => {
+      L.playing = false
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
+  }, [playing]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }, [])
+
+  const toggle = () => {
+    if (playing) {
+      loopRef.current.playing = false
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      setPlaying(false)
+    } else {
+      if (frameIdx >= points.length - 1) {
+        loopRef.current.replayMs = 0
+        setFrameIdx(0)
+      }
+      setPlaying(true)
+    }
+  }
+
+  if (norm.length < 2) return null
+
+  const cur = norm[Math.min(frameIdx, norm.length - 1)]
+  const zone = frameIdx > 0 ? segZones[Math.min(frameIdx - 1, segZones.length - 1)] : 'walk'
+  const zColor = ZONES.find(z => z.key === zone)?.color ?? '#94a3b8'
+  const drawnLen = cumLens[Math.min(frameIdx, cumLens.length - 1)]
+  const dashOffset = totalSvgLen - drawnLen
+  const pct = Math.min((loopRef.current.replayMs / totalMs) * 100, 100)
+
+  return (
+    <div>
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        경기 리플레이 <span className="normal-case font-normal text-slate-400">({SPEED}× 배속)</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full rounded-xl overflow-hidden">
+        {/* Field */}
+        <rect width={W} height={H} fill="#166534" rx="8" />
+        <rect x={PAD} y={PAD} width={W - PAD * 2} height={H - PAD * 2} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+        <line x1={W / 2} y1={PAD} x2={W / 2} y2={H - PAD} stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+        <circle cx={W / 2} cy={H / 2} r="22" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+
+        {/* Full path (faint guide) */}
+        <path d={pathD} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+
+        {/* Drawn trail via stroke-dashoffset */}
+        {totalSvgLen > 0 && (
+          <path
+            d={pathD}
+            fill="none"
+            stroke="rgba(255,255,255,0.6)"
+            strokeWidth="2"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            strokeDasharray={totalSvgLen}
+            strokeDashoffset={dashOffset}
+          />
+        )}
+
+        {/* Player dot */}
+        <circle cx={cur.x} cy={cur.y} r="9" fill={zColor} opacity="0.25" />
+        <circle cx={cur.x} cy={cur.y} r="5" fill={zColor} stroke="white" strokeWidth="1.5" />
+      </svg>
+
+      {/* Controls */}
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          onClick={toggle}
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white transition-colors hover:bg-emerald-700">
+          {playing ? (
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16" rx="1" /><rect x="14" y="4" width="4" height="16" rx="1" />
+            </svg>
+          ) : (
+            <svg className="h-3.5 w-3.5 translate-x-px" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5,3 19,12 5,21" />
+            </svg>
+          )}
+        </button>
+        <div className="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+          <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
+        </div>
+        <span className="w-8 text-right text-xs tabular-nums text-slate-500">{Math.round(pct)}%</span>
+      </div>
+
+      {/* Zone indicator */}
+      <div className="mt-2 flex gap-3 flex-wrap">
+        {ZONES.map(z => (
+          <span key={z.key} className={`flex items-center gap-1 text-xs transition-colors ${zone === z.key && frameIdx > 0 ? 'font-semibold text-slate-800' : 'text-slate-400'}`}>
+            <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: z.color }} />
+            {z.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 interface GpsTrackerProps {
@@ -379,6 +554,9 @@ export function GpsTracker({ onClose }: GpsTrackerProps) {
                       </span>
                     </div>
                   </div>
+
+                  {/* Replayer */}
+                  <FieldReplayer points={points} />
 
                   {/* Speed zones pie */}
                   {stats.zonePie.length > 0 && (
