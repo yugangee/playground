@@ -99,6 +99,7 @@ export interface Fine {
 
 // ── Match / Schedule ──────────────────────────────────
 export type MatchStatus = 'pending' | 'accepted' | 'rejected' | 'completed'
+export type MatchType = 'match' | 'training'
 export type AttendanceStatus = 'attending' | 'absent' | 'pending'
 
 export interface GoalRecord {
@@ -127,6 +128,7 @@ export interface Match {
   scheduledAt: string
   venue: string
   venueAddress?: string
+  matchType?: MatchType   // 'training'이면 훈련 일정
   status: MatchStatus
   homeScore?: number
   awayScore?: number

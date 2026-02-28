@@ -216,14 +216,20 @@ export default function SchedulePage() {
     loadPolls()
   }, [teamId])
 
+  const isTrainingMatch = (m: Match) => m.matchType === 'training' || m.awayTeamId === 'training'
+
   const upcoming = matches
-    .filter(m => isFuture(m.scheduledAt) && m.status !== 'rejected')
+    .filter(m => isFuture(m.scheduledAt) && m.status !== 'rejected' && !isTrainingMatch(m))
     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
     .slice(0, 3)
 
+  const upcomingTrainings = matches
+    .filter(m => isFuture(m.scheduledAt) && isTrainingMatch(m))
+    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
+
   // M3-E: 상대팀이 제안한 대기 중 경기 (awayTeam = 우리팀)
   const pendingProposals = matches.filter(
-    m => m.status === 'pending' && m.awayTeamId === teamId && isFuture(m.scheduledAt)
+    m => m.status === 'pending' && m.awayTeamId === teamId && isFuture(m.scheduledAt) && !isTrainingMatch(m)
   )
 
   if (!teamId) return <EmptyTeam />
@@ -278,6 +284,35 @@ export default function SchedulePage() {
             </p>
           </div>
         </div>
+      )}
+
+      {/* 🏃 훈련 일정 */}
+      {(upcomingTrainings.length > 0 || isLeader) && (
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+              🏃 훈련 일정
+            </h2>
+            {upcomingTrainings.length > 0 && (
+              <span className="text-[11px] rounded-full px-2 py-0.5 font-bold"
+                style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa' }}>
+                {upcomingTrainings.length}건
+              </span>
+            )}
+          </div>
+          {upcomingTrainings.length === 0 ? (
+            <div className="rounded-2xl border-2 border-dashed py-6 text-center text-sm"
+              style={{ borderColor: 'var(--card-border)', color: 'var(--text-muted)' }}>
+              등록된 훈련 일정이 없습니다
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {upcomingTrainings.map(m => (
+                <TrainingCard key={m.id} match={m} isLeader={isLeader} members={members} onRefresh={loadMatches} />
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       {/* 다가오는 경기 */}
@@ -358,6 +393,119 @@ export default function SchedulePage() {
             ))}
           </div>
         </section>
+      )}
+    </div>
+  )
+}
+
+// ── 훈련 일정 카드 (M5-A) ──────────────────────────────────────────────────────
+
+function TrainingCard({ match: m, isLeader, members, onRefresh }: {
+  match: Match; isLeader: boolean; members: TeamMember[]; onRefresh: () => void
+}) {
+  const { user } = useAuth()
+  const [attendances, setAttendances] = useState<Attendance[]>([])
+  const [myStatus, setMyStatus]       = useState<AttendanceStatus | null>(null)
+  const [voting, setVoting]           = useState(false)
+  const [deleting, setDeleting]       = useState(false)
+
+  useEffect(() => {
+    manageFetch(`/schedule/matches/${m.id}/attendance`).then((list: Attendance[]) => {
+      setAttendances(list)
+      const mine = list.find(a => a.userId === user?.sub)
+      setMyStatus(mine?.status ?? null)
+    }).catch(() => {})
+  }, [m.id, user?.sub])
+
+  const vote = async (status: AttendanceStatus) => {
+    if (!user?.sub || voting) return
+    setVoting(true)
+    try {
+      await manageFetch(`/schedule/matches/${m.id}/attendance`, {
+        method: 'PUT', body: JSON.stringify({ status }),
+      })
+      setMyStatus(status)
+      const list: Attendance[] = await manageFetch(`/schedule/matches/${m.id}/attendance`)
+      setAttendances(list)
+    } finally { setVoting(false) }
+  }
+
+  const deleteTraining = async () => {
+    if (!isLeader || deleting) return
+    if (!confirm('이 훈련 일정을 삭제하시겠습니까?')) return
+    setDeleting(true)
+    try {
+      await manageFetch(`/schedule/matches/${m.id}`, { method: 'DELETE' })
+      onRefresh()
+    } catch { setDeleting(false) }
+  }
+
+  const attending = attendances.filter(a => a.status === 'attending')
+  const absent    = attendances.filter(a => a.status === 'absent')
+  const dt = new Date(m.scheduledAt)
+  const dateStr = dt.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
+  const timeStr = dt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+  const note = m.note && !m.note.startsWith('DISPUTE:') ? m.note : null
+
+  return (
+    <div className="rounded-2xl border p-4 space-y-3"
+      style={{ background: 'var(--card-bg)', borderColor: 'rgba(124,58,237,0.3)' }}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-bold rounded-lg px-2 py-0.5"
+              style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa' }}>
+              🏃 훈련
+            </span>
+            <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+              {dateStr} {timeStr}
+            </span>
+          </div>
+          <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{m.venue}</p>
+          {m.venueAddress && (
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{m.venueAddress}</p>
+          )}
+          {note && (
+            <p className="text-xs mt-1.5 rounded-lg px-2.5 py-1.5"
+              style={{ background: 'var(--sidebar-bg)', color: 'var(--text-secondary)' }}>
+              {note}
+            </p>
+          )}
+        </div>
+        {isLeader && (
+          <button onClick={deleteTraining} disabled={deleting}
+            className="shrink-0 rounded-lg px-2 py-1 text-xs transition-opacity hover:opacity-70 disabled:opacity-40"
+            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+            삭제
+          </button>
+        )}
+      </div>
+
+      {/* 참석 응답 */}
+      <div className="flex items-center gap-2">
+        <button onClick={() => vote('attending')} disabled={voting}
+          className="flex-1 rounded-xl py-1.5 text-xs font-semibold transition-all"
+          style={{
+            background: myStatus === 'attending' ? 'rgba(74,222,128,0.2)' : 'var(--sidebar-bg)',
+            color: myStatus === 'attending' ? '#4ade80' : 'var(--text-muted)',
+            border: `1px solid ${myStatus === 'attending' ? 'rgba(74,222,128,0.4)' : 'var(--card-border)'}`,
+          }}>
+          {myStatus === 'attending' ? '✅ 참석' : '참석'}
+        </button>
+        <button onClick={() => vote('absent')} disabled={voting}
+          className="flex-1 rounded-xl py-1.5 text-xs font-semibold transition-all"
+          style={{
+            background: myStatus === 'absent' ? 'rgba(239,68,68,0.1)' : 'var(--sidebar-bg)',
+            color: myStatus === 'absent' ? '#ef4444' : 'var(--text-muted)',
+            border: `1px solid ${myStatus === 'absent' ? 'rgba(239,68,68,0.3)' : 'var(--card-border)'}`,
+          }}>
+          {myStatus === 'absent' ? '❌ 불참' : '불참'}
+        </button>
+      </div>
+      {attendances.length > 0 && (
+        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+          참석 {attending.length}명 · 불참 {absent.length}명 · 미응답 {members.length - attending.length - absent.length}명
+        </p>
       )}
     </div>
   )
@@ -1036,17 +1184,27 @@ function QuickAttendRow({ matchId }: { matchId: string }) {
 
 function MatchFormButton({ teamId, onSuccess }: { teamId: string; onSuccess: () => void }) {
   const [open, setOpen] = useState(false)
+  const [formType, setFormType] = useState<'match' | 'training'>('match')
+
+  const openAs = (type: 'match' | 'training') => { setFormType(type); setOpen(true) }
 
   return (
     <>
-      <button onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-colors"
-        style={{ background: 'var(--accent, #8B5CF6)' }}>
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-        경기 등록
-      </button>
+      <div className="flex items-center gap-1.5">
+        <button onClick={() => openAs('match')}
+          className="flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold text-white transition-colors"
+          style={{ background: 'var(--accent, #8B5CF6)' }}>
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          경기
+        </button>
+        <button onClick={() => openAs('training')}
+          className="flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition-colors"
+          style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.3)' }}>
+          🏃 훈련
+        </button>
+      </div>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setOpen(false)}>
@@ -1054,14 +1212,16 @@ function MatchFormButton({ teamId, onSuccess }: { teamId: string; onSuccess: () 
             style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>경기 등록</h3>
+              <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+                {formType === 'training' ? '🏃 훈련 일정 등록' : '⚽ 경기 등록'}
+              </h3>
               <button onClick={() => setOpen(false)} style={{ color: 'var(--text-muted)' }}>
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <MatchForm teamId={teamId} onSuccess={() => { setOpen(false); onSuccess() }} />
+            <MatchForm teamId={teamId} formType={formType} onSuccess={() => { setOpen(false); onSuccess() }} />
           </div>
         </div>
       )}
@@ -1087,11 +1247,18 @@ function removeVenueFromStorage(name: string) {
   } catch {}
 }
 
-function MatchForm({ teamId, onSuccess }: { teamId: string; onSuccess: () => void }) {
-  const [form, setForm] = useState({ homeTeamId: teamId, awayTeamId: '', scheduledAt: '', venue: '', venueAddress: '' })
+function MatchForm({ teamId, formType = 'match', onSuccess }: { teamId: string; formType?: 'match' | 'training'; onSuccess: () => void }) {
+  const isTraining = formType === 'training'
+  const [form, setForm] = useState({
+    homeTeamId: teamId,
+    awayTeamId: isTraining ? 'training' : '',
+    scheduledAt: '', venue: '', venueAddress: '',
+    matchType: formType,
+  })
   const [loading, setLoading] = useState(false)
   const [savedVenues, setSavedVenues] = useState<SavedVenue[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [note, setNote] = useState('')
 
   useEffect(() => { setSavedVenues(loadSavedVenues()) }, [])
 
@@ -1121,7 +1288,9 @@ function MatchForm({ teamId, onSuccess }: { teamId: string; onSuccess: () => voi
     e.preventDefault()
     setLoading(true)
     try {
-      await manageFetch('/schedule/matches', { method: 'POST', body: JSON.stringify(form) })
+      const body: Record<string, string> = { ...form }
+      if (isTraining && note) body.note = note
+      await manageFetch('/schedule/matches', { method: 'POST', body: JSON.stringify(body) })
       if (form.venue) {
         saveVenue(form.venue, form.venueAddress)
         setSavedVenues(loadSavedVenues())
@@ -1134,11 +1303,13 @@ function MatchForm({ teamId, onSuccess }: { teamId: string; onSuccess: () => voi
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div>
-        <label className={lbl}>상대 팀 ID</label>
-        <input value={form.awayTeamId} onChange={e => set('awayTeamId', e.target.value)} required className={inp} placeholder="상대 팀 ID"
-          style={{ background: 'var(--sidebar-bg)', borderColor: 'var(--card-border)', color: 'var(--text-primary)' }} />
-      </div>
+      {!isTraining && (
+        <div>
+          <label className={lbl}>상대 팀 ID</label>
+          <input value={form.awayTeamId} onChange={e => set('awayTeamId', e.target.value)} required className={inp} placeholder="상대 팀 ID"
+            style={{ background: 'var(--sidebar-bg)', borderColor: 'var(--card-border)', color: 'var(--text-primary)' }} />
+        </div>
+      )}
       <div>
         <label className={lbl}>일시</label>
         <input type="datetime-local" value={form.scheduledAt} onChange={e => set('scheduledAt', e.target.value)} required className={inp}
@@ -1146,7 +1317,7 @@ function MatchForm({ teamId, onSuccess }: { teamId: string; onSuccess: () => voi
       </div>
       <div className="relative">
         <div className="flex items-center justify-between mb-1.5">
-          <label className={lbl} style={{ margin: 0 }}>구장명</label>
+          <label className={lbl} style={{ margin: 0 }}>{isTraining ? '훈련 장소' : '구장명'}</label>
           {form.venue && (
             <button type="button" onClick={toggleFavorite}
               className="text-[11px] font-semibold flex items-center gap-1 transition-opacity hover:opacity-70"
@@ -1160,7 +1331,7 @@ function MatchForm({ teamId, onSuccess }: { teamId: string; onSuccess: () => voi
           onChange={e => { set('venue', e.target.value); setShowSuggestions(true) }}
           onFocus={() => setShowSuggestions(true)}
           onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-          required className={inp} placeholder="잠실 구장"
+          required className={inp} placeholder={isTraining ? '운동장 / 풋살장 이름' : '잠실 구장'}
           style={{ background: 'var(--sidebar-bg)', borderColor: 'var(--card-border)', color: 'var(--text-primary)' }}
         />
         {showSuggestions && filteredVenues.length > 0 && (
@@ -1184,10 +1355,18 @@ function MatchForm({ teamId, onSuccess }: { teamId: string; onSuccess: () => voi
         <input value={form.venueAddress} onChange={e => set('venueAddress', e.target.value)} className={inp} placeholder="서울시 송파구..."
           style={{ background: 'var(--sidebar-bg)', borderColor: 'var(--card-border)', color: 'var(--text-primary)' }} />
       </div>
+      {isTraining && (
+        <div>
+          <label className={lbl}>훈련 내용 (선택)</label>
+          <textarea value={note} onChange={e => setNote(e.target.value)} rows={2}
+            className={inp} placeholder="패스 훈련, 슈팅 연습, 세트피스 등..."
+            style={{ background: 'var(--sidebar-bg)', borderColor: 'var(--card-border)', color: 'var(--text-primary)', resize: 'none' }} />
+        </div>
+      )}
       <button type="submit" disabled={loading}
         className="w-full rounded-xl py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50"
         style={{ background: 'var(--accent, #8B5CF6)' }}>
-        {loading ? '등록 중...' : '등록하기'}
+        {loading ? '등록 중...' : isTraining ? '🏃 훈련 일정 등록' : '⚽ 경기 등록'}
       </button>
     </form>
   )
