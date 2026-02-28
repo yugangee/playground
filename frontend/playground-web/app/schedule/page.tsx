@@ -1887,23 +1887,42 @@ const TEAM_TIERS = [
 function TeamStatsSection({ matches, members, teamId }: {
   matches: Match[]; members: TeamMember[]; teamId: string
 }) {
+  const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null)
+
   const completed = [...matches.filter(m => m.status === 'completed')]
     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
 
   // 팀 전적 + 포인트 계산 (scoring.mjs 룰 동일 적용)
   let wins = 0, draws = 0, losses = 0, teamPoints = 0, curStreak = 0, maxStreak = 0
+  let homeWins = 0, homeDraws = 0, homeLosses = 0
+  let awayWins = 0, awayDraws = 0, awayLosses = 0
+  let totalGoalsFor = 0, totalGoalsAgainst = 0
   for (const m of completed) {
     if (m.homeScore == null || m.awayScore == null) continue
     const isHome = m.homeTeamId === teamId
     const our   = isHome ? m.homeScore : m.awayScore
     const their = isHome ? m.awayScore : m.homeScore
+    totalGoalsFor += our
+    totalGoalsAgainst += their
     const streakBonus = our > their && curStreak >= 1 ? curStreak : 0
     teamPoints += 3 + (our > their ? 4 : our === their ? 1 : 0) + streakBonus
-    if (our > their)       { wins++;   curStreak++ }
-    else if (our === their){ draws++;  curStreak = 0 }
-    else                   { losses++; curStreak = 0 }
+    if (our > their) {
+      wins++;   curStreak++
+      if (isHome) homeWins++;   else awayWins++
+    } else if (our === their) {
+      draws++;  curStreak = 0
+      if (isHome) homeDraws++;  else awayDraws++
+    } else {
+      losses++; curStreak = 0
+      if (isHome) homeLosses++; else awayLosses++
+    }
     maxStreak = Math.max(maxStreak, curStreak)
   }
+  const scoredMatches = completed.filter(m => m.homeScore != null && m.awayScore != null).length
+  const avgGoalsFor     = scoredMatches > 0 ? (totalGoalsFor / scoredMatches).toFixed(1) : null
+  const avgGoalsAgainst = scoredMatches > 0 ? (totalGoalsAgainst / scoredMatches).toFixed(1) : null
+  const homeGames = homeWins + homeDraws + homeLosses
+  const awayGames = awayWins + awayDraws + awayLosses
 
   // 팀 등급
   const tierIdx    = TEAM_TIERS.findIndex(t => teamPoints >= t.min)
@@ -1994,7 +2013,68 @@ function TeamStatsSection({ matches, members, teamId }: {
           </div>
         </div>
 
-        {/* M3-A: 선수 기록 테이블 */}
+        {/* M3-B: 홈/원정 분리 + 평균 득실점 */}
+        {hasStats && (
+          <div className="grid grid-cols-2 gap-3 border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
+            <div className="rounded-xl px-3 py-2.5" style={{ background: 'var(--sidebar-bg)' }}>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                🏠 홈 ({homeGames}경기)
+              </p>
+              <p className="text-sm font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
+                <span style={{ color: '#4ade80' }}>{homeWins}</span>
+                <span style={{ color: 'var(--text-muted)' }}> / </span>
+                <span>{homeDraws}</span>
+                <span style={{ color: 'var(--text-muted)' }}> / </span>
+                <span style={{ color: '#f87171' }}>{homeLosses}</span>
+              </p>
+              {homeGames > 0 && (
+                <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  승률 {Math.round((homeWins / homeGames) * 100)}%
+                </p>
+              )}
+            </div>
+            <div className="rounded-xl px-3 py-2.5" style={{ background: 'var(--sidebar-bg)' }}>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                ✈️ 원정 ({awayGames}경기)
+              </p>
+              <p className="text-sm font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
+                <span style={{ color: '#4ade80' }}>{awayWins}</span>
+                <span style={{ color: 'var(--text-muted)' }}> / </span>
+                <span>{awayDraws}</span>
+                <span style={{ color: 'var(--text-muted)' }}> / </span>
+                <span style={{ color: '#f87171' }}>{awayLosses}</span>
+              </p>
+              {awayGames > 0 && (
+                <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  승률 {Math.round((awayWins / awayGames) * 100)}%
+                </p>
+              )}
+            </div>
+            {avgGoalsFor && (
+              <div className="col-span-2 flex items-center justify-center gap-6 rounded-xl px-3 py-2.5"
+                style={{ background: 'var(--sidebar-bg)' }}>
+                <div className="text-center">
+                  <p className="text-base font-black tabular-nums" style={{ color: '#4ade80' }}>{avgGoalsFor}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>평균 득점</p>
+                </div>
+                <div className="h-6 w-px" style={{ background: 'var(--card-border)' }} />
+                <div className="text-center">
+                  <p className="text-base font-black tabular-nums" style={{ color: '#f87171' }}>{avgGoalsAgainst}</p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>평균 실점</p>
+                </div>
+                <div className="h-6 w-px" style={{ background: 'var(--card-border)' }} />
+                <div className="text-center">
+                  <p className="text-base font-black tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                    {maxStreak > 0 ? `${maxStreak}연승` : '–'}
+                  </p>
+                  <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>최장 연승</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* M3-A: 선수 기록 테이블 (클릭 → 경기별 G/A 확장) */}
         {activePlayers.length > 0 && (
           <div className="border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
             <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
@@ -2012,32 +2092,66 @@ function TeamStatsSection({ matches, members, teamId }: {
             <div className="space-y-0">
               {activePlayers.map(([userId, s], rank) => {
                 const mem = members.find(m => m.userId === userId)
+                const isExpanded = expandedPlayer === userId
+                const matchBreakdown = completed
+                  .map(m => ({
+                    matchId: m.id,
+                    date: m.scheduledAt,
+                    venue: m.venue,
+                    goals: (m.goals ?? []).filter(g => g.scorer === userId).length,
+                    assists: (m.goals ?? []).filter(g => g.assist === userId).length,
+                  }))
+                  .filter(mb => mb.goals + mb.assists > 0)
                 return (
-                  <div key={userId}
-                    className="grid grid-cols-[1fr_28px_28px_28px_28px] gap-x-1 py-1.5 border-b last:border-b-0 text-center items-center"
-                    style={{ borderColor: 'var(--card-border)' }}>
-                    <div className="flex items-center gap-1 min-w-0 text-left">
-                      {rank === 0 && <span className="text-[10px] shrink-0">🥇</span>}
-                      <span className="text-xs font-medium truncate" style={{ color: 'var(--text-secondary)' }}>
-                        {mem ? memberLabel(mem) : userId.slice(0, 8) + '…'}
+                  <div key={userId}>
+                    <div
+                      onClick={() => setExpandedPlayer(isExpanded ? null : userId)}
+                      className="grid grid-cols-[1fr_28px_28px_28px_28px] gap-x-1 py-1.5 border-b text-center items-center cursor-pointer hover:opacity-75 transition-opacity"
+                      style={{ borderColor: 'var(--card-border)' }}>
+                      <div className="flex items-center gap-1 min-w-0 text-left">
+                        {rank === 0 && <span className="text-[10px] shrink-0">🥇</span>}
+                        <span className="text-xs font-medium truncate" style={{ color: 'var(--text-secondary)' }}>
+                          {mem ? memberLabel(mem) : userId.slice(0, 8) + '…'}
+                        </span>
+                        {matchBreakdown.length > 0 && (
+                          <span className="ml-auto shrink-0 text-[9px] pl-1" style={{ color: 'var(--text-muted)' }}>
+                            {isExpanded ? '▲' : '▼'}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs font-bold tabular-nums"
+                        style={{ color: s.goals > 0 ? '#4ade80' : 'var(--text-muted)' }}>
+                        {s.goals || '–'}
+                      </span>
+                      <span className="text-xs font-bold tabular-nums"
+                        style={{ color: s.assists > 0 ? '#60a5fa' : 'var(--text-muted)' }}>
+                        {s.assists || '–'}
+                      </span>
+                      <span className="text-xs font-bold tabular-nums"
+                        style={{ color: s.yellows > 0 ? '#fbbf24' : 'var(--text-muted)' }}>
+                        {s.yellows || '–'}
+                      </span>
+                      <span className="text-xs font-bold tabular-nums"
+                        style={{ color: s.reds > 0 ? '#f87171' : 'var(--text-muted)' }}>
+                        {s.reds || '–'}
                       </span>
                     </div>
-                    <span className="text-xs font-bold tabular-nums"
-                      style={{ color: s.goals > 0 ? '#4ade80' : 'var(--text-muted)' }}>
-                      {s.goals || '–'}
-                    </span>
-                    <span className="text-xs font-bold tabular-nums"
-                      style={{ color: s.assists > 0 ? '#60a5fa' : 'var(--text-muted)' }}>
-                      {s.assists || '–'}
-                    </span>
-                    <span className="text-xs font-bold tabular-nums"
-                      style={{ color: s.yellows > 0 ? '#fbbf24' : 'var(--text-muted)' }}>
-                      {s.yellows || '–'}
-                    </span>
-                    <span className="text-xs font-bold tabular-nums"
-                      style={{ color: s.reds > 0 ? '#f87171' : 'var(--text-muted)' }}>
-                      {s.reds || '–'}
-                    </span>
+                    {isExpanded && matchBreakdown.length > 0 && (
+                      <div className="border-b px-2 py-2 space-y-1.5"
+                        style={{ borderColor: 'var(--card-border)', background: 'var(--sidebar-bg)' }}>
+                        {matchBreakdown.map(mb => (
+                          <div key={mb.matchId} className="flex items-center justify-between">
+                            <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                              {new Date(mb.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })} · {mb.venue}
+                            </span>
+                            <span className="text-[10px] font-bold flex items-center gap-2">
+                              {mb.goals > 0 && <span style={{ color: '#4ade80' }}>⚽ {mb.goals}</span>}
+                              {mb.assists > 0 && <span style={{ color: '#60a5fa' }}>🅰 {mb.assists}</span>}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )
               })}

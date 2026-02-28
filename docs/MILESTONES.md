@@ -276,7 +276,7 @@
 #### 3-A. 개인 통계 대시보드
 
 - [x] 팀 전적 요약 (승/무/패, 승률) + 득점 리더보드 — schedule 페이지 `TeamStatsSection`, `GoalRecord` 누적 집계
-- [ ] 시즌별 개인 기록 (경기수/승/무/패, 득점, 어시스트, 출석율)
+- [x] **시즌별 개인 기록 (경기별 G/A 확장)** — 선수 행 클릭 시 ▼ 경기날짜·구장별 득점/어시스트 breakdown 표시 (`TeamStatsSection` expandedPlayer 상태)
 - [ ] PIS (Performance Impact Score) 시각화 (Spider Chart — fbref 스타일)
 - [x] 팀 내 리더보드 (득점왕 G·어시스트왕 A·경고 🟨🟥) — 선수 기록 테이블 (G/A/🟨/🟥 컬럼)
 - [ ] 출석왕 (attendance 다회 로딩 필요, 미구현)
@@ -285,10 +285,10 @@
 
 #### 3-B. 팀 통계 대시보드
 
-- [ ] 팀 전체 성적 (승률, 평균 득점, 최장 연승)
+- [x] **팀 전체 성적 (평균 득점/실점, 최장 연승)** — 평균 득/실점·최장연승 수치 카드 (`TeamStatsSection` avgGoalsFor/avgGoalsAgainst)
 - [x] 팀 등급 승급 진행 바 — `TeamStatsSection`에 TEAM_TIERS 상수 + 진행 바 + pt 표시 (scoring.mjs 동일 룰 적용: base 3 + win 4 + draw 1 + streakBonus)
 - [ ] 상대 팀별 상대전적
-- [ ] 홈/원정 성적 분리
+- [x] **홈/원정 성적 분리** — 홈 W/D/L·승률, 원정 W/D/L·승률 2열 카드 (`TeamStatsSection` home/awayWins 분리 집계)
 - [ ] **토너먼트 전적 통계** — KJA 대회처럼 외부 대회 참가 기록 별도 집계
 
 #### 3-C. 미디어 아카이브
@@ -400,4 +400,4 @@
 
 ---
 
-*최종 업데이트: 2026-02-28 (경기 이벤트 타임라인 + PK 순서 관리 + 경고 초기화 KJA 4강 규칙)*
+*최종 업데이트: 2026-02-28 (M3-A 경기별 G/A 확장 + M3-B 홈/원정 분리 + 평균 득실점)*
