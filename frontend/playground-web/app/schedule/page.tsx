@@ -1781,6 +1781,93 @@ function GoalModal({ match: m, members, attendances, onClose, onSuccess }: {
 
 // ── M2-B: 라인업 섹션 ────────────────────────────────────────────────────────
 
+// ── M2-B: 2D 포메이션 보드 ────────────────────────────────────────────────────
+
+type FormationType = '4-3-3' | '4-4-2' | '4-2-3-1' | '3-5-2' | '5-3-2'
+
+const FORMATION_POSITIONS: Record<FormationType, [number, number][]> = {
+  '4-3-3':   [[50,88],[12,70],[35,68],[65,68],[88,70],[20,46],[50,44],[80,46],[15,20],[50,16],[85,20]],
+  '4-4-2':   [[50,88],[12,70],[35,68],[65,68],[88,70],[12,48],[37,46],[63,46],[88,48],[32,18],[68,18]],
+  '4-2-3-1': [[50,88],[12,70],[35,68],[65,68],[88,70],[30,55],[70,55],[15,36],[50,32],[85,36],[50,14]],
+  '3-5-2':   [[50,88],[20,70],[50,68],[80,70],[8,50],[28,46],[50,44],[72,46],[92,50],[32,18],[68,18]],
+  '5-3-2':   [[50,88],[8,68],[28,72],[50,72],[72,72],[92,68],[20,46],[50,44],[80,46],[32,18],[68,18]],
+}
+const ALL_FORMATIONS: FormationType[] = ['4-3-3', '4-4-2', '4-2-3-1', '3-5-2', '5-3-2']
+
+function FormationBoard({ starters, members, formation, onFormationChange, isLeader }: {
+  starters: string[]; members: TeamMember[]; formation: FormationType
+  onFormationChange: (f: FormationType) => void; isLeader: boolean
+}) {
+  const positions = FORMATION_POSITIONS[formation]
+  return (
+    <div className="space-y-2 mt-2">
+      {isLeader && (
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-[10px] font-semibold shrink-0" style={{ color: 'var(--text-muted)' }}>포메이션</span>
+          {ALL_FORMATIONS.map(f => (
+            <button key={f} onClick={() => onFormationChange(f)}
+              className="text-[10px] font-bold rounded-lg px-2 py-0.5 transition-all"
+              style={{
+                background: formation === f ? '#7c3aed' : 'transparent',
+                color: formation === f ? '#fff' : 'var(--text-muted)',
+                border: `1px solid ${formation === f ? '#7c3aed' : 'var(--card-border)'}`,
+              }}>
+              {f}
+            </button>
+          ))}
+        </div>
+      )}
+      {!isLeader && (
+        <p className="text-[10px] font-bold" style={{ color: '#a78bfa' }}>{formation}</p>
+      )}
+      <div style={{ position: 'relative', width: '100%', paddingBottom: '140%', borderRadius: 10, overflow: 'hidden', background: '#15803d' }}>
+        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+          viewBox="0 0 100 140" preserveAspectRatio="none">
+          <rect x="4" y="4" width="92" height="132" rx="2" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1"/>
+          <line x1="4" y1="70" x2="96" y2="70" stroke="rgba(255,255,255,0.35)" strokeWidth="0.8"/>
+          <circle cx="50" cy="70" r="12" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="0.8"/>
+          <circle cx="50" cy="70" r="1" fill="rgba(255,255,255,0.6)"/>
+          <rect x="24" y="4" width="52" height="22" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.8"/>
+          <rect x="36" y="4" width="28" height="10" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.8"/>
+          <rect x="24" y="114" width="52" height="22" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.8"/>
+          <rect x="36" y="126" width="28" height="10" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.8"/>
+        </svg>
+        {positions.map(([x, y], idx) => {
+          const userId = starters[idx]
+          const mem = userId ? members.find(mb => mb.userId === userId) : null
+          const isGK = idx === 0
+          return (
+            <div key={idx} style={{
+              position: 'absolute', left: `${x}%`, top: `${y}%`,
+              transform: 'translate(-50%,-50%)', display: 'flex', flexDirection: 'column',
+              alignItems: 'center', gap: 1, pointerEvents: 'none',
+            }}>
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%',
+                background: userId
+                  ? (isGK ? 'rgba(250,204,21,0.9)' : 'rgba(167,139,250,0.9)')
+                  : 'rgba(255,255,255,0.2)',
+                border: `2px solid ${userId ? (isGK ? '#fde68a' : '#c4b5fd') : 'rgba(255,255,255,0.3)'}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {userId && (
+                  <span style={{ fontSize: 6, fontWeight: 800, color: isGK ? '#713f12' : '#2e1065', lineHeight: 1 }}>
+                    {mem?.number ?? idx + 1}
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: 7, fontWeight: 700, color: 'rgba(255,255,255,0.95)',
+                textShadow: '0 1px 2px rgba(0,0,0,0.8)', maxWidth: 34, textAlign: 'center', lineHeight: 1.1 }}>
+                {mem ? (mem.number ? `#${mem.number}` : memberLabel(mem).slice(0, 5)) : (isGK ? 'GK' : `P${idx}`)}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSaved }: {
   match: Match; members: TeamMember[]
   isLeader: boolean; showLineup: boolean; onToggle: () => void; onSaved: () => void
@@ -1790,6 +1877,8 @@ function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSa
   const [saving, setSaving] = useState(false)
   const [localStarters, setLocalStarters] = useState<string[]>(starters)
   const [localSubs,     setLocalSubs]     = useState<string[]>(subs)
+  const [formation, setFormation]         = useState<FormationType>('4-3-3')
+  const [showFormation, setShowFormation] = useState(false)
 
   const cycle = (userId: string) => {
     // none → starter → sub → none
@@ -1898,6 +1987,40 @@ function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSa
               </button>
             )}
           </div>
+
+          {/* M2-B: 2D 포메이션 보드 */}
+          {(isLeader ? localStarters : starters).length > 0 && (
+            <div className="border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
+              <button
+                onClick={() => setShowFormation(v => !v)}
+                className="flex w-full items-center justify-between text-xs font-semibold py-0.5"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                <span className="flex items-center gap-2">
+                  <span>🏟 포메이션 보드</span>
+                  {!showFormation && (
+                    <span className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                      style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa' }}>
+                      {formation}
+                    </span>
+                  )}
+                </span>
+                <svg className={`h-4 w-4 transition-transform ${showFormation ? 'rotate-180' : ''}`}
+                  fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+              </button>
+              {showFormation && (
+                <FormationBoard
+                  starters={isLeader ? localStarters : starters}
+                  members={members}
+                  formation={formation}
+                  onFormationChange={setFormation}
+                  isLeader={isLeader}
+                />
+              )}
+            </div>
+          )}
 
           {/* M2-B: PK 순서 */}
           {starters.length > 0 && (
