@@ -209,7 +209,7 @@ export default function SchedulePage() {
       {/* M2-C: 경고 누적 트래커 */}
       {matches.length > 0 && (
         <section>
-          <CardTrackerSection matches={matches} members={members} />
+          <CardTrackerSection matches={matches} members={members} isLeader={isLeader} onRefresh={loadMatches} />
         </section>
       )}
 
@@ -494,39 +494,8 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
         </div>
       )}
 
-      {/* M2-C: 골 + 카드 기록 목록 */}
-      {((m.goals && m.goals.length > 0) || (m.cards && m.cards.length > 0)) && (
-        <div className="rounded-xl px-3 py-2 space-y-1"
-          style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--card-border)' }}>
-          {(m.goals ?? []).map((g, i) => {
-            const scorer = members.find(mem => mem.userId === g.scorer)
-            const helper = g.assist ? members.find(mem => mem.userId === g.assist) : null
-            return (
-              <div key={`g-${i}`} className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                <span>⚽</span>
-                {g.minute && <span className="font-medium tabular-nums">{g.minute}&apos;</span>}
-                <span className="font-semibold">{scorer ? memberLabel(scorer) : g.scorer.slice(0, 8)}</span>
-                {helper && (
-                  <span style={{ color: 'var(--text-muted)' }}>
-                    (🅰 {memberLabel(helper)})
-                  </span>
-                )}
-              </div>
-            )
-          })}
-          {(m.cards ?? []).map((c, i) => {
-            const player = members.find(mem => mem.userId === c.playerId)
-            return (
-              <div key={`c-${i}`} className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                <span>{c.type === 'yellow' ? '🟨' : '🟥'}</span>
-                {c.minute && <span className="font-medium tabular-nums">{c.minute}&apos;</span>}
-                <span className="font-semibold">{player ? memberLabel(player) : c.playerId.slice(0, 8)}</span>
-                <span style={{ color: 'var(--text-muted)' }}>{c.type === 'yellow' ? '경고' : '퇴장'}</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {/* M2-C: 경기 이벤트 타임라인 (득점 + 카드 시간순) */}
+      <EventTimeline match={m} members={members} />
 
       {/* M2-C: 득점 + 경고 기록 버튼 (리더, 확정된 경기) */}
       {isLeader && m.status === 'accepted' && (
@@ -1208,6 +1177,59 @@ function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
   )
 }
 
+// ── M2-C: 경기 이벤트 타임라인 ───────────────────────────────────────────────
+
+function EventTimeline({ match: m, members }: { match: Match; members: TeamMember[] }) {
+  type TLEvent =
+    | { kind: 'goal'; minute?: number; scorer: string; assist?: string }
+    | { kind: 'card'; minute?: number; playerId: string; type: CardRecord['type'] }
+
+  const events: TLEvent[] = [
+    ...(m.goals ?? []).map(g => ({ kind: 'goal' as const, ...g })),
+    ...(m.cards ?? []).map(c => ({ kind: 'card' as const, ...c })),
+  ].sort((a, b) => {
+    if (a.minute == null && b.minute == null) return 0
+    if (a.minute == null) return 1
+    if (b.minute == null) return -1
+    return a.minute - b.minute
+  })
+
+  if (events.length === 0) return null
+
+  return (
+    <div className="rounded-xl px-3 py-2 space-y-1"
+      style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--card-border)' }}>
+      {events.map((ev, i) => {
+        if (ev.kind === 'goal') {
+          const scorer = members.find(mem => mem.userId === ev.scorer)
+          const helper = ev.assist ? members.find(mem => mem.userId === ev.assist) : null
+          return (
+            <div key={`ev-${i}`} className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+              <span>⚽</span>
+              <span className="font-medium tabular-nums text-[10px] w-7 shrink-0" style={{ color: 'var(--text-muted)' }}>
+                {ev.minute != null ? `${ev.minute}'` : ''}
+              </span>
+              <span className="font-semibold">{scorer ? memberLabel(scorer) : ev.scorer.slice(0, 8)}</span>
+              {helper && <span style={{ color: 'var(--text-muted)' }}>(🅰 {memberLabel(helper)})</span>}
+            </div>
+          )
+        }
+        const player = members.find(mem => mem.userId === ev.playerId)
+        return (
+          <div key={`ev-${i}`} className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+            <span>{ev.type === 'yellow' ? '🟨' : '🟥'}</span>
+            <span className="font-medium tabular-nums text-[10px] w-7 shrink-0" style={{ color: 'var(--text-muted)' }}>
+              {ev.minute != null ? `${ev.minute}'` : ''}
+            </span>
+            <span className="font-semibold">{player ? memberLabel(player) : ev.playerId.slice(0, 8)}</span>
+            <span style={{ color: 'var(--text-muted)' }}>{ev.type === 'yellow' ? '경고' : '퇴장'}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── M2-C: 득점 기록 모달 ─────────────────────────────────────────────────────
 
 function GoalModal({ match: m, members, attendances, onClose, onSuccess }: {
@@ -1439,6 +1461,121 @@ function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSa
               </button>
             )}
           </div>
+
+          {/* M2-B: PK 순서 */}
+          {starters.length > 0 && (
+            <PKOrderSection match={m} members={members} isLeader={isLeader} onSaved={onSaved} />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── M2-B: PK 순서 관리 ───────────────────────────────────────────────────────
+
+function PKOrderSection({ match: m, members, isLeader, onSaved }: {
+  match: Match; members: TeamMember[]; isLeader: boolean; onSaved: () => void
+}) {
+  const starters = m.lineup?.starters ?? []
+  const [order, setOrder] = useState<string[]>(m.pkOrder ?? starters)
+  const [show, setShow] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  if (starters.length === 0) return null
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const next = [...order]
+    const to = idx + dir
+    if (to < 0 || to >= next.length) return
+    ;[next[idx], next[to]] = [next[to], next[idx]]
+    setOrder(next)
+  }
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      await manageFetch(`/schedule/matches/${m.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ pkOrder: order }),
+      })
+      onSaved()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const hasOrder = m.pkOrder && m.pkOrder.length > 0
+
+  return (
+    <div className="border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
+      <button
+        onClick={() => setShow(v => !v)}
+        className="flex w-full items-center justify-between text-xs font-semibold py-0.5"
+        style={{ color: 'var(--text-secondary)' }}
+      >
+        <span className="flex items-center gap-2">
+          <span>🥅 PK 순서</span>
+          {hasOrder && (
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+              style={{ background: 'rgba(96,165,250,0.12)', color: '#60a5fa' }}>
+              {m.pkOrder!.length}명 설정
+            </span>
+          )}
+        </span>
+        <svg className={`h-4 w-4 transition-transform ${show ? 'rotate-180' : ''}`}
+          fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
+
+      {show && (
+        <div className="mt-3 space-y-2">
+          {isLeader && (
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              KJA 규칙: 후반 종료 시점 출전 선수로만 PK 참여 · ↑↓로 순서 조정
+            </p>
+          )}
+          <div className="space-y-1">
+            {order.map((userId, idx) => {
+              const mem = members.find(mem2 => mem2.userId === userId)
+              return (
+                <div key={userId}
+                  className="flex items-center gap-2 rounded-xl px-3 py-1.5"
+                  style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--card-border)' }}>
+                  <span className="text-xs font-black tabular-nums w-4 shrink-0" style={{ color: '#60a5fa' }}>
+                    {idx + 1}
+                  </span>
+                  <span className="flex-1 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                    {mem ? memberLabel(mem) : userId.slice(0, 8)}
+                  </span>
+                  {isLeader && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => move(idx, -1)}
+                        disabled={idx === 0}
+                        className="h-6 w-6 rounded-lg flex items-center justify-center text-xs disabled:opacity-30 hover:opacity-70"
+                        style={{ background: 'var(--card-bg)', color: 'var(--text-muted)' }}>↑</button>
+                      <button
+                        onClick={() => move(idx, 1)}
+                        disabled={idx === order.length - 1}
+                        className="h-6 w-6 rounded-lg flex items-center justify-center text-xs disabled:opacity-30 hover:opacity-70"
+                        style={{ background: 'var(--card-bg)', color: 'var(--text-muted)' }}>↓</button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          {isLeader && (
+            <button
+              onClick={save}
+              disabled={saving}
+              className="w-full rounded-xl py-2 text-xs font-semibold text-white disabled:opacity-50"
+              style={{ background: 'linear-gradient(to right, #1d4ed8, #60a5fa)' }}>
+              {saving ? '저장 중...' : 'PK 순서 저장'}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -1575,8 +1712,24 @@ function CardModal({ match: m, members, attendances, onClose, onSuccess }: {
 
 // ── M2-C: 경고 누적 트래커 섹션 ──────────────────────────────────────────────
 
-function CardTrackerSection({ matches, members }: { matches: Match[]; members: TeamMember[] }) {
-  const relevant = matches.filter(m => m.status === 'accepted' || m.status === 'completed')
+function CardTrackerSection({ matches, members, isLeader, onRefresh }: {
+  matches: Match[]; members: TeamMember[]; isLeader: boolean; onRefresh: () => void
+}) {
+  const { user } = useAuth()
+  const [resetting, setResetting] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+
+  // 최신 경고 초기화 이벤트 탐색
+  const latestReset = matches
+    .filter(m => m.cardReset)
+    .sort((a, b) => new Date(b.cardReset!.at).getTime() - new Date(a.cardReset!.at).getTime())[0]?.cardReset
+
+  // 초기화 이후 경기만 집계
+  const relevant = matches.filter(m => {
+    if (m.status !== 'accepted' && m.status !== 'completed') return false
+    if (latestReset && new Date(m.scheduledAt) <= new Date(latestReset.at)) return false
+    return true
+  })
 
   type CardStat = { yellows: number; reds: number }
   const cardMap: Record<string, CardStat> = {}
@@ -1593,59 +1746,130 @@ function CardTrackerSection({ matches, members }: { matches: Match[]; members: T
     .filter(([, v]) => v.yellows > 0 || v.reds > 0)
     .sort((a, b) => (b[1].yellows + b[1].reds * 3) - (a[1].yellows + a[1].reds * 3))
 
-  if (players.length === 0) return null
+  const doReset = async () => {
+    const latestCompleted = matches
+      .filter(m => m.status === 'completed')
+      .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())[0]
+    if (!latestCompleted) return
+    setResetting(true)
+    try {
+      await manageFetch(`/schedule/matches/${latestCompleted.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ cardReset: { at: new Date().toISOString(), by: user?.userId ?? 'leader' } }),
+      })
+      onRefresh()
+    } finally {
+      setResetting(false)
+      setShowConfirm(false)
+    }
+  }
+
+  if (players.length === 0 && !latestReset) return null
 
   return (
     <div>
-      <h2 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
-        경고 현황
-      </h2>
-      <div className="rounded-2xl border p-4 space-y-2.5"
-        style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
-        {players.map(([userId, stat]) => {
-          const mem = members.find(m => m.userId === userId)
-          const suspendedMatches = Math.floor(stat.yellows / 2) + stat.reds * 2
-          const isSuspended = suspendedMatches > 0
-          const nearSuspension = stat.yellows % 2 === 1 && stat.yellows >= 1
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+          경고 현황
+        </h2>
+        {isLeader && players.length > 0 && !showConfirm && (
+          <button
+            onClick={() => setShowConfirm(true)}
+            className="text-[10px] font-semibold rounded-lg px-2.5 py-1 transition-opacity hover:opacity-70"
+            style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)' }}
+          >
+            🔄 KJA 4강 초기화
+          </button>
+        )}
+      </div>
 
-          return (
-            <div key={userId} className="flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold truncate" style={{ color: 'var(--text-secondary)' }}>
-                    {mem ? memberLabel(mem) : userId.slice(0, 8) + '…'}
-                  </span>
-                  {isSuspended && (
-                    <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
-                      출전정지 {suspendedMatches}경기
+      {/* 초기화 확인 패널 */}
+      {showConfirm && (
+        <div className="rounded-xl px-3 py-2.5 mb-3 space-y-2"
+          style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)' }}>
+          <p className="text-xs font-semibold" style={{ color: '#fbbf24' }}>KJA 4강 경고 초기화</p>
+          <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+            8강까지 경고 1장 보유 선수의 카드가 초기화됩니다. 이 작업은 되돌릴 수 없습니다.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowConfirm(false)}
+              className="flex-1 rounded-lg py-1.5 text-xs font-semibold"
+              style={{ background: 'var(--sidebar-bg)', color: 'var(--text-muted)' }}>취소</button>
+            <button
+              onClick={doReset}
+              disabled={resetting}
+              className="flex-1 rounded-lg py-1.5 text-xs font-bold text-white disabled:opacity-50"
+              style={{ background: 'linear-gradient(to right, #d97706, #fbbf24)' }}>
+              {resetting ? '처리 중...' : '초기화 확인'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 초기화 적용됨 배지 */}
+      {latestReset && (
+        <div className="mb-2 flex items-center gap-1.5 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+          <span className="rounded-full px-2 py-0.5 font-bold" style={{ background: 'rgba(74,222,128,0.1)', color: '#4ade80' }}>
+            ✓ 경고 초기화됨
+          </span>
+          {new Date(latestReset.at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })} 이후 기록 표시 중
+        </div>
+      )}
+
+      {players.length === 0 ? (
+        <div className="rounded-2xl border px-4 py-6 text-center text-xs"
+          style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-muted)' }}>
+          초기화 이후 경고 기록이 없습니다
+        </div>
+      ) : (
+        <div className="rounded-2xl border p-4 space-y-2.5"
+          style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
+          {players.map(([userId, stat]) => {
+            const mem = members.find(m => m.userId === userId)
+            const suspendedMatches = Math.floor(stat.yellows / 2) + stat.reds * 2
+            const isSuspended = suspendedMatches > 0
+            const nearSuspension = stat.yellows % 2 === 1 && stat.yellows >= 1
+
+            return (
+              <div key={userId} className="flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold truncate" style={{ color: 'var(--text-secondary)' }}>
+                      {mem ? memberLabel(mem) : userId.slice(0, 8) + '…'}
+                    </span>
+                    {isSuspended && (
+                      <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                        출전정지 {suspendedMatches}경기
+                      </span>
+                    )}
+                    {!isSuspended && nearSuspension && (
+                      <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                        경고 주의
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2.5 shrink-0">
+                  {stat.yellows > 0 && (
+                    <span className="text-xs font-bold tabular-nums" style={{ color: '#fbbf24' }}>
+                      🟨 {stat.yellows}
                     </span>
                   )}
-                  {!isSuspended && nearSuspension && (
-                    <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
-                      경고 주의
+                  {stat.reds > 0 && (
+                    <span className="text-xs font-bold tabular-nums" style={{ color: '#f87171' }}>
+                      🟥 {stat.reds}
                     </span>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2.5 shrink-0">
-                {stat.yellows > 0 && (
-                  <span className="text-xs font-bold tabular-nums" style={{ color: '#fbbf24' }}>
-                    🟨 {stat.yellows}
-                  </span>
-                )}
-                {stat.reds > 0 && (
-                  <span className="text-xs font-bold tabular-nums" style={{ color: '#f87171' }}>
-                    🟥 {stat.reds}
-                  </span>
-                )}
-              </div>
-            </div>
-          )
-        })}
-        <p className="text-[10px] pt-2 border-t" style={{ color: 'var(--text-muted)', borderColor: 'var(--card-border)' }}>
-          경고 2장 = 1경기 출전정지 · 레드카드 = 2경기 정지 (KJA 규칙)
-        </p>
-      </div>
+            )
+          })}
+          <p className="text-[10px] pt-2 border-t" style={{ color: 'var(--text-muted)', borderColor: 'var(--card-border)' }}>
+            경고 2장 = 1경기 출전정지 · 레드카드 = 2경기 정지 (KJA 규칙)
+          </p>
+        </div>
+      )}
     </div>
   )
 }

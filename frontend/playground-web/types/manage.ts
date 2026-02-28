@@ -133,6 +133,8 @@ export interface Match {
   goals?: GoalRecord[]
   cards?: CardRecord[]
   lineup?: Lineup
+  pkOrder?: string[]                      // PK 순서 (userIds, KJA 규칙)
+  cardReset?: { at: string; by: string }  // 경고 초기화 이벤트 (KJA 4강 진출 시)
   note?: string
   createdAt: string
 }
