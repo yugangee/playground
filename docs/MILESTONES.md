@@ -343,9 +343,9 @@
 
 #### 5-B. 외부 리그 연동 (KJA 대회 벡터로 확장)
 
-- [ ] **기자협회 축구대회 대진표 자동화** — 라이프사이클 4단계 (접수→추첨→대회→결산)
-- [ ] 외부 리그 등록/참가 신청
-- [ ] 대진표 브래킷 시각화 (M-DEMO에서 검증된 컴포넌트 활용)
+- [x] **기자협회 축구대회 대진표 자동화** — 라이프사이클 3단계 (모집중→진행중→종료): 대회 시작 시 토너먼트 추첨(`generateTournamentPairs`) 또는 리그 라운드 로빈(`generateRoundRobin`) 자동 생성, PATCH status, `manage/league/page.tsx` 대회 시작·종료 버튼
+- [x] **외부 리그 등록/참가 신청** — "공개 리그 탐색" 탭: `GET /league` 전체 공개 리그 조회, 모집중 리그에 "참가 신청" 버튼 (`POST /league/:id/teams`)
+- [x] 대진표 브래킷 시각화 (M-DEMO에서 검증된 컴포넌트 활용) — `league/kja-51` 전용 페이지, `TournamentBracket.tsx`
 - [ ] **다른 언론사 팀으로 확산** — KJA 50개 팀이 잠재 고객
 
 #### 5-C. 앱스토어 래핑
@@ -404,4 +404,4 @@
 
 ---
 
-*최종 업데이트: 2026-03-01 (M3-B 토너먼트 전적 통계 추가 / M3-D 다종목 등급 커트라인 — SportType/SportCategory 타입, CLUB_TIERS/BASKETBALL_TIERS, 종목별 PIS 레이블, 팀 생성 종목 선택, 동아리형 승급 조건 UI)*
+*최종 업데이트: 2026-03-01 (M5-B 외부 리그 참가 신청 + 대진표 자동화 — 공개 리그 탐색 탭, generateTournamentPairs/generateRoundRobin, 대회 시작·종료 버튼 / M3-B 토너먼트 전적 통계 / M3-D 다종목 등급 커트라인)*
