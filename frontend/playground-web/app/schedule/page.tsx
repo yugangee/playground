@@ -103,6 +103,73 @@ function formatDateShort(dateStr: string) {
   })
 }
 
+// ── M2-A: QR 체크인 배너 ─────────────────────────────────────────────────────
+
+function QRCheckInBanner({ matchId, matches, onDismiss }: {
+  matchId: string; matches: Match[]; onDismiss: () => void
+}) {
+  const match = matches.find(m => m.id === matchId)
+  const [status, setStatus] = useState<'idle' | 'loading' | 'done'>('idle')
+  const [arrivalNum, setArrivalNum] = useState<number | null>(null)
+
+  if (!match) return null
+
+  const checkIn = async () => {
+    setStatus('loading')
+    try {
+      await manageFetch(`/schedule/matches/${matchId}/attendance`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'attending' }),
+      })
+      const all: { userId: string; status: string }[] =
+        await manageFetch(`/schedule/matches/${matchId}/attendance`)
+      setArrivalNum(all.filter(a => a.status === 'attending').length)
+      setStatus('done')
+    } catch {
+      setStatus('idle')
+    }
+  }
+
+  return (
+    <div className="rounded-2xl p-4 space-y-3"
+      style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.35)' }}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold" style={{ color: '#a78bfa' }}>⚽ 경기 체크인</p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+            {match.venue} · {formatDateTime(match.scheduledAt)}
+          </p>
+        </div>
+        <button onClick={onDismiss}
+          className="text-xs px-2 py-0.5 rounded-lg hover:opacity-70 transition-opacity"
+          style={{ color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
+          닫기
+        </button>
+      </div>
+      {status === 'idle' && (
+        <button onClick={checkIn}
+          className="w-full rounded-xl py-3 text-sm font-bold text-white transition-opacity hover:opacity-90"
+          style={{ background: 'linear-gradient(to right, #7c3aed, #c026d3)' }}>
+          ✓ 체크인 완료
+        </button>
+      )}
+      {status === 'loading' && (
+        <p className="text-center text-sm py-2" style={{ color: 'var(--text-muted)' }}>처리 중...</p>
+      )}
+      {status === 'done' && (
+        <div className="text-center py-3">
+          <p className="text-3xl font-black tabular-nums" style={{ color: '#a78bfa' }}>
+            {arrivalNum}번째
+          </p>
+          <p className="text-sm mt-1.5" style={{ color: 'var(--text-secondary)' }}>
+            도착 완료! 본부석 신분 확인을 준비해 주세요 🪪
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── 메인 페이지 ───────────────────────────────────────────────────────────────
 
 export default function SchedulePage() {
@@ -113,6 +180,14 @@ export default function SchedulePage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [members, setMembers] = useState<TeamMember[]>([])
   const [polls, setPolls] = useState<Poll[]>([])
+  const [checkInMatchId, setCheckInMatchId] = useState<string | null>(null)
+
+  // M2-A: QR URL ?match=ID 감지 → 체크인 배너 노출
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const mid = params.get('match')
+    if (mid) setCheckInMatchId(mid)
+  }, [])
 
   const loadMatches = useCallback(async () => {
     if (!teamId) return
@@ -179,6 +254,15 @@ export default function SchedulePage() {
           {isLeader && <MatchFormButton teamId={teamId} onSuccess={loadMatches} />}
         </div>
       </div>
+
+      {/* M2-A: QR 체크인 배너 */}
+      {checkInMatchId && (
+        <QRCheckInBanner
+          matchId={checkInMatchId}
+          matches={matches}
+          onDismiss={() => setCheckInMatchId(null)}
+        />
+      )}
 
       {/* M3-E: 경기 제안 수신 알림 배너 */}
       {pendingProposals.length > 0 && (
