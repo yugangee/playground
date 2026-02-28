@@ -229,6 +229,13 @@ export default function SchedulePage() {
         </section>
       )}
 
+      {/* M3-E: 최근 경기 결과 + 이의 신청 */}
+      {matches.filter(m => m.status === 'completed').length > 0 && (
+        <section>
+          <RecentResultsSection matches={matches} teamId={teamId} isLeader={isLeader} onRefresh={loadMatches} />
+        </section>
+      )}
+
       {/* M2-C: 경고 누적 트래커 */}
       {matches.length > 0 && (
         <section>
@@ -2166,6 +2173,139 @@ function CardTrackerSection({ matches, members, isLeader, onRefresh }: {
           </p>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── M3-E: 최근 경기 결과 + 스코어 이의 신청 ──────────────────────────────────
+
+function RecentResultsSection({ matches, teamId, isLeader, onRefresh }: {
+  matches: Match[]; teamId: string; isLeader: boolean; onRefresh: () => void
+}) {
+  const [disputingId, setDisputingId] = useState<string | null>(null)
+  const [disputeNote, setDisputeNote] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const completed = [...matches.filter(m => m.status === 'completed')]
+    .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
+    .slice(0, 5)
+
+  if (completed.length === 0) return null
+
+  const submitDispute = async (m: Match) => {
+    if (!disputeNote.trim()) return
+    setSaving(true)
+    try {
+      await manageFetch(`/schedule/matches/${m.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ note: `DISPUTE: ${disputeNote.trim()} (${new Date().toLocaleDateString('ko-KR')})` }),
+      })
+      onRefresh()
+      setDisputingId(null)
+      setDisputeNote('')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
+        최근 경기 결과
+      </h2>
+      <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
+        {completed.map((m, i) => {
+          const isHome   = m.homeTeamId === teamId
+          const our      = isHome ? m.homeScore : m.awayScore
+          const their    = isHome ? m.awayScore : m.homeScore
+          const isWin    = our != null && their != null && our > their
+          const isDraw   = our != null && their != null && our === their
+          const hasScore = our != null && their != null
+          const isDisputed = m.note?.startsWith('DISPUTE:')
+          const canDispute = isLeader && m.awayTeamId === teamId && hasScore && !isDisputed
+
+          return (
+            <div key={m.id}>
+              <div className={`flex items-center gap-3 px-4 py-3 ${i < completed.length - 1 ? 'border-b' : ''}`}
+                style={{ borderColor: 'var(--card-border)' }}>
+                {/* 결과 배지 */}
+                {hasScore ? (
+                  <span className="shrink-0 h-7 w-7 rounded-lg flex items-center justify-center text-[10px] font-black"
+                    style={{
+                      background: isWin ? 'rgba(74,222,128,0.15)' : isDraw ? 'rgba(148,163,184,0.15)' : 'rgba(248,113,113,0.15)',
+                      color: isWin ? '#4ade80' : isDraw ? '#94a3b8' : '#f87171',
+                    }}>
+                    {isWin ? 'W' : isDraw ? 'D' : 'L'}
+                  </span>
+                ) : (
+                  <span className="shrink-0 h-7 w-7 rounded-lg flex items-center justify-center text-[10px] font-bold"
+                    style={{ background: 'var(--sidebar-bg)', color: 'var(--text-muted)' }}>–</span>
+                )}
+
+                {/* 경기 정보 */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                    {m.venue}
+                    {isDisputed && (
+                      <span className="ml-1.5 text-[9px] font-bold" style={{ color: '#f59e0b' }}>⚠️ 이의신청</span>
+                    )}
+                  </p>
+                  <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    {new Date(m.scheduledAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
+                  </p>
+                </div>
+
+                {/* 스코어 */}
+                {hasScore && (
+                  <div className="shrink-0 text-sm font-black tabular-nums" style={{ color: 'var(--text-primary)' }}>
+                    <span style={{ color: isWin ? '#4ade80' : isDraw ? 'var(--text-secondary)' : '#f87171' }}>{our}</span>
+                    <span style={{ color: 'var(--text-muted)' }}> : </span>
+                    <span>{their}</span>
+                  </div>
+                )}
+
+                {/* 이의 신청 버튼 (원정팀 리더만) */}
+                {canDispute && (
+                  <button
+                    onClick={() => { setDisputingId(m.id); setDisputeNote('') }}
+                    className="shrink-0 text-[10px] font-semibold rounded-lg px-2 py-1 transition-opacity hover:opacity-70"
+                    style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)' }}>
+                    이의
+                  </button>
+                )}
+              </div>
+
+              {/* 이의 신청 입력 패널 */}
+              {disputingId === m.id && (
+                <div className="px-4 pb-3 space-y-2 border-t"
+                  style={{ borderColor: 'var(--card-border)', background: 'rgba(245,158,11,0.04)' }}>
+                  <p className="text-xs font-semibold pt-2.5" style={{ color: '#f59e0b' }}>스코어 이의 신청</p>
+                  <input
+                    value={disputeNote}
+                    onChange={e => setDisputeNote(e.target.value)}
+                    placeholder="예: 실제 스코어는 2:1 이었습니다"
+                    className="w-full rounded-xl border px-3 py-2 text-sm outline-none"
+                    style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-primary)' }}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setDisputingId(null)}
+                      className="flex-1 rounded-xl py-2 text-xs font-semibold"
+                      style={{ background: 'var(--sidebar-bg)', color: 'var(--text-muted)' }}>취소</button>
+                    <button
+                      onClick={() => submitDispute(m)}
+                      disabled={saving || !disputeNote.trim()}
+                      className="flex-1 rounded-xl py-2 text-xs font-bold text-white disabled:opacity-50"
+                      style={{ background: 'linear-gradient(to right, #d97706, #fbbf24)' }}>
+                      {saving ? '제출 중…' : '제출'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
