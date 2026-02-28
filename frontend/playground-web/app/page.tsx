@@ -209,10 +209,34 @@ function getGreeting() {
   return "좋은 저녁이에요";
 }
 
-function LoggedInHome({ name, recentTeams, topMatchTeams }: { name: string; recentTeams: any[]; topMatchTeams: any[] }) {
-  const [sport, setSport] = useState("전체");
-  const filteredRecent = sport === "전체" ? recentTeams : recentTeams.filter(t => t.sport === sport);
-  const filteredTop = sport === "전체" ? topMatchTeams : topMatchTeams.filter(t => t.sport === sport);
+function LoggedInHome({ name, recentTeams: initialRecent, topMatchTeams: initialTop }: { name: string; recentTeams: any[]; topMatchTeams: any[] }) {
+  const [sport, setSport] = useState<string>(() => {
+    try { return localStorage.getItem("pg_sport") ?? "전체"; } catch { return "전체"; }
+  });
+  const [recentTeams, setRecentTeams] = useState(initialRecent);
+  const [topMatchTeams, setTopMatchTeams] = useState(initialTop);
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [visible, setVisible] = useState(true);
+
+  const handleSport = useCallback(async (s: string) => {
+    if (s === sport) return;
+    // fade out
+    setVisible(false);
+    setFilterLoading(true);
+    try { localStorage.setItem("pg_sport", s); } catch { }
+    setSport(s);
+    const API = process.env.NEXT_PUBLIC_API_URL;
+    const sportParam = s === "전체" ? "" : `&sport=${encodeURIComponent(s)}`;
+    await Promise.all([
+      fetch(`${API}/clubs?limit=15&sort=createdAt&order=desc${sportParam}`)
+        .then(r => r.json()).then(d => setRecentTeams(d.clubs || [])).catch(() => { }),
+      fetch(`${API}/clubs?limit=3&sort=matchCount&order=desc${sportParam}`)
+        .then(r => r.json()).then(d => setTopMatchTeams(d.clubs || [])).catch(() => { }),
+    ]);
+    setFilterLoading(false);
+    // fade in
+    setVisible(true);
+  }, [sport]);
 
   return (
     <div className="max-w-5xl mx-auto space-y-14">
@@ -250,9 +274,9 @@ function LoggedInHome({ name, recentTeams, topMatchTeams }: { name: string; rece
       </div>
 
       {/* 종목 필터 */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
         {SPORTS.map(s => (
-          <button key={s} onClick={() => setSport(s)}
+          <button key={s} onClick={() => handleSport(s)}
             className="px-4 py-1.5 rounded-full text-xs font-semibold transition-all"
             style={sport === s
               ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
@@ -260,6 +284,9 @@ function LoggedInHome({ name, recentTeams, topMatchTeams }: { name: string; rece
             }
           >{s}</button>
         ))}
+        {filterLoading && (
+          <div className="w-4 h-4 border-2 border-fuchsia-400 border-t-transparent rounded-full animate-spin ml-1" />
+        )}
       </div>
 
       {/* Stats */}
@@ -273,41 +300,60 @@ function LoggedInHome({ name, recentTeams, topMatchTeams }: { name: string; rece
       </div>
 
       {/* 이번달 최다 경기 팀 */}
-      {filteredTop.length > 0 && (
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <Trophy size={15} className="text-fuchsia-400" />
-            <h2 className="text-sm font-semibold text-white">이번달 HOT 클럽</h2>
+      <div style={{ transition: "opacity 0.3s", opacity: visible ? 1 : 0 }}>
+        {topMatchTeams.length > 0 ? (
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Trophy size={15} className="text-fuchsia-400" />
+              <h2 className="text-sm font-semibold text-white">이번달 HOT 클럽</h2>
+              {sport !== "전체" && (
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "rgba(192,38,211,0.15)", color: "#c026d3" }}>{sport}</span>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              {topMatchTeams.map((t, i) => (
+                <Link key={t.clubId} href={`/clubs/${t.clubId}`}
+                  className="card-lift relative flex items-center gap-3 rounded-xl p-4 border transition-all hover:border-fuchsia-500/40 group overflow-hidden cursor-pointer"
+                  style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}
+                >
+                  <div className="absolute top-3 right-3 text-xs font-black opacity-10 text-white text-4xl leading-none">#{i + 1}</div>
+                  <div className="w-10 h-10 rounded-xl border border-fuchsia-500/30 overflow-hidden bg-white/5 flex items-center justify-center shrink-0">
+                    {t.image
+                      ? <img src={t.image} alt={t.name} className="w-full h-full object-cover" />
+                      : <Shield size={18} className="text-fuchsia-400/60" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-white font-semibold text-sm truncate">{t.name}</p>
+                    <p className="text-fuchsia-400 text-xs">{t.sport}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
-            {filteredTop.map((t, i) => (
-              <Link key={t.clubId} href={`/clubs/${t.clubId}`}
-                className="card-lift relative flex items-center gap-3 rounded-xl p-4 border transition-all hover:border-fuchsia-500/40 group overflow-hidden cursor-pointer"
-                style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}
-              >
-                <div className="absolute top-3 right-3 text-xs font-black opacity-10 text-white text-4xl leading-none">#{i + 1}</div>
-                <div className="w-10 h-10 rounded-xl border border-fuchsia-500/30 overflow-hidden bg-white/5 flex items-center justify-center shrink-0">
-                  {t.image
-                    ? <img src={t.image} alt={t.name} className="w-full h-full object-cover" />
-                    : <Shield size={18} className="text-fuchsia-400/60" />}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-white font-semibold text-sm truncate">{t.name}</p>
-                  <p className="text-fuchsia-400 text-xs">{t.sport}</p>
-                </div>
-              </Link>
-            ))}
+        ) : (
+          <div className="flex flex-col items-center justify-center py-10 gap-2 rounded-xl border border-dashed"
+            style={{ borderColor: "var(--card-border)" }}>
+            <p className="text-2xl">🏅</p>
+            <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{sport} 클럽이 아직 없어요</p>
+            <p className="text-xs" style={{ color: "var(--text-muted)" }}>다른 종목을 선택하거나 직접 클럽을 만들어보세요</p>
+            <Link href="/clubs/create"
+              className="mt-2 px-4 py-1.5 rounded-full text-xs font-semibold text-white"
+              style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+              클럽 만들기
+            </Link>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* 최근 등록된 팀 */}
-      {filteredRecent.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-white mb-4">최근 등록</h2>
+      <div style={{ transition: "opacity 0.3s", opacity: visible ? 1 : 0 }}>
+        <h2 className="text-sm font-semibold text-white mb-4">
+          최근 등록 {sport !== "전체" && <span className="text-fuchsia-400">— {sport}</span>}
+        </h2>
+        {recentTeams.length > 0 ? (
           <div className="overflow-hidden relative">
             <div className="flex gap-6 animate-marquee w-max">
-              {[...filteredRecent, ...filteredRecent].map((t, i) => (
+              {[...recentTeams, ...recentTeams].map((t, i) => (
                 <div key={`${t.clubId}-${i}`} className="flex flex-col items-center gap-2 shrink-0">
                   <div className="w-20 h-20 rounded-full border-2 border-fuchsia-500/40 overflow-hidden bg-white/5 flex items-center justify-center">
                     {t.image ? (
@@ -322,8 +368,14 @@ function LoggedInHome({ name, recentTeams, topMatchTeams }: { name: string; rece
               ))}
             </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="flex items-center gap-3 py-6 px-4 rounded-xl border border-dashed"
+            style={{ borderColor: "var(--card-border)", color: "var(--text-muted)" }}>
+            <span className="text-xl">🔍</span>
+            <span className="text-sm">{sport} 종목으로 등록된 팀이 없어요</span>
+          </div>
+        )}
+      </div>
 
       {/* 스포츠 뉴스 */}
       <NewsCarousel />
