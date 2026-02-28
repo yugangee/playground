@@ -132,12 +132,12 @@ function NewsCarousel() {
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-900/40 to-violet-900/40" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/20 to-transparent" />
 
         {/* 텍스트 */}
-        <div className="absolute bottom-0 left-0 right-0 p-6 space-y-2">
-          <p className="text-white font-bold text-xl leading-snug">{item.title}</p>
-          <span className="text-xs text-white/50">{item.time}</span>
+        <div className="absolute top-0 left-0 right-0 p-4 space-y-1 bg-white/90">
+          <p className="text-gray-900 font-bold text-lg leading-snug">{item.title}</p>
+          <span className="text-xs text-gray-500">{item.time}</span>
         </div>
 
         {/* 인디케이터 도트 */}
@@ -147,8 +147,8 @@ function NewsCarousel() {
               key={i}
               onClick={() => setCurrent(i)}
               className={`rounded-full transition-all duration-300 ${i === current
-                  ? "w-6 h-2 bg-white"
-                  : "w-2 h-2 bg-white/40 hover:bg-white/60"
+                ? "w-6 h-2 bg-white"
+                : "w-2 h-2 bg-white/40 hover:bg-white/60"
                 }`}
               aria-label={`뉴스 ${i + 1}번으로 이동`}
             />
