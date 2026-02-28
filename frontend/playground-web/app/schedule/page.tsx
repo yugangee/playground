@@ -2454,13 +2454,19 @@ const TEAM_TIERS = [
   { name: 'Rookie', min: 0,    color: '#94a3b8' },
 ] as const
 
+type SeasonFilter = 'all' | '6m' | '3m'
+
 function TeamStatsSection({ matches, members, teamId, polls = [] }: {
   matches: Match[]; members: TeamMember[]; teamId: string; polls?: Poll[]
 }) {
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null)
+  const [seasonFilter, setSeasonFilter] = useState<SeasonFilter>('all')
   const [potmWins, setPotmWins] = useState<Record<string, number>>({})
   const [attendanceMap, setAttendanceMap] = useState<Record<string, number> | null>(null)
   const [loadingAttendance, setLoadingAttendance] = useState(false)
+
+  // 시즌 필터 변경 시 출석 데이터 초기화
+  useEffect(() => { setAttendanceMap(null) }, [seasonFilter])
 
   // M3-A: POTM 횟수 집계 — ⭐ POTM 접두사 poll 투표 집계
   useEffect(() => {
@@ -2485,8 +2491,14 @@ function TeamStatsSection({ matches, members, teamId, polls = [] }: {
     })
   }, [polls.length, teamId])
 
-  const completed = [...matches.filter(m => m.status === 'completed')]
-    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
+  const seasonCutoff = seasonFilter === 'all' ? null
+    : seasonFilter === '6m' ? new Date(Date.now() - 180 * 24 * 60 * 60 * 1000)
+    : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+
+  const completed = [...matches.filter(m =>
+    m.status === 'completed' &&
+    (seasonCutoff === null || new Date(m.scheduledAt) >= seasonCutoff)
+  )].sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
 
   // 팀 전적 + 포인트 계산 (scoring.mjs 룰 동일 적용)
   let wins = 0, draws = 0, losses = 0, teamPoints = 0, curStreak = 0, maxStreak = 0
@@ -2534,10 +2546,10 @@ function TeamStatsSection({ matches, members, teamId, polls = [] }: {
     ? Math.min(100, Math.round(((teamPoints - tier.min) / (nextTier.min - tier.min)) * 100))
     : 100
 
-  // 선수별 기록 집계 (모든 경기 — goals + cards)
+  // 선수별 기록 집계 (시즌 필터 적용 — goals + cards)
   type PStat = { goals: number; assists: number; yellows: number; reds: number }
   const pMap: Record<string, PStat> = {}
-  for (const m of matches) {
+  for (const m of completed) {
     for (const g of m.goals ?? []) {
       pMap[g.scorer] = pMap[g.scorer] ?? { goals: 0, assists: 0, yellows: 0, reds: 0 }
       pMap[g.scorer].goals++
@@ -2599,9 +2611,26 @@ function TeamStatsSection({ matches, members, teamId, polls = [] }: {
 
   return (
     <div>
-      <h2 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
-        팀 통계
-      </h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+          팀 통계
+        </h2>
+        <div className="flex items-center gap-1">
+          {(['all', '6m', '3m'] as SeasonFilter[]).map(f => (
+            <button
+              key={f}
+              onClick={() => setSeasonFilter(f)}
+              className="text-[10px] font-semibold rounded-lg px-2 py-0.5 transition-all"
+              style={{
+                background: seasonFilter === f ? 'var(--text-primary)' : 'transparent',
+                color: seasonFilter === f ? 'var(--page-bg)' : 'var(--text-muted)',
+                border: `1px solid ${seasonFilter === f ? 'var(--text-primary)' : 'var(--card-border)'}`,
+              }}>
+              {f === 'all' ? '전체' : f === '6m' ? '6개월' : '3개월'}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="rounded-2xl border p-4 space-y-4"
         style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
 
