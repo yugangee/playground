@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { manageFetch } from '@/lib/manageFetch'
 import { useTeam } from '@/context/TeamContext'
 import { useAuth } from '@/context/AuthContext'
-import type { Match, Announcement, Poll, Attendance, TeamMember, GoalRecord, CardRecord } from '@/types/manage'
+import type { Match, Announcement, Poll, Attendance, TeamMember, GoalRecord, CardRecord, Lineup } from '@/types/manage'
 
 const MIN_PLAYERS = 7
 
@@ -262,6 +262,7 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
   const [showResultModal, setShowResultModal] = useState(false)
   const [showGoalModal, setShowGoalModal] = useState(false)
   const [showCardModal, setShowCardModal] = useState(false)
+  const [showLineup, setShowLineup] = useState(false)
   const isGameDay = isMatchToday(m.scheduledAt)
 
   // 출석 상태 로드 (내 상태 + 전체 집계)
@@ -459,6 +460,18 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
             />
           </div>
         </div>
+      )}
+
+      {/* M2-B: 라인업 (확정된 경기) */}
+      {m.status === 'accepted' && (
+        <LineupSection
+          match={m}
+          members={members}
+          isLeader={isLeader}
+          showLineup={showLineup}
+          onToggle={() => setShowLineup(v => !v)}
+          onSaved={onRefresh}
+        />
       )}
 
       {/* 완료된 경기 스코어 표시 */}
@@ -1307,6 +1320,131 @@ function GoalModal({ match: m, members, attendances, onClose, onSuccess }: {
   )
 }
 
+// ── M2-B: 라인업 섹션 ────────────────────────────────────────────────────────
+
+function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSaved }: {
+  match: Match; members: TeamMember[]
+  isLeader: boolean; showLineup: boolean; onToggle: () => void; onSaved: () => void
+}) {
+  const starters = m.lineup?.starters ?? []
+  const subs     = m.lineup?.subs ?? []
+  const [saving, setSaving] = useState(false)
+  const [localStarters, setLocalStarters] = useState<string[]>(starters)
+  const [localSubs,     setLocalSubs]     = useState<string[]>(subs)
+
+  const cycle = (userId: string) => {
+    // none → starter → sub → none
+    if (localStarters.includes(userId)) {
+      setLocalStarters(s => s.filter(id => id !== userId))
+      setLocalSubs(s => [...s, userId])
+    } else if (localSubs.includes(userId)) {
+      setLocalSubs(s => s.filter(id => id !== userId))
+    } else {
+      if (localStarters.length < 11) {
+        setLocalStarters(s => [...s, userId])
+      } else {
+        setLocalSubs(s => [...s, userId])
+      }
+    }
+  }
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      const lineup: Lineup = { starters: localStarters, subs: localSubs }
+      await manageFetch(`/schedule/matches/${m.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ lineup }),
+      })
+      onSaved()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const starterCount = isLeader ? localStarters.length : starters.length
+  const hasLineup = starters.length > 0 || subs.length > 0
+
+  return (
+    <div className="border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center justify-between text-xs font-semibold py-0.5"
+        style={{ color: 'var(--text-secondary)' }}
+      >
+        <span className="flex items-center gap-2">
+          <span>⚽ 라인업</span>
+          {hasLineup && (
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+              style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa' }}>
+              선발 {starters.length}명
+            </span>
+          )}
+        </span>
+        <svg className={`h-4 w-4 transition-transform ${showLineup ? 'rotate-180' : ''}`}
+          fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
+
+      {showLineup && (
+        <div className="mt-3 space-y-3">
+          {isLeader && (
+            <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+              선수를 탭해 선발(●) / 교체(△) / 미선발로 순환 · 선발 최대 11명
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-1.5">
+            {members.map(mem => {
+              const inStarters = isLeader ? localStarters.includes(mem.userId) : starters.includes(mem.userId)
+              const inSubs     = isLeader ? localSubs.includes(mem.userId)     : subs.includes(mem.userId)
+              const state = inStarters ? 'starter' : inSubs ? 'sub' : 'out'
+              return (
+                <button
+                  key={mem.userId}
+                  onClick={isLeader ? () => cycle(mem.userId) : undefined}
+                  disabled={!isLeader}
+                  className={`rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${isLeader ? 'hover:opacity-80' : ''}`}
+                  style={{
+                    background: state === 'starter' ? 'rgba(74,222,128,0.15)' :
+                                state === 'sub'     ? 'rgba(96,165,250,0.12)' : 'var(--sidebar-bg)',
+                    color: state === 'starter' ? '#4ade80' :
+                           state === 'sub'     ? '#60a5fa' : 'var(--text-muted)',
+                    border: `1px solid ${
+                      state === 'starter' ? 'rgba(74,222,128,0.3)' :
+                      state === 'sub'     ? 'rgba(96,165,250,0.25)' : 'var(--card-border)'
+                    }`,
+                  }}>
+                  {state === 'starter' ? '● ' : state === 'sub' ? '△ ' : ''}{memberLabel(mem)}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* 범례 + 저장 */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+              <span><span style={{ color: '#4ade80' }}>●</span> 선발 {starterCount}/11</span>
+              <span><span style={{ color: '#60a5fa' }}>△</span> 교체</span>
+            </div>
+            {isLeader && (
+              <button
+                onClick={save}
+                disabled={saving}
+                className="rounded-xl px-3.5 py-1.5 text-xs font-semibold text-white transition-opacity disabled:opacity-50"
+                style={{ background: 'linear-gradient(to right, #c026d3, #7c3aed)' }}
+              >
+                {saving ? '저장 중...' : '라인업 저장'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── M2-C: 경고/퇴장 기록 모달 ────────────────────────────────────────────────
 
 function CardModal({ match: m, members, attendances, onClose, onSuccess }: {
@@ -1512,41 +1650,66 @@ function CardTrackerSection({ matches, members }: { matches: Match[]; members: T
   )
 }
 
-// ── M3-A: 팀 통계 섹션 ────────────────────────────────────────────────────────
+// ── M3-A + M3-B: 팀 통계 섹션 ────────────────────────────────────────────────
+
+const TEAM_TIERS = [
+  { name: 'Legend', min: 2001, color: '#fbbf24' },
+  { name: 'Elite',  min: 801,  color: '#a78bfa' },
+  { name: 'Crew',   min: 251,  color: '#60a5fa' },
+  { name: 'Club',   min: 51,   color: '#4ade80' },
+  { name: 'Rookie', min: 0,    color: '#94a3b8' },
+] as const
 
 function TeamStatsSection({ matches, members, teamId }: {
   matches: Match[]; members: TeamMember[]; teamId: string
 }) {
-  const completed = matches.filter(m => m.status === 'completed')
+  const completed = [...matches.filter(m => m.status === 'completed')]
+    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
 
-  // 팀 전적 계산
-  let wins = 0, draws = 0, losses = 0
+  // 팀 전적 + 포인트 계산 (scoring.mjs 룰 동일 적용)
+  let wins = 0, draws = 0, losses = 0, teamPoints = 0, curStreak = 0, maxStreak = 0
   for (const m of completed) {
     if (m.homeScore == null || m.awayScore == null) continue
     const isHome = m.homeTeamId === teamId
-    const our = isHome ? m.homeScore : m.awayScore
+    const our   = isHome ? m.homeScore : m.awayScore
     const their = isHome ? m.awayScore : m.homeScore
-    if (our > their) wins++
-    else if (our === their) draws++
-    else losses++
+    const streakBonus = our > their && curStreak >= 1 ? curStreak : 0
+    teamPoints += 3 + (our > their ? 4 : our === their ? 1 : 0) + streakBonus
+    if (our > their)       { wins++;   curStreak++ }
+    else if (our === their){ draws++;  curStreak = 0 }
+    else                   { losses++; curStreak = 0 }
+    maxStreak = Math.max(maxStreak, curStreak)
   }
 
-  // 골 집계 (scorer + assist)
-  const goalMap: Record<string, { goals: number; assists: number }> = {}
-  for (const m of completed) {
+  // 팀 등급
+  const tierIdx    = TEAM_TIERS.findIndex(t => teamPoints >= t.min)
+  const tier       = TEAM_TIERS[tierIdx === -1 ? TEAM_TIERS.length - 1 : tierIdx]
+  const nextTier   = tierIdx > 0 ? TEAM_TIERS[tierIdx - 1] : null
+  const tierPct    = nextTier
+    ? Math.min(100, Math.round(((teamPoints - tier.min) / (nextTier.min - tier.min)) * 100))
+    : 100
+
+  // 선수별 기록 집계 (모든 경기 — goals + cards)
+  type PStat = { goals: number; assists: number; yellows: number; reds: number }
+  const pMap: Record<string, PStat> = {}
+  for (const m of matches) {
     for (const g of m.goals ?? []) {
-      goalMap[g.scorer] = goalMap[g.scorer] ?? { goals: 0, assists: 0 }
-      goalMap[g.scorer].goals++
+      pMap[g.scorer] = pMap[g.scorer] ?? { goals: 0, assists: 0, yellows: 0, reds: 0 }
+      pMap[g.scorer].goals++
       if (g.assist) {
-        goalMap[g.assist] = goalMap[g.assist] ?? { goals: 0, assists: 0 }
-        goalMap[g.assist].assists++
+        pMap[g.assist] = pMap[g.assist] ?? { goals: 0, assists: 0, yellows: 0, reds: 0 }
+        pMap[g.assist].assists++
       }
     }
+    for (const c of m.cards ?? []) {
+      pMap[c.playerId] = pMap[c.playerId] ?? { goals: 0, assists: 0, yellows: 0, reds: 0 }
+      if (c.type === 'yellow') pMap[c.playerId].yellows++
+      else                     pMap[c.playerId].reds++
+    }
   }
-
-  const scorers = Object.entries(goalMap)
+  const activePlayers = Object.entries(pMap)
+    .filter(([, s]) => s.goals + s.assists + s.yellows + s.reds > 0)
     .sort((a, b) => (b[1].goals + b[1].assists) - (a[1].goals + a[1].assists))
-    .slice(0, 5)
 
   const hasStats = completed.length > 0
 
@@ -1558,8 +1721,32 @@ function TeamStatsSection({ matches, members, teamId }: {
       <div className="rounded-2xl border p-4 space-y-4"
         style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
 
+        {/* M3-B: 팀 등급 진행 바 */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-black" style={{ color: tier.color }}>{tier.name}</span>
+              <span className="text-xs font-medium tabular-nums" style={{ color: 'var(--text-muted)' }}>{teamPoints} pt</span>
+              {curStreak >= 2 && (
+                <span className="rounded-full px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                  🔥 {curStreak}연승
+                </span>
+              )}
+            </div>
+            {nextTier && (
+              <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                → {nextTier.name} ({nextTier.min - teamPoints}pt)
+              </span>
+            )}
+          </div>
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--sidebar-bg)' }}>
+            <div className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${tierPct}%`, background: `linear-gradient(to right, ${tier.color}88, ${tier.color})` }} />
+          </div>
+        </div>
+
         {/* 전적 요약 */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 pt-1 border-t" style={{ borderColor: 'var(--card-border)' }}>
           <div className="text-center">
             <p className="text-2xl font-black tabular-nums" style={{ color: '#4ade80' }}>{wins}</p>
             <p className="text-[10px] font-semibold uppercase tracking-wide mt-0.5" style={{ color: 'var(--text-muted)' }}>승</p>
@@ -1575,42 +1762,58 @@ function TeamStatsSection({ matches, members, teamId }: {
           <div className="flex-1" />
           <div className="text-right">
             <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-              {hasStats
-                ? `승률 ${Math.round((wins / completed.length) * 100)}%`
-                : '기록 없음'}
+              {hasStats ? `승률 ${Math.round((wins / completed.length) * 100)}%` : '기록 없음'}
             </p>
             <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              완료 경기 {completed.length}경기
+              {completed.length}경기 · 최대 {maxStreak}연승
             </p>
           </div>
         </div>
 
-        {/* 득점 리더보드 */}
-        {scorers.length > 0 && (
+        {/* M3-A: 선수 기록 테이블 */}
+        {activePlayers.length > 0 && (
           <div className="border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>득점 기록</p>
-            <div className="space-y-1.5">
-              {scorers.map(([userId, stat], rank) => {
+            <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
+              선수 기록
+            </p>
+            {/* 헤더 */}
+            <div className="grid grid-cols-[1fr_28px_28px_28px_28px] gap-x-1 pb-1.5 mb-0.5 border-b text-center"
+              style={{ borderColor: 'var(--card-border)' }}>
+              <span className="text-[10px] font-semibold text-left" style={{ color: 'var(--text-muted)' }}>선수</span>
+              <span className="text-[10px] font-bold" style={{ color: '#4ade80' }}>G</span>
+              <span className="text-[10px] font-bold" style={{ color: '#60a5fa' }}>A</span>
+              <span className="text-[10px]">🟨</span>
+              <span className="text-[10px]">🟥</span>
+            </div>
+            <div className="space-y-0">
+              {activePlayers.map(([userId, s], rank) => {
                 const mem = members.find(m => m.userId === userId)
                 return (
-                  <div key={userId} className="flex items-center gap-3">
-                    <span className="text-xs font-bold w-5 text-right tabular-nums"
-                      style={{ color: rank === 0 ? '#fbbf24' : 'var(--text-muted)' }}>
-                      {rank + 1}
-                    </span>
-                    <span className="flex-1 text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-                      {mem ? memberLabel(mem) : userId.slice(0, 8) + '…'}
-                    </span>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
-                        ⚽ {stat.goals}
+                  <div key={userId}
+                    className="grid grid-cols-[1fr_28px_28px_28px_28px] gap-x-1 py-1.5 border-b last:border-b-0 text-center items-center"
+                    style={{ borderColor: 'var(--card-border)' }}>
+                    <div className="flex items-center gap-1 min-w-0 text-left">
+                      {rank === 0 && <span className="text-[10px] shrink-0">🥇</span>}
+                      <span className="text-xs font-medium truncate" style={{ color: 'var(--text-secondary)' }}>
+                        {mem ? memberLabel(mem) : userId.slice(0, 8) + '…'}
                       </span>
-                      {stat.assists > 0 && (
-                        <span style={{ color: 'var(--text-muted)' }}>
-                          🅰 {stat.assists}
-                        </span>
-                      )}
                     </div>
+                    <span className="text-xs font-bold tabular-nums"
+                      style={{ color: s.goals > 0 ? '#4ade80' : 'var(--text-muted)' }}>
+                      {s.goals || '–'}
+                    </span>
+                    <span className="text-xs font-bold tabular-nums"
+                      style={{ color: s.assists > 0 ? '#60a5fa' : 'var(--text-muted)' }}>
+                      {s.assists || '–'}
+                    </span>
+                    <span className="text-xs font-bold tabular-nums"
+                      style={{ color: s.yellows > 0 ? '#fbbf24' : 'var(--text-muted)' }}>
+                      {s.yellows || '–'}
+                    </span>
+                    <span className="text-xs font-bold tabular-nums"
+                      style={{ color: s.reds > 0 ? '#f87171' : 'var(--text-muted)' }}>
+                      {s.reds || '–'}
+                    </span>
                   </div>
                 )
               })}

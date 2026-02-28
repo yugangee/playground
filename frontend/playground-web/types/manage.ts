@@ -115,6 +115,11 @@ export interface CardRecord {
   minute?: number
 }
 
+export interface Lineup {
+  starters: string[]  // userIds (max 11)
+  subs: string[]      // bench userIds
+}
+
 export interface Match {
   id: string
   homeTeamId: string
@@ -127,6 +132,7 @@ export interface Match {
   awayScore?: number
   goals?: GoalRecord[]
   cards?: CardRecord[]
+  lineup?: Lineup
   note?: string
   createdAt: string
 }
