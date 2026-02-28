@@ -378,7 +378,34 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
   const [showCardModal, setShowCardModal] = useState(false)
   const [showLineup, setShowLineup] = useState(false)
   const [showQRModal, setShowQRModal] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
   const isGameDay = isMatchToday(m.scheduledAt)
+
+  // M1-C: 경기 공유 카드 (카톡방 붙여넣기용)
+  const shareMatch = async () => {
+    const dateStr = new Date(m.scheduledAt).toLocaleString('ko-KR', {
+      month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit',
+    })
+    const lines = [
+      `⚽ 경기 안내 — ${m.venue}`,
+      `🗓 ${dateStr}`,
+      m.venueAddress ? `📍 ${m.venueAddress}` : '',
+      `⚠️ 경기 당일 신분증 지참 필수`,
+      '',
+      `👉 체크인: https://fun.sedaily.ai/schedule?match=${m.id}`,
+    ].filter(l => l !== undefined) as string[]
+    const text = lines.join('\n')
+    const url  = `https://fun.sedaily.ai/schedule?match=${m.id}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: '⚽ 경기 안내', text, url })
+      } else {
+        await navigator.clipboard.writeText(text)
+        setShareCopied(true)
+        setTimeout(() => setShareCopied(false), 2000)
+      }
+    } catch {}
+  }
 
   // 출석 상태 로드 (내 상태 + 전체 집계)
   const loadAttendances = async () => {
@@ -658,6 +685,15 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
             style={{ background: 'rgba(96,165,250,0.08)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.25)' }}
           >
             QR
+          </button>
+          <button
+            onClick={shareMatch}
+            className="rounded-xl px-3 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+            style={{ background: shareCopied ? 'rgba(74,222,128,0.12)' : 'rgba(156,163,175,0.08)',
+              color: shareCopied ? '#4ade80' : 'var(--text-muted)',
+              border: `1px solid ${shareCopied ? 'rgba(74,222,128,0.3)' : 'var(--card-border)'}` }}
+          >
+            {shareCopied ? '복사됨!' : '📤'}
           </button>
         </div>
       )}
