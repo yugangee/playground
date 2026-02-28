@@ -107,6 +107,14 @@ export interface GoalRecord {
   minute?: number
 }
 
+export type CardType = 'yellow' | 'red'
+
+export interface CardRecord {
+  playerId: string  // userId
+  type: CardType
+  minute?: number
+}
+
 export interface Match {
   id: string
   homeTeamId: string
@@ -118,6 +126,7 @@ export interface Match {
   homeScore?: number
   awayScore?: number
   goals?: GoalRecord[]
+  cards?: CardRecord[]
   note?: string
   createdAt: string
 }

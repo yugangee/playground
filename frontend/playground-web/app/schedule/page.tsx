@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { manageFetch } from '@/lib/manageFetch'
 import { useTeam } from '@/context/TeamContext'
 import { useAuth } from '@/context/AuthContext'
-import type { Match, Announcement, Poll, Attendance, TeamMember, GoalRecord } from '@/types/manage'
+import type { Match, Announcement, Poll, Attendance, TeamMember, GoalRecord, CardRecord } from '@/types/manage'
 
 const MIN_PLAYERS = 7
 
@@ -206,6 +206,13 @@ export default function SchedulePage() {
         </section>
       )}
 
+      {/* M2-C: 경고 누적 트래커 */}
+      {matches.length > 0 && (
+        <section>
+          <CardTrackerSection matches={matches} members={members} />
+        </section>
+      )}
+
       {/* POTM / 투표 */}
       {polls.length > 0 && (
         <section>
@@ -254,6 +261,7 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
   const [attendances, setAttendances] = useState<Attendance[]>([])
   const [showResultModal, setShowResultModal] = useState(false)
   const [showGoalModal, setShowGoalModal] = useState(false)
+  const [showCardModal, setShowCardModal] = useState(false)
   const isGameDay = isMatchToday(m.scheduledAt)
 
   // 출석 상태 로드 (내 상태 + 전체 집계)
@@ -473,15 +481,15 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
         </div>
       )}
 
-      {/* M2-C: 골 기록 목록 */}
-      {m.goals && m.goals.length > 0 && (
+      {/* M2-C: 골 + 카드 기록 목록 */}
+      {((m.goals && m.goals.length > 0) || (m.cards && m.cards.length > 0)) && (
         <div className="rounded-xl px-3 py-2 space-y-1"
           style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--card-border)' }}>
-          {m.goals.map((g, i) => {
+          {(m.goals ?? []).map((g, i) => {
             const scorer = members.find(mem => mem.userId === g.scorer)
             const helper = g.assist ? members.find(mem => mem.userId === g.assist) : null
             return (
-              <div key={i} className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+              <div key={`g-${i}`} className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
                 <span>⚽</span>
                 {g.minute && <span className="font-medium tabular-nums">{g.minute}&apos;</span>}
                 <span className="font-semibold">{scorer ? memberLabel(scorer) : g.scorer.slice(0, 8)}</span>
@@ -493,18 +501,38 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
               </div>
             )
           })}
+          {(m.cards ?? []).map((c, i) => {
+            const player = members.find(mem => mem.userId === c.playerId)
+            return (
+              <div key={`c-${i}`} className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                <span>{c.type === 'yellow' ? '🟨' : '🟥'}</span>
+                {c.minute && <span className="font-medium tabular-nums">{c.minute}&apos;</span>}
+                <span className="font-semibold">{player ? memberLabel(player) : c.playerId.slice(0, 8)}</span>
+                <span style={{ color: 'var(--text-muted)' }}>{c.type === 'yellow' ? '경고' : '퇴장'}</span>
+              </div>
+            )
+          })}
         </div>
       )}
 
-      {/* M2-C: 득점 기록 버튼 (리더, 확정된 경기) */}
+      {/* M2-C: 득점 + 경고 기록 버튼 (리더, 확정된 경기) */}
       {isLeader && m.status === 'accepted' && (
-        <button
-          onClick={() => setShowGoalModal(true)}
-          className="w-full rounded-xl py-2 text-xs font-semibold transition-opacity hover:opacity-80"
-          style={{ background: 'rgba(74,222,128,0.08)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.2)' }}
-        >
-          ⚽ 득점 기록
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowGoalModal(true)}
+            className="flex-1 rounded-xl py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+            style={{ background: 'rgba(74,222,128,0.08)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.2)' }}
+          >
+            ⚽ 득점 기록
+          </button>
+          <button
+            onClick={() => setShowCardModal(true)}
+            className="flex-1 rounded-xl py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+            style={{ background: 'rgba(251,191,36,0.08)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }}
+          >
+            🟨 경고 기록
+          </button>
+        </div>
       )}
 
       {/* 결과 입력 버튼 (리더, 확정된 경기만) */}
@@ -558,6 +586,20 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
           onClose={() => setShowGoalModal(false)}
           onSuccess={() => {
             setShowGoalModal(false)
+            onRefresh()
+          }}
+        />
+      )}
+
+      {/* M2-C: 경고/퇴장 기록 모달 */}
+      {showCardModal && (
+        <CardModal
+          match={m}
+          members={members}
+          attendances={attendances}
+          onClose={() => setShowCardModal(false)}
+          onSuccess={() => {
+            setShowCardModal(false)
             onRefresh()
           }}
         />
@@ -1260,6 +1302,211 @@ function GoalModal({ match: m, members, attendances, onClose, onSuccess }: {
             {loading ? '저장 중...' : '득점 기록하기'}
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── M2-C: 경고/퇴장 기록 모달 ────────────────────────────────────────────────
+
+function CardModal({ match: m, members, attendances, onClose, onSuccess }: {
+  match: Match; members: TeamMember[]; attendances: Attendance[]; onClose: () => void; onSuccess: () => void
+}) {
+  const [player, setPlayer] = useState<string | null>(null)
+  const [cardType, setCardType] = useState<'yellow' | 'red'>('yellow')
+  const [minute, setMinute] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const attending = attendances.filter(a => a.status === 'attending').map(a => a.userId)
+  const selectable = attending.length > 0
+    ? members.filter(mem => attending.includes(mem.userId))
+    : members
+
+  const submit = async () => {
+    if (!player) return
+    setLoading(true)
+    try {
+      const newCard: CardRecord = {
+        playerId: player,
+        type: cardType,
+        ...(minute ? { minute: parseInt(minute, 10) } : {}),
+      }
+      const updatedCards = [...(m.cards ?? []), newCard]
+      await manageFetch(`/schedule/matches/${m.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ cards: updatedCards }),
+      })
+      onSuccess()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl border shadow-2xl"
+        style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between p-5 pb-3">
+          <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>🟨 경고/퇴장 기록</h3>
+          <button onClick={onClose} style={{ color: 'var(--text-muted)' }}>
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="px-5 pb-5 space-y-4">
+          {/* 카드 종류 */}
+          <div>
+            <label className={lbl} style={{ color: 'var(--text-muted)' }}>카드 종류</label>
+            <div className="flex gap-2">
+              {(['yellow', 'red'] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setCardType(t)}
+                  className="flex-1 rounded-xl py-2.5 text-sm font-bold transition-all"
+                  style={{
+                    background: cardType === t
+                      ? (t === 'yellow' ? 'rgba(251,191,36,0.15)' : 'rgba(248,113,113,0.15)')
+                      : 'var(--sidebar-bg)',
+                    color: cardType === t
+                      ? (t === 'yellow' ? '#fbbf24' : '#f87171')
+                      : 'var(--text-muted)',
+                    border: `1px solid ${cardType === t
+                      ? (t === 'yellow' ? 'rgba(251,191,36,0.4)' : 'rgba(248,113,113,0.4)')
+                      : 'var(--card-border)'}`,
+                  }}>
+                  {t === 'yellow' ? '🟨 경고' : '🟥 퇴장'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 시간 */}
+          <div>
+            <label className={lbl} style={{ color: 'var(--text-muted)' }}>시간 (선택)</label>
+            <input
+              type="number" min="1" max="120" value={minute}
+              onChange={e => setMinute(e.target.value)}
+              placeholder="예: 35"
+              className={inp}
+              style={{ background: 'var(--sidebar-bg)', borderColor: 'var(--card-border)', color: 'var(--text-primary)' }}
+            />
+          </div>
+
+          {/* 선수 */}
+          <div>
+            <label className={lbl} style={{ color: 'var(--text-muted)' }}>선수</label>
+            <div className="space-y-1.5 max-h-40 overflow-y-auto">
+              {selectable.map(mem => (
+                <button key={mem.userId}
+                  onClick={() => setPlayer(mem.userId === player ? null : mem.userId)}
+                  className="w-full rounded-xl px-3 py-2 text-sm text-left font-medium transition-all"
+                  style={{
+                    background: player === mem.userId
+                      ? (cardType === 'yellow' ? 'rgba(251,191,36,0.12)' : 'rgba(248,113,113,0.12)')
+                      : 'var(--sidebar-bg)',
+                    color: player === mem.userId
+                      ? (cardType === 'yellow' ? '#fbbf24' : '#f87171')
+                      : 'var(--text-secondary)',
+                    border: `1px solid ${player === mem.userId
+                      ? (cardType === 'yellow' ? 'rgba(251,191,36,0.3)' : 'rgba(248,113,113,0.3)')
+                      : 'var(--card-border)'}`,
+                  }}>
+                  {player === mem.userId ? (cardType === 'yellow' ? '🟨 ' : '🟥 ') : ''}{memberLabel(mem)}
+                  {mem.role === 'leader' && <span className="ml-1 text-[10px] opacity-50">주장</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button onClick={submit} disabled={!player || loading}
+            className="w-full rounded-xl py-3 text-sm font-bold text-white disabled:opacity-50"
+            style={{
+              background: cardType === 'yellow'
+                ? 'linear-gradient(to right, #d97706, #fbbf24)'
+                : 'linear-gradient(to right, #dc2626, #f87171)',
+            }}>
+            {loading ? '저장 중...' : cardType === 'yellow' ? '경고 기록하기' : '퇴장 기록하기'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── M2-C: 경고 누적 트래커 섹션 ──────────────────────────────────────────────
+
+function CardTrackerSection({ matches, members }: { matches: Match[]; members: TeamMember[] }) {
+  const relevant = matches.filter(m => m.status === 'accepted' || m.status === 'completed')
+
+  type CardStat = { yellows: number; reds: number }
+  const cardMap: Record<string, CardStat> = {}
+  for (const m of relevant) {
+    for (const c of m.cards ?? []) {
+      const entry = cardMap[c.playerId] ?? { yellows: 0, reds: 0 }
+      if (c.type === 'yellow') entry.yellows++
+      else entry.reds++
+      cardMap[c.playerId] = entry
+    }
+  }
+
+  const players = Object.entries(cardMap)
+    .filter(([, v]) => v.yellows > 0 || v.reds > 0)
+    .sort((a, b) => (b[1].yellows + b[1].reds * 3) - (a[1].yellows + a[1].reds * 3))
+
+  if (players.length === 0) return null
+
+  return (
+    <div>
+      <h2 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>
+        경고 현황
+      </h2>
+      <div className="rounded-2xl border p-4 space-y-2.5"
+        style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
+        {players.map(([userId, stat]) => {
+          const mem = members.find(m => m.userId === userId)
+          const suspendedMatches = Math.floor(stat.yellows / 2) + stat.reds * 2
+          const isSuspended = suspendedMatches > 0
+          const nearSuspension = stat.yellows % 2 === 1 && stat.yellows >= 1
+
+          return (
+            <div key={userId} className="flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold truncate" style={{ color: 'var(--text-secondary)' }}>
+                    {mem ? memberLabel(mem) : userId.slice(0, 8) + '…'}
+                  </span>
+                  {isSuspended && (
+                    <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                      출전정지 {suspendedMatches}경기
+                    </span>
+                  )}
+                  {!isSuspended && nearSuspension && (
+                    <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                      경고 주의
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5 shrink-0">
+                {stat.yellows > 0 && (
+                  <span className="text-xs font-bold tabular-nums" style={{ color: '#fbbf24' }}>
+                    🟨 {stat.yellows}
+                  </span>
+                )}
+                {stat.reds > 0 && (
+                  <span className="text-xs font-bold tabular-nums" style={{ color: '#f87171' }}>
+                    🟥 {stat.reds}
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+        <p className="text-[10px] pt-2 border-t" style={{ color: 'var(--text-muted)', borderColor: 'var(--card-border)' }}>
+          경고 2장 = 1경기 출전정지 · 레드카드 = 2경기 정지 (KJA 규칙)
+        </p>
       </div>
     </div>
   )
