@@ -200,6 +200,7 @@
 - [x] 지출 내역 공개 (구장비, 음료비 등 거래 내역 목록)
 - [x] 경기별 1/N 더치페이 자동 계산 (`perPerson = Math.ceil(total / count)` 구현됨)
 - [x] 백엔드: CDK finance Lambda — `/finance/transactions`, `/finance/dues`, `/finance/fines` 완비
+- [x] **미납자 리마인드 복사** — 미납자 목록 + 금액 + 기한을 카톡 붙여넣기용 텍스트로 클립보드 복사 (📤 버튼, 복사됨! 피드백)
 - [ ] 미납자 자동 알림 발송 (1-C 알림톡 브릿지 의존)
 - [x] **대회 참가비 분담** — KJA 30만원 ÷ 인원수 자동 계산, 전체 선택 preset 버튼 (`manage/finance` 정산 탭)
 

@@ -231,10 +231,28 @@ function DuesTab({ teamId, isLeader, members }: { teamId: string; isLeader: bool
 
   const unpaid = items.filter(i => !i.paid)
   const paid = items.filter(i => i.paid)
+  const [reminderCopied, setReminderCopied] = useState(false)
 
   const memberName = (uid: string) => {
     const m = members.find(m => m.userId === uid)
     return m ? memberLabel(m) : uid.slice(0, 8)
+  }
+
+  const copyReminder = async () => {
+    const lines = [
+      '[회비 미납 안내]',
+      '아직 납부하지 않은 분들:',
+      ...unpaid.map(d => {
+        const due = d.dueDate ? ` (기한: ${d.dueDate})` : ''
+        return `• ${memberName(d.userId)} — ${d.amount.toLocaleString()}원 ${d.description}${due}`
+      }),
+      '',
+      '빠른 납부 부탁드립니다! 🙏',
+      '👉 납부 현황: https://fun.sedaily.ai/manage/finance',
+    ]
+    await navigator.clipboard.writeText(lines.join('\n'))
+    setReminderCopied(true)
+    setTimeout(() => setReminderCopied(false), 2000)
   }
 
   return (
@@ -257,6 +275,19 @@ function DuesTab({ teamId, isLeader, members }: { teamId: string; isLeader: bool
           <div className="mt-1 text-xs text-slate-400">{paid.length}명</div>
         </div>
       </div>
+
+      {/* 미납자 리마인드 복사 */}
+      {isLeader && unpaid.length > 0 && (
+        <button onClick={copyReminder}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all hover:opacity-80"
+          style={{
+            background: reminderCopied ? 'rgba(74,222,128,0.08)' : 'rgba(239,68,68,0.06)',
+            color: reminderCopied ? '#4ade80' : '#ef4444',
+            borderColor: reminderCopied ? 'rgba(74,222,128,0.3)' : 'rgba(239,68,68,0.2)',
+          }}>
+          {reminderCopied ? '✓ 복사됨! 카톡에 붙여넣기 하세요' : `📤 미납자 ${unpaid.length}명 리마인드 복사`}
+        </button>
+      )}
 
       {isLeader ? (
         <>
