@@ -530,6 +530,9 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
         </div>
       )}
 
+      {/* M3-C: 미디어 아카이브 */}
+      <MediaSection match={m} isLeader={isLeader} onSaved={onRefresh} />
+
       {/* M2-C: 경기 이벤트 타임라인 (득점 + 카드 시간순) */}
       <EventTimeline match={m} members={members} />
 
@@ -1379,6 +1382,137 @@ function QRModal({ match: m, onClose }: { match: Match; onClose: () => void }) {
           {copied ? '✓ 링크 복사됨' : '🔗 링크 복사'}
         </button>
       </div>
+    </div>
+  )
+}
+
+// ── M3-C: 미디어 아카이브 (경기 사진 업로드) ──────────────────────────────────
+
+const AUTH_API = process.env.NEXT_PUBLIC_API_URL ?? ''
+
+function MediaSection({ match: m, isLeader, onSaved }: {
+  match: Match; isLeader: boolean; onSaved: () => void
+}) {
+  const [uploading, setUploading] = useState(false)
+  const [lightbox, setLightbox] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const media = m.media ?? []
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setUploading(true)
+    try {
+      const newUrls: string[] = []
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) continue
+        const res = await fetch(`${AUTH_API}/upload-url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folder: `matches/${m.id}`, fileName: file.name, contentType: file.type }),
+        })
+        if (!res.ok) continue
+        const { uploadUrl, publicUrl } = await res.json()
+        await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file })
+        newUrls.push(publicUrl)
+      }
+      if (newUrls.length > 0) {
+        await manageFetch(`/schedule/matches/${m.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ media: [...media, ...newUrls] }),
+        })
+        onSaved()
+      }
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const removeMedia = async (url: string) => {
+    const updated = media.filter(u => u !== url)
+    await manageFetch(`/schedule/matches/${m.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ media: updated }),
+    })
+    onSaved()
+  }
+
+  if (media.length === 0 && !isLeader) return null
+
+  return (
+    <div className="border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+          미디어 ({media.length})
+        </span>
+        {isLeader && (
+          <>
+            <button
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              className="text-[10px] font-semibold rounded-lg px-2.5 py-1 transition-opacity hover:opacity-70 disabled:opacity-50"
+              style={{ background: 'rgba(96,165,250,0.1)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)' }}>
+              {uploading ? '업로드 중…' : '+ 사진 추가'}
+            </button>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              className="hidden"
+              onChange={e => handleFiles(e.target.files)}
+            />
+          </>
+        )}
+      </div>
+
+      {media.length > 0 && (
+        <div className="grid grid-cols-3 gap-1.5">
+          {media.map((url, i) => (
+            <div key={i} className="relative group aspect-square rounded-xl overflow-hidden"
+              style={{ background: 'var(--sidebar-bg)' }}>
+              {url.match(/\.(mp4|webm|mov)$/i) ? (
+                <video
+                  src={url}
+                  className="w-full h-full object-cover cursor-pointer"
+                  onClick={() => setLightbox(url)}
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={url}
+                  alt={`경기 사진 ${i + 1}`}
+                  className="w-full h-full object-cover cursor-pointer"
+                  onClick={() => setLightbox(url)}
+                />
+              )}
+              {isLeader && (
+                <button
+                  onClick={() => removeMedia(url)}
+                  className="absolute top-1 right-1 h-5 w-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white"
+                  style={{ background: 'rgba(0,0,0,0.6)' }}>
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 라이트박스 */}
+      {lightbox && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
+          style={{ background: 'rgba(0,0,0,0.85)' }}
+          onClick={() => setLightbox(null)}>
+          {lightbox.match(/\.(mp4|webm|mov)$/i) ? (
+            <video src={lightbox} controls className="max-w-full max-h-[85vh] rounded-xl" onClick={e => e.stopPropagation()} />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={lightbox} alt="경기 사진" className="max-w-full max-h-[85vh] rounded-xl object-contain" onClick={e => e.stopPropagation()} />
+          )}
+        </div>
+      )}
     </div>
   )
 }
