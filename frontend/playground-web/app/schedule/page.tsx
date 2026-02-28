@@ -379,6 +379,11 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
   const [showLineup, setShowLineup] = useState(false)
   const [showQRModal, setShowQRModal] = useState(false)
   const [shareCopied, setShareCopied] = useState(false)
+  const [showNote, setShowNote] = useState(false)
+  const [noteText, setNoteText] = useState(
+    m.note && !m.note.startsWith('DISPUTE:') ? m.note : ''
+  )
+  const [savingNote, setSavingNote] = useState(false)
   const isGameDay = isMatchToday(m.scheduledAt)
 
   // M1-C: 경기 공유 카드 (카톡방 붙여넣기용)
@@ -712,6 +717,57 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
           </svg>
           지도 보기
         </a>
+      )}
+
+      {/* M5-A: 경기 노트 (리더 — 상대팀 분석 메모) */}
+      {isLeader && m.status !== 'completed' && (
+        <div className="border-t pt-2" style={{ borderColor: 'var(--card-border)' }}>
+          <button
+            onClick={() => setShowNote(v => !v)}
+            className="flex w-full items-center justify-between text-[11px] font-semibold py-1"
+            style={{ color: 'var(--text-muted)' }}>
+            <span className="flex items-center gap-1.5">
+              📝 경기 노트
+              {noteText.trim() && !showNote && (
+                <span className="rounded-full px-1.5 py-0.5 text-[9px] font-bold"
+                  style={{ background: 'rgba(96,165,250,0.12)', color: '#60a5fa' }}>저장됨</span>
+              )}
+            </span>
+            <svg className={`h-3.5 w-3.5 transition-transform ${showNote ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+            </svg>
+          </button>
+          {showNote && (
+            <div className="mt-2 space-y-2">
+              <textarea
+                value={noteText}
+                onChange={e => setNoteText(e.target.value)}
+                placeholder="상대팀 분석, 전술 메모, 주의사항 등..."
+                rows={3}
+                className="w-full rounded-xl border px-3 py-2 text-xs outline-none resize-none"
+                style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)', color: 'var(--text-primary)' }}
+              />
+              <button
+                onClick={async () => {
+                  setSavingNote(true)
+                  try {
+                    await manageFetch(`/schedule/matches/${m.id}`, {
+                      method: 'PATCH',
+                      body: JSON.stringify({ note: noteText.trim() || undefined }),
+                    })
+                    setShowNote(false)
+                    onRefresh()
+                  } finally { setSavingNote(false) }
+                }}
+                disabled={savingNote}
+                className="rounded-xl px-4 py-1.5 text-xs font-semibold text-white transition-opacity disabled:opacity-50"
+                style={{ background: 'linear-gradient(to right, #3b82f6, #60a5fa)' }}>
+                {savingNote ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          )}
+        </div>
       )}
 
       {/* 결과 입력 모달 */}
