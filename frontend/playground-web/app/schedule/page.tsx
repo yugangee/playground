@@ -474,6 +474,11 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
         />
       )}
 
+      {/* M2-A: 용병 임시 등록 (확정된 경기) */}
+      {m.status === 'accepted' && (
+        <GuestSection match={m} isLeader={isLeader} onSaved={onRefresh} />
+      )}
+
       {/* 완료된 경기 스코어 표시 */}
       {m.status === 'completed' && m.homeScore != null && m.awayScore != null && (
         <div className="rounded-xl px-4 py-3 flex items-center justify-center gap-4"
@@ -838,17 +843,63 @@ function MatchFormButton({ teamId, onSuccess }: { teamId: string; onSuccess: () 
   )
 }
 
+const VENUE_STORAGE_KEY = 'pg_saved_venues'
+type SavedVenue = { name: string; address: string }
+
+function loadSavedVenues(): SavedVenue[] {
+  try { return JSON.parse(localStorage.getItem(VENUE_STORAGE_KEY) ?? '[]') } catch { return [] }
+}
+function saveVenue(venue: string, address: string) {
+  try {
+    const list = loadSavedVenues().filter(v => v.name !== venue)
+    localStorage.setItem(VENUE_STORAGE_KEY, JSON.stringify([{ name: venue, address }, ...list].slice(0, 10)))
+  } catch {}
+}
+function removeVenueFromStorage(name: string) {
+  try {
+    localStorage.setItem(VENUE_STORAGE_KEY, JSON.stringify(loadSavedVenues().filter(v => v.name !== name)))
+  } catch {}
+}
+
 function MatchForm({ teamId, onSuccess }: { teamId: string; onSuccess: () => void }) {
   const [form, setForm] = useState({ homeTeamId: teamId, awayTeamId: '', scheduledAt: '', venue: '', venueAddress: '' })
   const [loading, setLoading] = useState(false)
+  const [savedVenues, setSavedVenues] = useState<SavedVenue[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+
+  useEffect(() => { setSavedVenues(loadSavedVenues()) }, [])
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const filteredVenues = savedVenues.filter(v =>
+    form.venue === '' || v.name.toLowerCase().includes(form.venue.toLowerCase())
+  )
+  const isSaved = savedVenues.some(v => v.name === form.venue)
+
+  const toggleFavorite = () => {
+    if (isSaved) {
+      removeVenueFromStorage(form.venue)
+      setSavedVenues(prev => prev.filter(v => v.name !== form.venue))
+    } else if (form.venue) {
+      saveVenue(form.venue, form.venueAddress)
+      setSavedVenues(loadSavedVenues())
+    }
+  }
+
+  const selectVenue = (v: SavedVenue) => {
+    setForm(f => ({ ...f, venue: v.name, venueAddress: v.address }))
+    setShowSuggestions(false)
+  }
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     try {
       await manageFetch('/schedule/matches', { method: 'POST', body: JSON.stringify(form) })
+      if (form.venue) {
+        saveVenue(form.venue, form.venueAddress)
+        setSavedVenues(loadSavedVenues())
+      }
       onSuccess()
     } finally {
       setLoading(false)
@@ -859,19 +910,53 @@ function MatchForm({ teamId, onSuccess }: { teamId: string; onSuccess: () => voi
     <form onSubmit={submit} className="space-y-4">
       <div>
         <label className={lbl}>상대 팀 ID</label>
-        <input value={form.awayTeamId} onChange={e => set('awayTeamId', e.target.value)} required className={inp} placeholder="상대 팀 ID" />
+        <input value={form.awayTeamId} onChange={e => set('awayTeamId', e.target.value)} required className={inp} placeholder="상대 팀 ID"
+          style={{ background: 'var(--sidebar-bg)', borderColor: 'var(--card-border)', color: 'var(--text-primary)' }} />
       </div>
       <div>
         <label className={lbl}>일시</label>
-        <input type="datetime-local" value={form.scheduledAt} onChange={e => set('scheduledAt', e.target.value)} required className={inp} />
+        <input type="datetime-local" value={form.scheduledAt} onChange={e => set('scheduledAt', e.target.value)} required className={inp}
+          style={{ background: 'var(--sidebar-bg)', borderColor: 'var(--card-border)', color: 'var(--text-primary)' }} />
       </div>
-      <div>
-        <label className={lbl}>구장명</label>
-        <input value={form.venue} onChange={e => set('venue', e.target.value)} required className={inp} placeholder="잠실 구장" />
+      <div className="relative">
+        <div className="flex items-center justify-between mb-1.5">
+          <label className={lbl} style={{ margin: 0 }}>구장명</label>
+          {form.venue && (
+            <button type="button" onClick={toggleFavorite}
+              className="text-[11px] font-semibold flex items-center gap-1 transition-opacity hover:opacity-70"
+              style={{ color: isSaved ? '#fbbf24' : 'var(--text-muted)' }}>
+              {isSaved ? '⭐ 저장됨' : '☆ 즐겨찾기'}
+            </button>
+          )}
+        </div>
+        <input
+          value={form.venue}
+          onChange={e => { set('venue', e.target.value); setShowSuggestions(true) }}
+          onFocus={() => setShowSuggestions(true)}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+          required className={inp} placeholder="잠실 구장"
+          style={{ background: 'var(--sidebar-bg)', borderColor: 'var(--card-border)', color: 'var(--text-primary)' }}
+        />
+        {showSuggestions && filteredVenues.length > 0 && (
+          <div className="absolute z-10 left-0 right-0 mt-1 rounded-xl border shadow-xl overflow-hidden"
+            style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
+            {filteredVenues.map(v => (
+              <button key={v.name} type="button" onMouseDown={() => selectVenue(v)}
+                className="w-full text-left px-3.5 py-2.5 border-b last:border-b-0 hover:opacity-75 transition-opacity"
+                style={{ borderColor: 'var(--card-border)' }}>
+                <div className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  <span style={{ color: '#fbbf24' }}>⭐</span>{v.name}
+                </div>
+                {v.address && <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{v.address}</p>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div>
         <label className={lbl}>주소 (선택)</label>
-        <input value={form.venueAddress} onChange={e => set('venueAddress', e.target.value)} className={inp} placeholder="서울시 송파구..." />
+        <input value={form.venueAddress} onChange={e => set('venueAddress', e.target.value)} className={inp} placeholder="서울시 송파구..."
+          style={{ background: 'var(--sidebar-bg)', borderColor: 'var(--card-border)', color: 'var(--text-primary)' }} />
       </div>
       <button type="submit" disabled={loading}
         className="w-full rounded-xl py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50"
@@ -1173,6 +1258,103 @@ function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
         총 {totalVotes}표
         {poll.endsAt && ` · ${new Date(poll.endsAt) > new Date() ? `~${new Date(poll.endsAt).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}` : '마감'}`}
       </p>
+    </div>
+  )
+}
+
+// ── M2-A: 용병(Guest) 임시 등록 ─────────────────────────────────────────────
+
+function GuestSection({ match: m, isLeader, onSaved }: {
+  match: Match; isLeader: boolean; onSaved: () => void
+}) {
+  const [guests, setGuests] = useState<string[]>(m.guests ?? [])
+  const [newName, setNewName] = useState('')
+  const [showInput, setShowInput] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const patchGuests = async (updated: string[]) => {
+    setSaving(true)
+    try {
+      await manageFetch(`/schedule/matches/${m.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ guests: updated }),
+      })
+      setGuests(updated)
+      onSaved()
+    } finally { setSaving(false) }
+  }
+
+  const addGuest = async () => {
+    const name = newName.trim()
+    if (!name || guests.includes(name)) return
+    await patchGuests([...guests, name])
+    setNewName('')
+    setShowInput(false)
+  }
+
+  return (
+    <div className="border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+          용병 {guests.length > 0 ? `(${guests.length}명)` : ''}
+        </span>
+        {isLeader && !showInput && (
+          <button
+            onClick={() => setShowInput(true)}
+            className="text-[11px] font-semibold rounded-lg px-2.5 py-1 transition-opacity hover:opacity-70"
+            style={{ background: 'rgba(124,58,237,0.1)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.25)' }}>
+            + 추가
+          </button>
+        )}
+      </div>
+
+      {guests.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {guests.map(name => (
+            <div key={name} className="flex items-center gap-0.5 rounded-full px-2.5 py-1 text-xs font-medium"
+              style={{ background: 'rgba(124,58,237,0.08)', color: '#a78bfa', border: '1px solid rgba(124,58,237,0.2)' }}>
+              ⚽ {name}
+              {isLeader && (
+                <button
+                  onClick={() => patchGuests(guests.filter(g => g !== name))}
+                  disabled={saving}
+                  className="ml-1 hover:opacity-70 transition-opacity"
+                  style={{ color: 'var(--text-muted)' }}>✕</button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {guests.length === 0 && !showInput && (
+        <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+          {isLeader ? '+ 추가 버튼으로 용병을 등록하세요' : '등록된 용병이 없습니다'}
+        </p>
+      )}
+
+      {showInput && (
+        <div className="flex gap-2">
+          <input
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addGuest() } }}
+            placeholder="이름 입력"
+            className="flex-1 rounded-xl border px-3 py-1.5 text-xs outline-none focus:ring-1"
+            style={{ background: 'var(--sidebar-bg)', borderColor: 'var(--card-border)', color: 'var(--text-primary)' }}
+            autoFocus
+          />
+          <button onClick={addGuest} disabled={saving || !newName.trim()}
+            className="rounded-xl px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+            style={{ background: 'var(--accent, #8B5CF6)' }}>
+            {saving ? '…' : '추가'}
+          </button>
+          <button onClick={() => { setShowInput(false); setNewName('') }}
+            className="rounded-xl px-2.5 py-1.5 text-xs"
+            style={{ background: 'var(--sidebar-bg)', color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
+            취소
+          </button>
+        </div>
+      )}
     </div>
   )
 }

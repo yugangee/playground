@@ -135,6 +135,7 @@ export interface Match {
   lineup?: Lineup
   pkOrder?: string[]                      // PK 순서 (userIds, KJA 규칙)
   cardReset?: { at: string; by: string }  // 경고 초기화 이벤트 (KJA 4강 진출 시)
+  guests?: string[]                       // 용병(Guest) 임시 등록 이름 목록
   note?: string
   createdAt: string
 }
