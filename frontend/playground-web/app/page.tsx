@@ -200,15 +200,31 @@ export default function Home() {
   return <LandingHome recentTeams={recentTeams} topMatchTeams={topMatchTeams} />;
 }
 
+const SPORTS = ["전체", "축구", "농구", "테니스", "배드민턴", "야구", "풋살"];
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "좋은 아침이에요";
+  if (h < 18) return "좋은 오후예요";
+  return "좋은 저녁이에요";
+}
+
 function LoggedInHome({ name, recentTeams, topMatchTeams }: { name: string; recentTeams: any[]; topMatchTeams: any[] }) {
+  const [sport, setSport] = useState("전체");
+  const filteredRecent = sport === "전체" ? recentTeams : recentTeams.filter(t => t.sport === sport);
+  const filteredTop = sport === "전체" ? topMatchTeams : topMatchTeams.filter(t => t.sport === sport);
+
   return (
     <div className="max-w-5xl mx-auto space-y-14">
-      {/* Hero */}
+      {/* Hero — 개인화 인사 */}
       <div className="relative flex flex-col items-center justify-center text-center pt-14 space-y-6">
         <div className="absolute top-8 left-1/2 -translate-x-1/2 w-96 h-40 rounded-full blur-3xl opacity-20 pointer-events-none"
           style={{ background: "radial-gradient(ellipse, #c026d3, #7c3aed)" }} />
+        <p className="relative text-sm font-medium" style={{ color: "var(--text-muted)" }}>
+          {getGreeting()}, <span className="text-fuchsia-500 font-semibold">{name}</span>님 👋
+        </p>
         <h1 className="relative text-8xl font-black tracking-tighter text-white cursor-pointer" onClick={() => window.location.reload()}>PLAYGROUND</h1>
-        <p className="text-gray-400 text-lg">환영합니다, <span className="text-white font-semibold">{name}</span>님 ⚽</p>
+        <p className="text-gray-400 text-sm">오늘도 경기를 찾고 있나요?</p>
 
         {/* 퀵 액션 버튼 */}
         <div className="flex items-center gap-3 flex-wrap justify-center">
@@ -233,6 +249,19 @@ function LoggedInHome({ name, recentTeams, topMatchTeams }: { name: string; rece
         </div>
       </div>
 
+      {/* 종목 필터 */}
+      <div className="flex gap-2 flex-wrap">
+        {SPORTS.map(s => (
+          <button key={s} onClick={() => setSport(s)}
+            className="px-4 py-1.5 rounded-full text-xs font-semibold transition-all"
+            style={sport === s
+              ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
+              : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }
+            }
+          >{s}</button>
+        ))}
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {stats.map(({ target, suffix, label }) => (
@@ -244,16 +273,16 @@ function LoggedInHome({ name, recentTeams, topMatchTeams }: { name: string; rece
       </div>
 
       {/* 이번달 최다 경기 팀 */}
-      {topMatchTeams.length > 0 && (
+      {filteredTop.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-4">
             <Trophy size={15} className="text-fuchsia-400" />
             <h2 className="text-sm font-semibold text-white">이번달 HOT 클럽</h2>
           </div>
           <div className="grid grid-cols-3 gap-4">
-            {topMatchTeams.map((t, i) => (
+            {filteredTop.map((t, i) => (
               <Link key={t.clubId} href={`/clubs/${t.clubId}`}
-                className="relative flex items-center gap-3 rounded-xl p-4 border transition-all hover:border-fuchsia-500/40 group overflow-hidden cursor-pointer"
+                className="card-lift relative flex items-center gap-3 rounded-xl p-4 border transition-all hover:border-fuchsia-500/40 group overflow-hidden cursor-pointer"
                 style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}
               >
                 <div className="absolute top-3 right-3 text-xs font-black opacity-10 text-white text-4xl leading-none">#{i + 1}</div>
@@ -273,12 +302,12 @@ function LoggedInHome({ name, recentTeams, topMatchTeams }: { name: string; rece
       )}
 
       {/* 최근 등록된 팀 */}
-      {recentTeams.length > 0 && (
+      {filteredRecent.length > 0 && (
         <div>
           <h2 className="text-sm font-semibold text-white mb-4">최근 등록</h2>
           <div className="overflow-hidden relative">
             <div className="flex gap-6 animate-marquee w-max">
-              {[...recentTeams, ...recentTeams].map((t, i) => (
+              {[...filteredRecent, ...filteredRecent].map((t, i) => (
                 <div key={`${t.clubId}-${i}`} className="flex flex-col items-center gap-2 shrink-0">
                   <div className="w-20 h-20 rounded-full border-2 border-fuchsia-500/40 overflow-hidden bg-white/5 flex items-center justify-center">
                     {t.image ? (
@@ -305,7 +334,7 @@ function LoggedInHome({ name, recentTeams, topMatchTeams }: { name: string; rece
           <Link
             key={title}
             href={href}
-            className="relative bg-white/5 border border-white/10 rounded-xl p-5 hover:border-white/20 hover:bg-white/8 transition-all group overflow-hidden"
+            className="card-lift relative bg-white/5 border border-white/10 rounded-xl p-5 hover:border-white/20 hover:bg-white/8 transition-all group overflow-hidden"
           >
             <div className="absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-0 group-hover:opacity-15 transition-opacity pointer-events-none"
               style={{ background: color, transform: "translate(30%, -30%)" }} />
@@ -379,28 +408,6 @@ function LandingHome({ recentTeams, topMatchTeams }: { recentTeams: any[]; topMa
       {/* 스포츠 뉴스 */}
       {/* <NewsCarousel /> */}
 
-      {/* Bottom CTA */}
-      <div className="relative rounded-2xl overflow-hidden p-8 text-center"
-        style={{ background: "linear-gradient(135deg, rgba(192,38,211,0.15), rgba(124,58,237,0.15))", border: "1px solid rgba(192,38,211,0.2)" }}>
-        <div className="absolute inset-0 opacity-5"
-          style={{ backgroundImage: "radial-gradient(circle at 20% 50%, #c026d3 0%, transparent 50%), radial-gradient(circle at 80% 50%, #7c3aed 0%, transparent 50%)" }} />
-        <div className="relative space-y-3">
-          <div className="flex justify-center gap-2 mb-2">
-            <Zap size={16} className="text-fuchsia-400" />
-            <Shield size={16} className="text-violet-400" />
-          </div>
-          <h3 className="text-white font-bold text-xl">지금 바로 시작하세요</h3>
-          <p className="text-gray-400 text-sm">클럽을 찾고, 경기를 잡고, AI로 분석하세요</p>
-          <Link
-            href="/clubs"
-            className="inline-flex items-center gap-2 font-semibold px-8 py-2.5 rounded-full text-white mt-2 transition-opacity hover:opacity-90"
-            style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
-          >
-            클럽 탐색 시작 <ArrowRight size={16} />
-          </Link>
-        </div>
-      </div>
-
       {/* Pricing */}
       <div>
         <div className="text-center mb-6">
@@ -446,6 +453,28 @@ function LandingHome({ recentTeams, topMatchTeams }: { recentTeams: any[]; topMa
               >{plan.cta}</Link>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Bottom CTA */}
+      <div className="relative rounded-2xl overflow-hidden p-8 text-center"
+        style={{ background: "linear-gradient(135deg, rgba(192,38,211,0.15), rgba(124,58,237,0.15))", border: "1px solid rgba(192,38,211,0.2)" }}>
+        <div className="absolute inset-0 opacity-5"
+          style={{ backgroundImage: "radial-gradient(circle at 20% 50%, #c026d3 0%, transparent 50%), radial-gradient(circle at 80% 50%, #7c3aed 0%, transparent 50%)" }} />
+        <div className="relative space-y-3">
+          <div className="flex justify-center gap-2 mb-2">
+            <Zap size={16} className="text-fuchsia-400" />
+            <Shield size={16} className="text-violet-400" />
+          </div>
+          <h3 className="text-white font-bold text-xl">지금 바로 시작하세요</h3>
+          <p className="text-gray-400 text-sm">클럽을 찾고, 경기를 잡고, AI로 분석하세요</p>
+          <Link
+            href="/clubs"
+            className="inline-flex items-center gap-2 font-semibold px-8 py-2.5 rounded-full text-white mt-2 transition-opacity hover:opacity-90"
+            style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
+          >
+            클럽 탐색 시작 <ArrowRight size={16} />
+          </Link>
         </div>
       </div>
     </div>
