@@ -1970,11 +1970,33 @@ const FORMATION_POSITIONS: Record<FormationType, [number, number][]> = {
 }
 const ALL_FORMATIONS: FormationType[] = ['4-3-3', '4-4-2', '4-2-3-1', '3-5-2', '5-3-2']
 
-function FormationBoard({ starters, members, formation, onFormationChange, isLeader }: {
+function FormationBoard({ starters, members, formation, onFormationChange, onStartersChange, isLeader }: {
   starters: string[]; members: TeamMember[]; formation: FormationType
-  onFormationChange: (f: FormationType) => void; isLeader: boolean
+  onFormationChange: (f: FormationType) => void
+  onStartersChange?: (newStarters: string[]) => void
+  isLeader: boolean
 }) {
   const positions = FORMATION_POSITIONS[formation]
+  const [selectedPos, setSelectedPos] = useState<number | null>(null)
+
+  const handlePosClick = (idx: number) => {
+    if (!isLeader || !onStartersChange) return
+    if (selectedPos === null) {
+      setSelectedPos(idx)
+    } else if (selectedPos === idx) {
+      setSelectedPos(null)
+    } else {
+      // 두 포지션 선수 교체
+      const next = [...starters]
+      const a = next[selectedPos] ?? ''
+      const b = next[idx] ?? ''
+      next[selectedPos] = b
+      next[idx] = a
+      onStartersChange(next)
+      setSelectedPos(null)
+    }
+  }
+
   return (
     <div className="space-y-2 mt-2">
       {isLeader && (
@@ -1996,6 +2018,11 @@ function FormationBoard({ starters, members, formation, onFormationChange, isLea
       {!isLeader && (
         <p className="text-[10px] font-bold" style={{ color: '#a78bfa' }}>{formation}</p>
       )}
+      {isLeader && onStartersChange && (
+        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+          포지션을 탭해 선택 후, 다른 포지션 탭으로 선수 위치 교체
+        </p>
+      )}
       <div style={{ position: 'relative', width: '100%', paddingBottom: '140%', borderRadius: 10, overflow: 'hidden', background: '#15803d' }}>
         <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
           viewBox="0 0 100 140" preserveAspectRatio="none">
@@ -2012,19 +2039,36 @@ function FormationBoard({ starters, members, formation, onFormationChange, isLea
           const userId = starters[idx]
           const mem = userId ? members.find(mb => mb.userId === userId) : null
           const isGK = idx === 0
+          const isSelected = selectedPos === idx
+          const isSwapTarget = selectedPos !== null && selectedPos !== idx
           return (
-            <div key={idx} style={{
-              position: 'absolute', left: `${x}%`, top: `${y}%`,
-              transform: 'translate(-50%,-50%)', display: 'flex', flexDirection: 'column',
-              alignItems: 'center', gap: 1, pointerEvents: 'none',
-            }}>
+            <div
+              key={idx}
+              onClick={() => handlePosClick(idx)}
+              style={{
+                position: 'absolute', left: `${x}%`, top: `${y}%`,
+                transform: 'translate(-50%,-50%)', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', gap: 1,
+                cursor: isLeader && onStartersChange ? 'pointer' : 'default',
+                pointerEvents: isLeader && onStartersChange ? 'auto' : 'none',
+              }}
+            >
               <div style={{
                 width: 22, height: 22, borderRadius: '50%',
-                background: userId
-                  ? (isGK ? 'rgba(250,204,21,0.9)' : 'rgba(167,139,250,0.9)')
-                  : 'rgba(255,255,255,0.2)',
-                border: `2px solid ${userId ? (isGK ? '#fde68a' : '#c4b5fd') : 'rgba(255,255,255,0.3)'}`,
+                background: isSelected
+                  ? 'rgba(251,191,36,0.95)'
+                  : userId
+                    ? (isGK ? 'rgba(250,204,21,0.9)' : 'rgba(167,139,250,0.9)')
+                    : 'rgba(255,255,255,0.2)',
+                border: `2px solid ${
+                  isSelected ? '#fbbf24'
+                  : isSwapTarget && userId ? 'rgba(251,191,36,0.6)'
+                  : userId ? (isGK ? '#fde68a' : '#c4b5fd')
+                  : 'rgba(255,255,255,0.3)'
+                }`,
+                boxShadow: isSelected ? '0 0 0 3px rgba(251,191,36,0.4)' : isSwapTarget && userId ? '0 0 0 2px rgba(251,191,36,0.25)' : 'none',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.15s',
               }}>
                 {userId && (
                   <span style={{ fontSize: 6, fontWeight: 800, color: isGK ? '#713f12' : '#2e1065', lineHeight: 1 }}>
@@ -2032,7 +2076,7 @@ function FormationBoard({ starters, members, formation, onFormationChange, isLea
                   </span>
                 )}
               </div>
-              <span style={{ fontSize: 7, fontWeight: 700, color: 'rgba(255,255,255,0.95)',
+              <span style={{ fontSize: 7, fontWeight: 700, color: isSelected ? '#fbbf24' : 'rgba(255,255,255,0.95)',
                 textShadow: '0 1px 2px rgba(0,0,0,0.8)', maxWidth: 34, textAlign: 'center', lineHeight: 1.1 }}>
                 {mem ? (mem.number ? `#${mem.number}` : memberLabel(mem).slice(0, 5)) : (isGK ? 'GK' : `P${idx}`)}
               </span>
@@ -2040,54 +2084,96 @@ function FormationBoard({ starters, members, formation, onFormationChange, isLea
           )
         })}
       </div>
+      {selectedPos !== null && (
+        <p className="text-[10px] text-center" style={{ color: '#fbbf24' }}>
+          {starters[selectedPos]
+            ? `${memberLabel(members.find(m => m.userId === starters[selectedPos])!) || '선수'} 선택됨 — 교체할 포지션 탭`
+            : '빈 포지션 선택됨 — 교체할 포지션 탭'}
+          {'  '}
+          <button onClick={() => setSelectedPos(null)} style={{ textDecoration: 'underline' }}>취소</button>
+        </p>
+      )}
     </div>
   )
 }
+
+type HalfTab = 'first' | 'second'
 
 function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSaved }: {
   match: Match; members: TeamMember[]
   isLeader: boolean; showLineup: boolean; onToggle: () => void; onSaved: () => void
 }) {
-  const starters = m.lineup?.starters ?? []
-  const subs     = m.lineup?.subs ?? []
-  const [saving, setSaving] = useState(false)
-  const [localStarters, setLocalStarters] = useState<string[]>(starters)
-  const [localSubs,     setLocalSubs]     = useState<string[]>(subs)
-  const [formation, setFormation]         = useState<FormationType>('4-3-3')
-  const [showFormation, setShowFormation] = useState(false)
+  // 전반 (first half) 상태
+  const startersFirst = m.lineup?.starters ?? []
+  const subsFirst     = m.lineup?.subs ?? []
+  const [localStarters,  setLocalStarters]  = useState<string[]>(startersFirst)
+  const [localSubs,      setLocalSubs]      = useState<string[]>(subsFirst)
+
+  // 후반 (second half) 상태
+  const startersSecond = m.lineupSecond?.starters ?? []
+  const subsSecond     = m.lineupSecond?.subs ?? []
+  const [localStarters2, setLocalStarters2] = useState<string[]>(startersSecond)
+  const [localSubs2,     setLocalSubs2]     = useState<string[]>(subsSecond)
+
+  const [halfTab,        setHalfTab]        = useState<HalfTab>('first')
+  const [saving,         setSaving]         = useState(false)
+  const [formation,      setFormation]      = useState<FormationType>('4-3-3')
+  const [showFormation,  setShowFormation]  = useState(false)
+
+  // 현재 탭에 따른 상태 참조
+  const curLocalStarters = halfTab === 'first' ? localStarters  : localStarters2
+  const curLocalSubs     = halfTab === 'first' ? localSubs      : localSubs2
+  const curStarters      = halfTab === 'first' ? startersFirst  : startersSecond
+  const curSubs          = halfTab === 'first' ? subsFirst      : subsSecond
+  const setCurStarters   = halfTab === 'first' ? setLocalStarters  : setLocalStarters2
+  const setCurSubs       = halfTab === 'first' ? setLocalSubs      : setLocalSubs2
 
   const cycle = (userId: string) => {
-    // none → starter → sub → none
-    if (localStarters.includes(userId)) {
-      setLocalStarters(s => s.filter(id => id !== userId))
-      setLocalSubs(s => [...s, userId])
-    } else if (localSubs.includes(userId)) {
-      setLocalSubs(s => s.filter(id => id !== userId))
+    if (curLocalStarters.includes(userId)) {
+      setCurStarters(s => s.filter(id => id !== userId))
+      setCurSubs(s => [...s, userId])
+    } else if (curLocalSubs.includes(userId)) {
+      setCurSubs(s => s.filter(id => id !== userId))
     } else {
-      if (localStarters.length < 11) {
-        setLocalStarters(s => [...s, userId])
+      if (curLocalStarters.length < 11) {
+        setCurStarters(s => [...s, userId])
       } else {
-        setLocalSubs(s => [...s, userId])
+        setCurSubs(s => [...s, userId])
       }
     }
+  }
+
+  // 전반 라인업을 후반에 복사
+  const copyFirstToSecond = () => {
+    setLocalStarters2([...localStarters])
+    setLocalSubs2([...localSubs])
   }
 
   const save = async () => {
     setSaving(true)
     try {
-      const lineup: Lineup = { starters: localStarters, subs: localSubs }
-      await manageFetch(`/schedule/matches/${m.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ lineup }),
-      })
+      if (halfTab === 'first') {
+        const lineup: Lineup = { starters: localStarters, subs: localSubs }
+        await manageFetch(`/schedule/matches/${m.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ lineup }),
+        })
+      } else {
+        const lineupSecond: Lineup = { starters: localStarters2, subs: localSubs2 }
+        await manageFetch(`/schedule/matches/${m.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ lineupSecond }),
+        })
+      }
       onSaved()
     } finally {
       setSaving(false)
     }
   }
 
-  const starterCount = isLeader ? localStarters.length : starters.length
-  const hasLineup = starters.length > 0 || subs.length > 0
+  const starterCount = isLeader ? curLocalStarters.length : curStarters.length
+  const hasAnyLineup = startersFirst.length > 0 || startersSecond.length > 0
+  const hasSecond    = startersSecond.length > 0
 
   return (
     <div className="border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
@@ -2098,10 +2184,10 @@ function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSa
       >
         <span className="flex items-center gap-2">
           <span>⚽ 라인업</span>
-          {hasLineup && (
+          {hasAnyLineup && (
             <span className="rounded-full px-2 py-0.5 text-[10px] font-bold"
               style={{ background: 'rgba(124,58,237,0.12)', color: '#a78bfa' }}>
-              선발 {starters.length}명
+              전반 {startersFirst.length}명{hasSecond ? ` · 후반 ${startersSecond.length}명` : ''}
             </span>
           )}
         </span>
@@ -2113,6 +2199,38 @@ function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSa
 
       {showLineup && (
         <div className="mt-3 space-y-3">
+          {/* 전반 / 후반 탭 */}
+          <div className="flex rounded-xl overflow-hidden border text-xs font-semibold"
+            style={{ borderColor: 'var(--card-border)' }}>
+            {(['first', 'second'] as HalfTab[]).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setHalfTab(tab)}
+                className="flex-1 py-1.5 transition-colors"
+                style={{
+                  background: halfTab === tab ? 'rgba(124,58,237,0.15)' : 'transparent',
+                  color: halfTab === tab ? '#a78bfa' : 'var(--text-muted)',
+                }}
+              >
+                {tab === 'first' ? '전반 (1H)' : '후반 (2H)'}
+                {tab === 'second' && hasSecond && (
+                  <span className="ml-1 text-[10px]" style={{ color: '#4ade80' }}>●</span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* 후반 탭: 전반에서 복사 버튼 */}
+          {halfTab === 'second' && isLeader && localStarters2.length === 0 && localStarters.length > 0 && (
+            <button
+              onClick={copyFirstToSecond}
+              className="w-full rounded-xl py-1.5 text-xs font-semibold border"
+              style={{ borderColor: 'var(--card-border)', color: 'var(--text-secondary)' }}
+            >
+              📋 전반 라인업 복사해서 시작
+            </button>
+          )}
+
           {isLeader && (
             <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
               선수를 탭해 선발(●) / 교체(△) / 미선발로 순환 · 선발 최대 11명
@@ -2121,8 +2239,8 @@ function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSa
 
           <div className="flex flex-wrap gap-1.5">
             {members.map(mem => {
-              const inStarters = isLeader ? localStarters.includes(mem.userId) : starters.includes(mem.userId)
-              const inSubs     = isLeader ? localSubs.includes(mem.userId)     : subs.includes(mem.userId)
+              const inStarters = isLeader ? curLocalStarters.includes(mem.userId) : curStarters.includes(mem.userId)
+              const inSubs     = isLeader ? curLocalSubs.includes(mem.userId)     : curSubs.includes(mem.userId)
               const state = inStarters ? 'starter' : inSubs ? 'sub' : 'out'
               return (
                 <button
@@ -2159,13 +2277,13 @@ function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSa
                 className="rounded-xl px-3.5 py-1.5 text-xs font-semibold text-white transition-opacity disabled:opacity-50"
                 style={{ background: 'linear-gradient(to right, #c026d3, #7c3aed)' }}
               >
-                {saving ? '저장 중...' : '라인업 저장'}
+                {saving ? '저장 중...' : `${halfTab === 'first' ? '전반' : '후반'} 저장`}
               </button>
             )}
           </div>
 
-          {/* M2-B: 2D 포메이션 보드 */}
-          {(isLeader ? localStarters : starters).length > 0 && (
+          {/* M2-B: 2D 포메이션 보드 (현재 탭 기준 선발진) */}
+          {(isLeader ? curLocalStarters : curStarters).length > 0 && (
             <div className="border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
               <button
                 onClick={() => setShowFormation(v => !v)}
@@ -2188,10 +2306,11 @@ function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSa
               </button>
               {showFormation && (
                 <FormationBoard
-                  starters={isLeader ? localStarters : starters}
+                  starters={isLeader ? curLocalStarters : curStarters}
                   members={members}
                   formation={formation}
                   onFormationChange={setFormation}
+                  onStartersChange={isLeader ? setCurStarters : undefined}
                   isLeader={isLeader}
                 />
               )}
@@ -2199,7 +2318,7 @@ function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSa
           )}
 
           {/* M2-B: PK 순서 */}
-          {starters.length > 0 && (
+          {startersFirst.length > 0 && (
             <PKOrderSection match={m} members={members} isLeader={isLeader} onSaved={onSaved} />
           )}
         </div>

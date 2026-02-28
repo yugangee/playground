@@ -132,7 +132,8 @@ export interface Match {
   awayScore?: number
   goals?: GoalRecord[]
   cards?: CardRecord[]
-  lineup?: Lineup
+  lineup?: Lineup           // 전반 라인업
+  lineupSecond?: Lineup     // 후반 라인업
   pkOrder?: string[]                      // PK 순서 (userIds, KJA 규칙)
   cardReset?: { at: string; by: string }  // 경고 초기화 이벤트 (KJA 4강 진출 시)
   guests?: string[]                       // 용병(Guest) 임시 등록 이름 목록
