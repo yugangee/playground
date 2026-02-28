@@ -12,7 +12,8 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import ScrollToTop from "@/components/ScrollToTop";
 import HeaderAuth from "@/components/layout/HeaderAuth";
 import AIChatbot from "@/components/AIChatbot";
-import PWAInstallBanner from "@/components/PWAInstallBanner";
+import PWAInstallBanner from "@/components/PWAInstallBanner"
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -76,6 +77,7 @@ export default function RootLayout({
         </ThemeProvider>
         <AIChatbot />
         <PWAInstallBanner />
+        <ServiceWorkerRegistration />
       </body>
     </html>
   );

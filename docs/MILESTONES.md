@@ -217,7 +217,7 @@
 #### 1-D. PWA 설정
 
 - [x] `manifest.json` 작성 (앱 이름, SVG 아이콘, 테마 색상 #7c3aed)
-- [ ] Service Worker 등록 (오프라인 캐싱)
+- [x] **Service Worker 등록** — `public/sw.js` (캐시 우선/네트워크 우선 혼합 전략), `ServiceWorkerRegistration.tsx` 컴포넌트
 - [x] iOS 홈 화면 추가 안내 배너 — `PWAInstallBanner.tsx`, 3초 딜레이, localStorage 영구 닫기
 - [ ] 웹 푸시 알림 설정 (FCM, iOS 16.4+ 대응)
 
