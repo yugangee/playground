@@ -2562,6 +2562,7 @@ function RecentResultsSection({ matches, teamId, isLeader, onRefresh }: {
   const [disputingId, setDisputingId] = useState<string | null>(null)
   const [disputeNote, setDisputeNote] = useState('')
   const [saving, setSaving] = useState(false)
+  const [sharedId, setSharedId] = useState<string | null>(null)
 
   const completed = [...matches.filter(m => m.status === 'completed')]
     .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
@@ -2641,6 +2642,46 @@ function RecentResultsSection({ matches, teamId, isLeader, onRefresh }: {
                   </div>
                 )}
 
+                {/* 결과 공유 버튼 */}
+                {hasScore && (
+                  <button
+                    onClick={async () => {
+                      const dateStr = new Date(m.scheduledAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })
+                      const resultLabel = isWin ? '승' : isDraw ? '무승부' : '패'
+                      const goals = (m.goals ?? [])
+                        .map(g => {
+                          const sc = members.find(mb => mb.userId === g.scorer)
+                          return sc ? `${memberLabel(sc)} 1골` : null
+                        })
+                        .filter(Boolean)
+                      const lines = [
+                        `⚽ 경기 결과 — ${m.venue}`,
+                        `📅 ${dateStr} · ${resultLabel}`,
+                        `${our} : ${their}`,
+                        goals.length > 0 ? `득점: ${goals.join(', ')}` : '',
+                        '',
+                        `👉 Playground — fun.sedaily.ai`,
+                      ].filter(Boolean)
+                      const text = lines.join('\n')
+                      try {
+                        if (navigator.share) await navigator.share({ title: '경기 결과', text })
+                        else {
+                          await navigator.clipboard.writeText(text)
+                          setSharedId(m.id)
+                          setTimeout(() => setSharedId(null), 2000)
+                        }
+                      } catch {}
+                    }}
+                    className="shrink-0 text-[10px] font-semibold rounded-lg px-2 py-1 transition-opacity hover:opacity-70"
+                    style={{
+                      background: sharedId === m.id ? 'rgba(74,222,128,0.1)' : 'rgba(148,163,184,0.06)',
+                      color: sharedId === m.id ? '#4ade80' : 'var(--text-muted)',
+                      border: `1px solid ${sharedId === m.id ? 'rgba(74,222,128,0.3)' : 'var(--card-border)'}`,
+                    }}>
+                    {sharedId === m.id ? '✓' : '📤'}
+                  </button>
+                )}
+
                 {/* 이의 신청 버튼 (원정팀 리더만) */}
                 {canDispute && (
                   <button
@@ -2707,6 +2748,7 @@ function TeamStatsSection({ matches, members, teamId, polls = [] }: {
   const [potmWins, setPotmWins] = useState<Record<string, number>>({})
   const [attendanceMap, setAttendanceMap] = useState<Record<string, number> | null>(null)
   const [loadingAttendance, setLoadingAttendance] = useState(false)
+  const [statsCopied, setStatsCopied] = useState(false)
 
   // 시즌 필터 변경 시 출석 데이터 초기화
   useEffect(() => { setAttendanceMap(null) }, [seasonFilter])
@@ -2828,6 +2870,31 @@ function TeamStatsSection({ matches, members, teamId, polls = [] }: {
 
   const hasStats = completed.length > 0
 
+  // 팀 통계 공유 텍스트 생성
+  const shareTeamStats = async () => {
+    const filterLabel = seasonFilter === 'all' ? '전체' : seasonFilter === '6m' ? '최근 6개월' : '최근 3개월'
+    const topScorer = activePlayers[0]
+    const topMem = topScorer ? members.find(m => m.userId === topScorer[0]) : null
+    const lines = [
+      `🏆 팀 통계 요약 (${filterLabel})`,
+      `${completed.length}경기 · ${wins}승 ${draws}무 ${losses}패 · 승률 ${hasStats ? Math.round((wins / completed.length) * 100) : 0}%`,
+      avgGoalsFor ? `평균 득점 ${avgGoalsFor}골 · 최장 연승 ${maxStreak}연승` : '',
+      tier ? `현재 등급: ${tier.name} (${teamPoints}pt)` : '',
+      topScorer ? `득점왕: ${topMem ? memberLabel(topMem) : topScorer[0].slice(0,6)} ${topScorer[1].goals}골` : '',
+      '',
+      `👉 Playground — fun.sedaily.ai`,
+    ].filter(Boolean)
+    const text = lines.join('\n')
+    try {
+      if (navigator.share) await navigator.share({ title: '팀 통계', text })
+      else {
+        await navigator.clipboard.writeText(text)
+        setStatsCopied(true)
+        setTimeout(() => setStatsCopied(false), 2000)
+      }
+    } catch {}
+  }
+
   // M3-A: 출석왕 — 완료 경기 attendance 병렬 로드 (사용자 트리거)
   const loadAttendanceStats = async () => {
     if (completed.length === 0) return
@@ -2872,6 +2939,18 @@ function TeamStatsSection({ matches, members, teamId, polls = [] }: {
               {f === 'all' ? '전체' : f === '6m' ? '6개월' : '3개월'}
             </button>
           ))}
+          {hasStats && (
+            <button
+              onClick={shareTeamStats}
+              className="text-[10px] font-semibold rounded-lg px-2 py-0.5 transition-all ml-1"
+              style={{
+                background: statsCopied ? 'rgba(74,222,128,0.12)' : 'transparent',
+                color: statsCopied ? '#4ade80' : 'var(--text-muted)',
+                border: `1px solid ${statsCopied ? 'rgba(74,222,128,0.3)' : 'var(--card-border)'}`,
+              }}>
+              {statsCopied ? '✓' : '📤'}
+            </button>
+          )}
         </div>
       </div>
       <div className="rounded-2xl border p-4 space-y-4"
