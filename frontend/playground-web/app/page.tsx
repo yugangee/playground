@@ -379,6 +379,28 @@ function LandingHome({ recentTeams, topMatchTeams }: { recentTeams: any[]; topMa
       {/* 스포츠 뉴스 */}
       {/* <NewsCarousel /> */}
 
+      {/* Bottom CTA */}
+      <div className="relative rounded-2xl overflow-hidden p-8 text-center"
+        style={{ background: "linear-gradient(135deg, rgba(192,38,211,0.15), rgba(124,58,237,0.15))", border: "1px solid rgba(192,38,211,0.2)" }}>
+        <div className="absolute inset-0 opacity-5"
+          style={{ backgroundImage: "radial-gradient(circle at 20% 50%, #c026d3 0%, transparent 50%), radial-gradient(circle at 80% 50%, #7c3aed 0%, transparent 50%)" }} />
+        <div className="relative space-y-3">
+          <div className="flex justify-center gap-2 mb-2">
+            <Zap size={16} className="text-fuchsia-400" />
+            <Shield size={16} className="text-violet-400" />
+          </div>
+          <h3 className="text-white font-bold text-xl">지금 바로 시작하세요</h3>
+          <p className="text-gray-400 text-sm">클럽을 찾고, 경기를 잡고, AI로 분석하세요</p>
+          <Link
+            href="/clubs"
+            className="inline-flex items-center gap-2 font-semibold px-8 py-2.5 rounded-full text-white mt-2 transition-opacity hover:opacity-90"
+            style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
+          >
+            클럽 탐색 시작 <ArrowRight size={16} />
+          </Link>
+        </div>
+      </div>
+
       {/* Pricing */}
       <div>
         <div className="text-center mb-6">
@@ -424,28 +446,6 @@ function LandingHome({ recentTeams, topMatchTeams }: { recentTeams: any[]; topMa
               >{plan.cta}</Link>
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* Bottom CTA */}
-      <div className="relative rounded-2xl overflow-hidden p-8 text-center"
-        style={{ background: "linear-gradient(135deg, rgba(192,38,211,0.15), rgba(124,58,237,0.15))", border: "1px solid rgba(192,38,211,0.2)" }}>
-        <div className="absolute inset-0 opacity-5"
-          style={{ backgroundImage: "radial-gradient(circle at 20% 50%, #c026d3 0%, transparent 50%), radial-gradient(circle at 80% 50%, #7c3aed 0%, transparent 50%)" }} />
-        <div className="relative space-y-3">
-          <div className="flex justify-center gap-2 mb-2">
-            <Zap size={16} className="text-fuchsia-400" />
-            <Shield size={16} className="text-violet-400" />
-          </div>
-          <h3 className="text-white font-bold text-xl">지금 바로 시작하세요</h3>
-          <p className="text-gray-400 text-sm">클럽을 찾고, 경기를 잡고, AI로 분석하세요</p>
-          <Link
-            href="/clubs"
-            className="inline-flex items-center gap-2 font-semibold px-8 py-2.5 rounded-full text-white mt-2 transition-opacity hover:opacity-90"
-            style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
-          >
-            클럽 탐색 시작 <ArrowRight size={16} />
-          </Link>
         </div>
       </div>
     </div>
