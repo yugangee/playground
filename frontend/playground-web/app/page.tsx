@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { ShoppingCart, Users, BarChart2, ArrowRight, Search, Zap, Shield, Check, Newspaper, Trophy } from "lucide-react";
+import { ShoppingCart, Users, BarChart2, ArrowRight, Search, Zap, Shield, Check, Newspaper, Trophy, Swords } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const news = [
@@ -146,11 +146,10 @@ function NewsCarousel() {
             <button
               key={i}
               onClick={() => setCurrent(i)}
-              className={`rounded-full transition-all duration-300 ${
-                i === current
+              className={`rounded-full transition-all duration-300 ${i === current
                   ? "w-6 h-2 bg-white"
                   : "w-2 h-2 bg-white/40 hover:bg-white/60"
-              }`}
+                }`}
               aria-label={`뉴스 ${i + 1}번으로 이동`}
             />
           ))}
@@ -187,12 +186,12 @@ export default function Home() {
     fetch(`${API}/clubs?limit=15&sort=createdAt&order=desc`)
       .then(r => r.json())
       .then(d => setRecentTeams(d.clubs || []))
-      .catch(() => {});
-    
+      .catch(() => { });
+
     fetch(`${API}/clubs?limit=3&sort=matchCount&order=desc`)
       .then(r => r.json())
       .then(d => setTopMatchTeams(d.clubs || []))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   if (loading) return <div className="flex items-center justify-center pt-32"><div className="w-6 h-6 border-2 border-fuchsia-400 border-t-transparent rounded-full animate-spin" /></div>;
@@ -245,7 +244,29 @@ function LoggedInHome({ name, recentTeams, topMatchTeams }: { name: string; rece
         <div className="absolute top-8 left-1/2 -translate-x-1/2 w-96 h-40 rounded-full blur-3xl opacity-20 pointer-events-none"
           style={{ background: "radial-gradient(ellipse, #c026d3, #7c3aed)" }} />
         <h1 className="relative text-8xl font-black tracking-tighter text-white cursor-pointer" onClick={() => window.location.reload()}>PLAYGROUND</h1>
-        <p className="text-gray-400 text-lg">환영합니다, <span className="text-white font-semibold">{name}</span>님</p>
+        <p className="text-gray-400 text-lg">환영합니다, <span className="text-white font-semibold">{name}</span>님 ⚽</p>
+
+        {/* 퀵 액션 버튼 */}
+        <div className="flex items-center gap-3 flex-wrap justify-center">
+          <Link href="/clubs"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
+          >
+            <Search size={14} /> 클럽 탐색
+          </Link>
+          <Link href="/clubs"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-colors border"
+            style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-secondary)" }}
+          >
+            <Swords size={14} /> 경기 제안
+          </Link>
+          <Link href="/video"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-colors border"
+            style={{ background: "var(--card-bg)", borderColor: "var(--card-border)", color: "var(--text-secondary)" }}
+          >
+            <Zap size={14} /> AI 분석
+          </Link>
+        </div>
       </div>
 
       {/* Stats */}
@@ -260,6 +281,35 @@ function LoggedInHome({ name, recentTeams, topMatchTeams }: { name: string; rece
 
       {/* KJA 배너 */}
       <KJABanner />
+
+      {/* 이번달 최다 경기 팀 */}
+      {topMatchTeams.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Trophy size={15} className="text-fuchsia-400" />
+            <h2 className="text-sm font-semibold text-white">이번달 HOT 클럽</h2>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            {topMatchTeams.map((t, i) => (
+              <Link key={t.clubId} href={`/clubs/${t.clubId}`}
+                className="relative flex items-center gap-3 rounded-xl p-4 border transition-all hover:border-fuchsia-500/40 group overflow-hidden cursor-pointer"
+                style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}
+              >
+                <div className="absolute top-3 right-3 text-xs font-black opacity-10 text-white text-4xl leading-none">#{i + 1}</div>
+                <div className="w-10 h-10 rounded-xl border border-fuchsia-500/30 overflow-hidden bg-white/5 flex items-center justify-center shrink-0">
+                  {t.image
+                    ? <img src={t.image} alt={t.name} className="w-full h-full object-cover" />
+                    : <Shield size={18} className="text-fuchsia-400/60" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-white font-semibold text-sm truncate">{t.name}</p>
+                  <p className="text-fuchsia-400 text-xs">{t.sport}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 최근 등록된 팀 */}
       {recentTeams.length > 0 && (

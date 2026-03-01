@@ -5,8 +5,25 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { manageFetch } from '@/lib/manageFetch'
 import type { Team } from '@/types/manage'
+import { LogOut, User, Mail, Edit2, Check, X, Shield } from 'lucide-react'
 
 const API = process.env.NEXT_PUBLIC_API_URL
+
+interface Toast {
+  id: number
+  message: string
+  type: 'success' | 'error'
+}
+
+function useToast() {
+  const [toasts, setToasts] = useState<Toast[]>([])
+  const show = (message: string, type: 'success' | 'error' = 'success') => {
+    const id = Date.now()
+    setToasts(p => [...p, { id, message, type }])
+    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000)
+  }
+  return { toasts, show }
+}
 
 export default function MypagePage() {
   const { user, logout } = useAuth()
@@ -15,17 +32,18 @@ export default function MypagePage() {
   const [editingName, setEditingName] = useState(false)
   const [teams, setTeams] = useState<Team[]>([])
   const [saving, setSaving] = useState(false)
+  const { toasts, show } = useToast()
 
   useEffect(() => {
     if (user?.name) setName(user.name)
-    manageFetch('/team').then(setTeams).catch(() => {})
+    manageFetch('/team').then(setTeams).catch(() => { })
   }, [user?.name])
 
   const saveName = async () => {
     setSaving(true)
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
-      await fetch(`${API}/auth/profile`, {
+      const res = await fetch(`${API}/auth/profile`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -33,8 +51,17 @@ export default function MypagePage() {
         },
         body: JSON.stringify({ name }),
       })
-      setEditingName(false)
-    } finally { setSaving(false) }
+      if (res.ok) {
+        show('이름이 저장됐습니다', 'success')
+        setEditingName(false)
+      } else {
+        show('저장에 실패했습니다', 'error')
+      }
+    } catch {
+      show('저장 중 오류가 발생했습니다', 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleLogout = () => {
@@ -42,53 +69,123 @@ export default function MypagePage() {
     router.push('/login')
   }
 
-  const initials = name ? name.slice(0, 2).toUpperCase() : (user?.name?.charAt(0).toUpperCase() ?? '?')
+  const initials = name
+    ? name.slice(0, 2).toUpperCase()
+    : (user?.name?.charAt(0).toUpperCase() ?? '?')
 
   return (
-    <div className="max-w-lg">
+    <div className="max-w-lg relative">
+      {/* Toast 알림 */}
+      <div className="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
+        {toasts.map(t => (
+          <div
+            key={t.id}
+            className="px-4 py-3 rounded-xl text-sm font-medium shadow-xl border animate-toast-in"
+            style={{
+              background: t.type === 'success'
+                ? 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.15))'
+                : 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.15))',
+              borderColor: t.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)',
+              color: t.type === 'success' ? '#10b981' : '#ef4444',
+              backdropFilter: 'blur(8px)',
+            }}
+          >
+            {t.message}
+          </div>
+        ))}
+      </div>
+
+      {/* 헤더 */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">마이페이지</h1>
-        <p className="mt-1 text-sm text-slate-500">프로필과 내 팀을 확인합니다</p>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>마이페이지</h1>
+        <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>프로필과 내 팀을 확인합니다</p>
       </div>
 
       {/* Profile Card */}
-      <div className="mb-5 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+      <div
+        className="mb-5 rounded-2xl p-6"
+        style={{
+          background: 'var(--card-bg)',
+          border: '1px solid var(--card-border)',
+        }}
+      >
+        {/* 아바타 + 이름/이메일 */}
         <div className="mb-5 flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500 text-xl font-bold text-white">
+          <div
+            className="flex h-16 w-16 items-center justify-center rounded-2xl text-xl font-bold text-white shrink-0"
+            style={{ background: 'linear-gradient(135deg, #c026d3, #7c3aed)' }}
+          >
             {initials}
           </div>
           <div>
-            <div className="text-lg font-semibold text-slate-900">{name || '이름 없음'}</div>
-            <div className="text-sm text-slate-400">{user?.email ?? '-'}</div>
+            <div className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {name || '이름 없음'}
+            </div>
+            <div className="text-sm" style={{ color: 'var(--text-muted)' }}>{user?.email ?? '-'}</div>
           </div>
         </div>
 
-        <div className="space-y-4 border-t border-slate-50 pt-5">
+        <div className="space-y-4" style={{ borderTop: '1px solid var(--card-border)', paddingTop: '1.25rem' }}>
+          {/* 이메일 */}
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">이메일</label>
-            <div className="text-sm text-slate-700">{user?.email ?? '-'}</div>
+            <label
+              className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <Mail size={11} />
+              이메일
+            </label>
+            <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>{user?.email ?? '-'}</div>
           </div>
 
+          {/* 이름 */}
           <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">이름</label>
+            <label
+              className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              <User size={11} />
+              이름
+            </label>
             {editingName ? (
               <div className="flex items-center gap-2">
-                <input value={name} onChange={e => setName(e.target.value)}
-                  className="flex-1 rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10" />
-                <button onClick={saveName} disabled={saving}
-                  className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50">
-                  {saving ? '저장 중...' : '저장'}
+                <input
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && saveName()}
+                  className="flex-1 rounded-xl px-3.5 py-2.5 text-sm outline-none transition-all"
+                  style={{
+                    background: 'var(--input-bg)',
+                    border: '1px solid var(--input-border)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+                <button
+                  onClick={saveName}
+                  disabled={saving}
+                  className="flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{ background: 'linear-gradient(to right, #c026d3, #7c3aed)' }}
+                >
+                  <Check size={14} />
+                  {saving ? '저장 중' : '저장'}
                 </button>
-                <button onClick={() => setEditingName(false)}
-                  className="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600">
-                  취소
+                <button
+                  onClick={() => setEditingName(false)}
+                  className="rounded-xl p-2.5 transition-colors"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  <X size={16} />
                 </button>
               </div>
             ) : (
               <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-700">{name || '—'}</span>
-                <button onClick={() => setEditingName(true)}
-                  className="text-xs font-medium text-emerald-600 hover:text-emerald-700">
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{name || '—'}</span>
+                <button
+                  onClick={() => setEditingName(true)}
+                  className="flex items-center gap-1 text-xs font-medium transition-opacity hover:opacity-80"
+                  style={{ color: '#c026d3' }}
+                >
+                  <Edit2 size={11} />
                   수정
                 </button>
               </div>
@@ -98,25 +195,52 @@ export default function MypagePage() {
       </div>
 
       {/* My Teams */}
-      <div className="mb-5 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 font-semibold text-slate-900">내 팀 <span className="ml-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">{teams.length}</span></h2>
+      <div
+        className="mb-5 rounded-2xl p-6"
+        style={{
+          background: 'var(--card-bg)',
+          border: '1px solid var(--card-border)',
+        }}
+      >
+        <h2 className="mb-4 font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+          <Shield size={15} className="text-fuchsia-400" />
+          내 팀
+          <span
+            className="ml-1 rounded-full px-2 py-0.5 text-xs font-medium"
+            style={{ background: 'rgba(192,38,211,0.12)', color: '#c026d3' }}
+          >
+            {teams.length}
+          </span>
+        </h2>
         {teams.length === 0 ? (
-          <p className="text-sm text-slate-400">소속된 팀이 없습니다</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>소속된 팀이 없습니다</p>
         ) : (
           <div className="space-y-2">
             {teams.map(t => (
-              <div key={t.id} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+              <div
+                key={t.id}
+                className="flex items-center justify-between rounded-xl px-4 py-3 transition-colors"
+                style={{ background: 'var(--input-bg)', border: '1px solid var(--card-border)' }}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-sm font-bold text-white">
+                  <div
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white"
+                    style={{ background: 'linear-gradient(135deg, #c026d3, #7c3aed)' }}
+                  >
                     {t.name.charAt(0)}
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-slate-900">{t.name}</div>
-                    <div className="text-xs text-slate-400">{t.region}</div>
+                    <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{t.name}</div>
+                    <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{t.region}</div>
                   </div>
                 </div>
                 {t.leaderId === user?.username && (
-                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">대표</span>
+                  <span
+                    className="rounded-full px-2.5 py-1 text-xs font-medium"
+                    style={{ background: 'rgba(192,38,211,0.12)', color: '#c026d3' }}
+                  >
+                    대표
+                  </span>
                 )}
               </div>
             ))}
@@ -125,11 +249,16 @@ export default function MypagePage() {
       </div>
 
       {/* Logout */}
-      <button onClick={handleLogout}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-100 py-3 text-sm font-medium text-red-500 transition-colors hover:bg-red-50">
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
-        </svg>
+      <button
+        onClick={handleLogout}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium transition-colors hover:opacity-90"
+        style={{
+          background: 'rgba(239,68,68,0.08)',
+          border: '1px solid rgba(239,68,68,0.2)',
+          color: '#ef4444',
+        }}
+      >
+        <LogOut size={15} />
         로그아웃
       </button>
     </div>

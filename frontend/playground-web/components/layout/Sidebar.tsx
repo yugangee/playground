@@ -30,18 +30,18 @@ const generalNavItems = [
 ];
 
 const manageNavItems = [
-  { href: "/manage/team",     label: "팀 관리",          icon: Users },
-  { href: "/manage/schedule", label: "경기 일정",         icon: Calendar },
-  { href: "/manage/league",   label: "리그 & 토너먼트",   icon: Trophy },
-  { href: "/manage/finance",  label: "재정 관리",         icon: Landmark },
-  { href: "/manage/social",   label: "소셜",              icon: Star },
-  { href: "/manage/discover", label: "탐색",              icon: Search },
+  { href: "/manage/team", label: "팀 관리", icon: Users },
+  { href: "/manage/schedule", label: "경기 일정", icon: Calendar },
+  { href: "/manage/league", label: "리그 & 토너먼트", icon: Trophy },
+  { href: "/manage/finance", label: "재정 관리", icon: Landmark },
+  { href: "/manage/social", label: "소셜", icon: Star },
+  { href: "/manage/discover", label: "탐색", icon: Search },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const { user } = useAuth();
   const { theme, toggle } = useTheme();
   const { teams, currentTeam, setCurrentTeam } = useTeam();
@@ -157,8 +157,7 @@ export default function Sidebar() {
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                active
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active
                   ? "text-white bg-gradient-to-r from-fuchsia-600/20 to-violet-600/20 border border-fuchsia-500/30"
                   : highlight
                   ? "hover:bg-[var(--card-bg)] border border-fuchsia-500/20"

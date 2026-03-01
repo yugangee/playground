@@ -168,11 +168,32 @@ input[type="time"] {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    scroll-behavior: smooth;
+  }
   body {
     background: var(--page-bg);
     color: var(--text-primary);
     transition: background 0.3s, color 0.3s;
   }
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(1.5rem) scale(0.96); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+.animate-toast-in {
+  animation: toastIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-slide-up {
+  animation: fadeSlideUp 0.3s ease both;
 }
 
 @keyframes marquee {
