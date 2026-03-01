@@ -865,6 +865,16 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
           >
             {shareCopied ? '복사됨!' : '📤'}
           </button>
+          {/* M3-E: 주장 채팅방 */}
+          {m.captainRoomId && (
+            <a
+              href={`/chat?roomId=${m.captainRoomId}`}
+              className="rounded-xl px-3 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+              style={{ background: 'rgba(251,146,60,0.08)', color: '#fb923c', border: '1px solid rgba(251,146,60,0.25)' }}
+            >
+              💬 주장채팅
+            </a>
+          )}
         </div>
       )}
 
@@ -1599,7 +1609,11 @@ function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
   const [votes, setVotes] = useState<{ optionIndex: number; userId: string }[]>([])
   const [myVote, setMyVote] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
+  const [finalizing, setFinalizing] = useState(false)
+  const [finalized, setFinalized] = useState(false)
   const { user } = useAuth()
+  const { currentTeam } = useTeam()
+  const isLeader = !!user && !!currentTeam && currentTeam.members?.find(m => m.userId === user.userId)?.role === 'leader'
 
   useEffect(() => {
     manageFetch(`/schedule/polls/${poll.id}/votes`)
@@ -1628,14 +1642,26 @@ function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
     }
   }
 
+  const finalize = async () => {
+    setFinalizing(true)
+    try {
+      await manageFetch(`/schedule/polls/${poll.id}/finalize`, { method: 'POST' })
+      setFinalized(true)
+    } catch { /* ignore */ } finally {
+      setFinalizing(false)
+    }
+  }
+
   const totalVotes = votes.length
+  const isPotm = poll.question.startsWith('⭐ POTM')
+  const isEnded = !!poll.endsAt && new Date(poll.endsAt) < new Date()
 
   return (
     <div className="rounded-2xl border p-4 space-y-3"
       style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{poll.question}</p>
-        {poll.endsAt && new Date(poll.endsAt) < new Date() && (
+        {isEnded && (
           <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-500">종료</span>
         )}
       </div>
@@ -1680,6 +1706,21 @@ function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
         총 {totalVotes}표
         {poll.endsAt && ` · ${new Date(poll.endsAt) > new Date() ? `~${new Date(poll.endsAt).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}` : '마감'}`}
       </p>
+      {/* M2-D: POTM 확정 (주장만) */}
+      {isPotm && isEnded && isLeader && !finalized && (
+        <button
+          onClick={finalize}
+          disabled={finalizing}
+          className="w-full rounded-xl py-2 text-xs font-bold transition-colors disabled:opacity-60"
+          style={{ background: 'linear-gradient(to right, #c026d3, #7c3aed)', color: '#fff' }}>
+          {finalizing ? '확정 중...' : '🏆 POTM 확정하기'}
+        </button>
+      )}
+      {finalized && (
+        <div className="rounded-xl py-2 text-center text-xs font-bold" style={{ background: 'rgba(124,58,237,0.1)', color: '#a78bfa' }}>
+          ✓ POTM 뱃지 수여 완료
+        </div>
+      )}
     </div>
   )
 }

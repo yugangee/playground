@@ -5,6 +5,8 @@ import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as apigateway from 'aws-cdk-lib/aws-apigateway'
 import * as s3 from 'aws-cdk-lib/aws-s3'
 import * as sns from 'aws-cdk-lib/aws-sns'
+import * as events from 'aws-cdk-lib/aws-events'
+import * as targets from 'aws-cdk-lib/aws-events-targets'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Construct } from 'constructs'
 
@@ -155,6 +157,23 @@ export class PlaygroundStack extends cdk.Stack {
         billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
       }),
+      // M1-D: 웹 푸시 구독 저장
+      pushSubscriptions: new dynamodb.Table(this, 'PushSubscriptionsTable', {
+        tableName: 'pg-push-subscriptions',
+        partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+        sortKey: { name: 'subId', type: dynamodb.AttributeType.STRING },
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+        timeToLiveAttribute: 'ttl',
+      }),
+      // M4: GPS 퍼포먼스 세션 저장
+      playerPerformance: new dynamodb.Table(this, 'PlayerPerformanceTable', {
+        tableName: 'pg-player-performance',
+        partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+        sortKey: { name: 'sessionId', type: dynamodb.AttributeType.STRING },
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      }),
     }
 
     // GSI for team-members userId queries (for GET /team endpoint)
@@ -257,6 +276,17 @@ export class PlaygroundStack extends cdk.Stack {
       EQUIPMENT_TABLE: tables.equipment.tableName,
       RECRUITMENT_TABLE: tables.recruitment.tableName,
       INVITES_TABLE: tables.invites.tableName,
+      // M1-D: 웹 푸시
+      PUSH_SUBSCRIPTIONS_TABLE: tables.pushSubscriptions.tableName,
+      VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY ?? 'BMO0kv1PDklqtDl_fmj22UXXY5XpHs3EdCGZlOu1jJGpKfKs7pcF1Zk_HHjbxvDsheNK_W92bmANA1W_8ce4RCo',
+      VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY ?? 'DkgjAacvGh-PUob6b3H6M5L8mpDgHpq-e8boIKUsDN4',
+      // M1-C: 카카오 알림톡 (Solapi)
+      SOLAPI_API_KEY: process.env.SOLAPI_API_KEY ?? '',
+      SOLAPI_API_SECRET: process.env.SOLAPI_API_SECRET ?? '',
+      SOLAPI_SENDER: process.env.SOLAPI_SENDER ?? '',
+      KAKAO_PFID: process.env.KAKAO_PFID ?? '',
+      // M4: GPS 퍼포먼스
+      PLAYER_PERFORMANCE_TABLE: tables.playerPerformance.tableName,
     }
 
     const lambdaDefaults = {
@@ -294,6 +324,24 @@ export class PlaygroundStack extends cdk.Stack {
         functionName: 'playground-notifications',
       }),
     }
+
+    // M3-A: 시즌 리셋 Lambda + EventBridge 연간 스케줄
+    const seasonResetFn = new NodejsFunction(this, 'SeasonResetFunction', {
+      ...lambdaDefaults,
+      entry: '../functions/seasonReset/index.ts',
+      functionName: 'playground-season-reset',
+      timeout: cdk.Duration.minutes(5),
+    })
+    tables.stats.grantReadWriteData(seasonResetFn)
+    tables.teams.grantReadWriteData(seasonResetFn)
+
+    // 매년 12월 31일 15:00 UTC (= 1월 1일 00:00 KST) 자동 실행
+    const seasonResetRule = new events.Rule(this, 'SeasonResetRule', {
+      ruleName: 'playground-season-reset-annual',
+      description: 'Annual season reset: 50% point decay on Jan 1 KST',
+      schedule: events.Schedule.cron({ minute: '0', hour: '15', day: '31', month: '12', year: '*' }),
+    })
+    seasonResetRule.addTarget(new targets.LambdaFunction(seasonResetFn))
 
     // Lambda에 DynamoDB, S3, SNS 권한 부여
     Object.values(tables).forEach(table => {

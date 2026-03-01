@@ -14,6 +14,7 @@ import HeaderAuth from "@/components/layout/HeaderAuth";
 import AIChatbot from "@/components/AIChatbot";
 import PWAInstallBanner from "@/components/PWAInstallBanner"
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
+import PushNotificationSetup from "@/components/PushNotificationSetup";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -77,6 +78,7 @@ export default function RootLayout({
         </ThemeProvider>
         <AIChatbot />
         <PWAInstallBanner />
+        <PushNotificationSetup />
         <ServiceWorkerRegistration />
       </body>
     </html>

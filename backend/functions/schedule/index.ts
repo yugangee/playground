@@ -6,7 +6,7 @@ function getUserId(event: APIGatewayProxyEvent): string | undefined {
   return undefined
 }
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
+import { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb'
 import { randomUUID } from 'crypto'
 
 const db = DynamoDBDocumentClient.from(new DynamoDBClient({}))
@@ -23,6 +23,8 @@ const ANNOUNCEMENTS = process.env.ANNOUNCEMENTS_TABLE!
 const POLLS = process.env.POLLS_TABLE!
 const POLL_VOTES = process.env.POLL_VOTES_TABLE!
 const ATTENDANCE = process.env.ATTENDANCE_TABLE!
+const STATS = process.env.STATS_TABLE!
+const PERF = process.env.PLAYER_PERFORMANCE_TABLE ?? 'pg-player-performance'
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   const method = event.httpMethod
@@ -70,6 +72,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // PATCH /schedule/matches/:id
     if (method === 'PATCH' && parts[0] === 'matches' && parts[1]) {
       const body = JSON.parse(event.body ?? '{}')
+
+      // M3-E: 매치 accepted 시 주장 채팅방 ID 자동 추가
+      if (body.status === 'accepted') {
+        const matchResult = await db.send(new GetCommand({ TableName: MATCHES, Key: { id: parts[1] } }))
+        const match = matchResult.Item
+        if (match && !match.captainRoomId) {
+          body.captainRoomId = `captain_match_${parts[1]}`
+        }
+      }
+
       const updates = Object.entries(body)
       const expr = 'SET ' + updates.map(([k], i) => `#f${i} = :v${i}`).join(', ')
       const names = Object.fromEntries(updates.map(([k], i) => [`#f${i}`, k]))
@@ -78,7 +90,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         TableName: MATCHES, Key: { id: parts[1] },
         UpdateExpression: expr, ExpressionAttributeNames: names, ExpressionAttributeValues: values,
       }))
-      return res(200, { message: 'updated' })
+      return res(200, { message: 'updated', captainRoomId: body.captainRoomId })
     }
 
     // ── Attendance ───────────────────────────────────────────────────
@@ -163,6 +175,80 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         TableName: POLL_VOTES,
         KeyConditionExpression: 'pollId = :pid',
         ExpressionAttributeValues: { ':pid': parts[1] },
+      }))
+      return res(200, result.Items ?? [])
+    }
+
+    // POST /schedule/polls/:id/finalize — M2-D POTM 뱃지 자동 부여
+    if (method === 'POST' && parts[0] === 'polls' && parts[2] === 'finalize') {
+      const pollResult = await db.send(new GetCommand({ TableName: POLLS, Key: { id: parts[1] } }))
+      const poll = pollResult.Item
+      if (!poll) return res(404, { message: 'poll not found' })
+
+      const votesResult = await db.send(new QueryCommand({
+        TableName: POLL_VOTES,
+        KeyConditionExpression: 'pollId = :pid',
+        ExpressionAttributeValues: { ':pid': parts[1] },
+      }))
+      const votes = votesResult.Items ?? []
+      if (votes.length === 0) return res(400, { message: '투표 없음' })
+
+      // 최다 득표 옵션 인덱스 찾기
+      const tally: Record<number, number> = {}
+      votes.forEach(v => { tally[v.optionIndex] = (tally[v.optionIndex] ?? 0) + 1 })
+      const winIdx = Number(Object.entries(tally).sort(([,a],[,b]) => b - a)[0][0])
+      const winnerName = poll.options?.[winIdx] ?? ''
+
+      // POTM 뱃지: pg-stats에서 teamId+userId로 potmVotesReceived 증가
+      const { teamId } = JSON.parse(event.body ?? '{}')
+      if (teamId && winnerName) {
+        // userId를 winnerName(displayName)으로부터 찾기 — poll.options는 userId 목록
+        const winnerId = winnerName
+        try {
+          await db.send(new UpdateCommand({
+            TableName: STATS,
+            Key: { teamId, userId: winnerId },
+            UpdateExpression: 'ADD potmVotesReceived :one',
+            ExpressionAttributeValues: { ':one': 1 },
+          }))
+        } catch { /* stats 없으면 무시 */ }
+      }
+
+      return res(200, { winnerIdx: winIdx, winnerName, votes: tally })
+    }
+
+    // ── Player Performance (M4 DynamoDB) ─────────────────────────────
+
+    // POST /schedule/performance — GPS 세션 저장
+    if (method === 'POST' && parts[0] === 'performance') {
+      const body = JSON.parse(event.body ?? '{}')
+      const sessionId = randomUUID()
+      const item = {
+        userId,
+        sessionId,
+        teamId: body.teamId,
+        matchId: body.matchId,
+        recordedAt: new Date().toISOString(),
+        distanceM: body.distanceM ?? 0,
+        maxSpeedKmh: body.maxSpeedKmh ?? 0,
+        avgSpeedKmh: body.avgSpeedKmh ?? 0,
+        elapsedSec: body.elapsedSec ?? 0,
+        zonePct: body.zonePct ?? {},
+        points: body.points ?? [],
+      }
+      await db.send(new PutCommand({ TableName: PERF, Item: item }))
+      return res(201, { sessionId })
+    }
+
+    // GET /schedule/performance?userId=xxx&teamId=xxx
+    if (method === 'GET' && parts[0] === 'performance') {
+      const qUserId = event.queryStringParameters?.userId ?? userId
+      const result = await db.send(new QueryCommand({
+        TableName: PERF,
+        KeyConditionExpression: 'userId = :uid',
+        ExpressionAttributeValues: { ':uid': qUserId },
+        ScanIndexForward: false,
+        Limit: 20,
       }))
       return res(200, result.Items ?? [])
     }

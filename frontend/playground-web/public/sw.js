@@ -72,3 +72,34 @@ self.addEventListener('fetch', event => {
     fetch(request).catch(() => caches.match(request))
   )
 })
+
+// ── 웹 푸시 알림 ──────────────────────────────────────────────────────────────
+self.addEventListener('push', event => {
+  const data = event.data?.json() ?? {}
+  event.waitUntil(
+    self.registration.showNotification(data.title ?? 'Playground', {
+      body: data.body ?? '',
+      icon: '/icons/icon.svg',
+      badge: '/icons/icon.svg',
+      tag: data.tag ?? 'playground',
+      data: { url: data.url ?? '/' },
+      requireInteraction: false,
+    })
+  )
+})
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close()
+  const url = event.notification.data?.url ?? '/'
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      for (const client of windowClients) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(url)
+          return client.focus()
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url)
+    })
+  )
+})

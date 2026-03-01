@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+import { manageFetch } from '@/lib/manageFetch'
 
 // ── Geo utilities ──────────────────────────────────────────────────────────────
 
@@ -399,7 +400,37 @@ export function GpsTracker({ onClose }: GpsTrackerProps) {
       : `${(stats.distanceM / 1000).toFixed(2)}km`
   }
 
-  const reset = () => { setPhase('idle'); setPoints([]); setElapsed(0); setCurrentSpeed(0); setError('') }
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const saveSession = async () => {
+    if (!stats) return
+    setSaving(true)
+    try {
+      const sessionId = `gps_${Date.now()}`
+      const zonePct: Record<string, number> = {}
+      stats.zonePie.forEach(z => { zonePct[z.name] = z.value })
+      const step = Math.max(1, Math.floor(points.length / 60))
+      const sampled = points.filter((_, i) => i % step === 0)
+      await manageFetch('/schedule/performance', {
+        method: 'POST',
+        body: JSON.stringify({
+          sessionId,
+          distanceM: Math.round(stats.distanceM),
+          maxSpeedKmh: parseFloat(stats.maxSpeedKmh.toFixed(1)),
+          avgSpeedKmh: parseFloat(stats.avgSpeedKmh.toFixed(1)),
+          elapsedSec: elapsed,
+          zonePct,
+          points: sampled,
+        }),
+      })
+      setSaved(true)
+    } catch { /* ignore */ } finally {
+      setSaving(false)
+    }
+  }
+
+  const reset = () => { setPhase('idle'); setPoints([]); setElapsed(0); setCurrentSpeed(0); setError(''); setSaved(false) }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -602,6 +633,16 @@ export function GpsTracker({ onClose }: GpsTrackerProps) {
                   className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50">
                   다시 시작
                 </button>
+                {stats && !saved ? (
+                  <button
+                    onClick={saveSession}
+                    disabled={saving}
+                    className="flex-1 rounded-xl border border-emerald-200 bg-emerald-50 py-3 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-60">
+                    {saving ? '저장 중...' : '서버에 저장'}
+                  </button>
+                ) : saved ? (
+                  <div className="flex-1 rounded-xl bg-emerald-50 py-3 text-center text-sm font-semibold text-emerald-600">✓ 저장됨</div>
+                ) : null}
                 <button
                   onClick={onClose}
                   className="flex-1 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">

@@ -210,7 +210,7 @@
 - [ ] 알림톡 중계사 선정 (솔라피/알리고/바로빌)
 - [ ] 알림톡 메시지 템플릿 설계 및 심사 (경기 안내 + 참석 버튼)
 - [ ] **신분증 지참 리마인드 템플릿** — KJA 검인 필수 규정 반영 ("본부석 신분 확인 필수")
-- [ ] 백엔드: 알림톡 발송 Lambda 연동
+- [x] **백엔드 알림톡 Lambda 스텁** — `POST /notifications/kakao/send` Solapi REST API 연동, 환경변수 미설정 시 503 stub 반환 (`functions/notifications/index.ts`)
 - [ ] SMS fallback 설정 (알림톡 실패 시 자동)
 - [x] **공유 링크 카드 생성** — Web Share API(모바일) / 클립보드 복사(데스크톱) 분기, 경기 정보 + 체크인 링크 포함 텍스트 카드, 📤 버튼 (복사됨! 피드백)
 - [ ] 자동 리마인드 스케줄러 (D-2/D-1/D-0.5 각 3단계)
@@ -220,7 +220,7 @@
 - [x] `manifest.json` 작성 (앱 이름, SVG 아이콘, 테마 색상 #7c3aed)
 - [x] **Service Worker 등록** — `public/sw.js` (캐시 우선/네트워크 우선 혼합 전략), `ServiceWorkerRegistration.tsx` 컴포넌트
 - [x] iOS 홈 화면 추가 안내 배너 — `PWAInstallBanner.tsx`, 3초 딜레이, localStorage 영구 닫기
-- [ ] 웹 푸시 알림 설정 (FCM, iOS 16.4+ 대응)
+- [x] **웹 푸시 알림 설정** — VAPID 키 생성, `sw.js` push/notificationclick 핸들러, `PushNotificationSetup.tsx` 구독 UI (6초 딜레이, localStorage 거절 기억), DynamoDB `pg-push-subscriptions` 테이블, `POST /notifications/push/subscribe` 엔드포인트
 
 #### 1-E. 온보딩 개선
 
@@ -266,7 +266,7 @@
 - [x] 경기 완료 처리 시 POTM 투표 팝업 노출 — 결과 입력 모달 2단계로 자동 전환
 - [x] 실시간 투표 집계 — polls 시스템 활용, `PollCard`에 퍼센트 게이지 바 표시
 - [x] 투표 결과 영구 저장 — DynamoDB poll_votes 테이블 활용
-- [ ] 1위에게 POTM 뱃지 자동 부여 (백엔드 potmVotesReceived 연동)
+- [x] **POTM 뱃지 확정** — 주장이 "🏆 POTM 확정하기" 버튼 클릭 → `POST /schedule/polls/:id/finalize` → 최다 득표자 `potmVotesReceived +1` (pg-stats UpdateCommand ADD), PollCard 내 확정 완료 배지 표시
 
 ---
 
@@ -283,7 +283,7 @@
 - [x] **출석왕** — "불러오기" 버튼 트리거, 완료 경기 attendance 병렬 로드, Top5 표시 (`loadAttendanceStats`)
 - [x] **POTM 횟수 집계** — ⭐ POTM 접두사 poll 투표 자동 집계, 선수 이름 옆 🏆N 뱃지 표시
 - [x] **시즌 필터 (전체/6개월/3개월)** — 팀 통계 기간별 필터링 토글 버튼, 필터 변경 시 전적·G/A·출석 데이터 자동 재계산
-- [ ] 시즌 리셋 / 감쇠 로직 구현
+- [x] **시즌 리셋 / 감쇠 로직** — EventBridge CRON (매년 12/31 15:00 UTC = 1/1 KST 자정), `functions/seasonReset/index.ts` Lambda: pg-stats·pg-teams 전체 스캔 → 포인트 50% 감쇠·티어 재계산·winStreak 초기화 (페이지네이션 지원)
 
 #### 3-B. 팀 통계 대시보드
 
@@ -311,7 +311,7 @@
 #### 3-E. 알림 시스템 완성
 
 - [x] **경기 제안 수신 알림 배너** — pending + awayTeamId=우리팀인 경기 감지, 스케줄 페이지 상단 amber 배너 표시
-- [ ] 주장 채팅방 자동 생성 (매치 scheduled 시 양쪽 주장 1:1 채팅방)
+- [x] **주장 채팅방 자동 생성** — 매치 status `accepted` PATCH 시 `captainRoomId = 'captain_match_{matchId}'` 자동 설정, 스케줄 페이지에 "💬 주장채팅" 링크 버튼 노출
 - [x] **스코어 불일치 처리 UI** — 최근 경기 결과 섹션 (W/D/L 배지, 스코어), 원정팀 리더 "이의" 버튼 → note 필드 `DISPUTE:` 저장, ⚠️ 이의신청 배지 표시 (`RecentResultsSection`)
 
 ---
@@ -326,7 +326,7 @@
 - [x] **속도 구간별 분석** — 걷기(<4)/조깅(<8)/달리기(<15)/스프린트(15+) km/h 구분, recharts PieChart 도넛 차트
 - [x] **수치 데이터** — 이동 거리(m/km), 최고 속도, 평균 속도, 추적 시간 스탯 카드
 - [x] **2D 필드 리플레이어** — 추적 완료 후 재생 버튼으로 궤적 애니메이션 재생, stroke-dashoffset 기법 + requestAnimationFrame 20× 배속, 속도 구간별 컬러 플레이어 도트, 진행 바 (`FieldReplayer` 컴포넌트)
-- [ ] `PlayerPerformance` DynamoDB 엔티티 설계 및 저장 (백엔드 필요)
+- [x] **PlayerPerformance DynamoDB + 저장 엔드포인트** — `pg-player-performance` 테이블 (PK: userId, SK: sessionId), `POST /schedule/performance` 저장, `GET /schedule/performance` 최근 20세션 조회, GpsTracker "서버에 저장" 버튼 (최대 60포인트 다운샘플)
 - [ ] 스마트워치 연동 검토 (Phase 3)
 
 ---
@@ -357,7 +357,7 @@
 
 #### 5-D. 마켓 고도화
 
-- [ ] 용품 거래 (유니폼, 축구화, 장갑)
+- [x] **용품 거래 UI 고도화** — 검색 바(클리어 버튼), 카테고리·정렬·가격 범위 필터, 스포츠 칩 필터, 좋아요 기능, 판매자/지역/조회수 표시, 상품 상세 모달, "판매하기" 등록 모달 (`app/market/page.tsx` 전면 재작성)
 - [ ] 팀 공동구매 기능
 - [ ] 결제 시스템 연동
 
@@ -404,4 +404,4 @@
 
 ---
 
-*최종 업데이트: 2026-03-01 (M4 GPS 트래커 — GpsTracker.tsx, FieldHeatmap SVG, 속도 구간 PieChart, FieldReplayer 궤적 애니메이션 / M5-B 외부 리그 참가 신청 + 대진표 자동화 / M3-B 토너먼트 전적 통계 / M3-D 다종목 등급 커트라인)*
+*최종 업데이트: 2026-03-01 (M1-C 카카오 알림톡 Lambda 스텁 / M1-D 웹 푸시 VAPID + sw.js + PushNotificationSetup / M2-D POTM 뱃지 확정 버튼 + 백엔드 finalize 엔드포인트 / M3-A 시즌 리셋 Lambda + EventBridge CRON / M3-E 주장 채팅방 자동 생성 + frontend 링크 / M4 PlayerPerformance DynamoDB + GPS 서버 저장 버튼 / M5-D 마켓 고도화 — 검색·필터·판매 모달)*
