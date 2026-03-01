@@ -207,13 +207,13 @@
 #### 1-C. 카카오 알림톡 브릿지 ★★ (킬러피처)
 
 - [ ] 카카오 비즈니스 채널 등록 (운영팀 선행 필요)
-- [ ] 알림톡 중계사 선정 (솔라피/알리고/바로빌)
-- [ ] 알림톡 메시지 템플릿 설계 및 심사 (경기 안내 + 참석 버튼)
-- [ ] **신분증 지참 리마인드 템플릿** — KJA 검인 필수 규정 반영 ("본부석 신분 확인 필수")
+- [ ] 알림톡 중계사 선정 (솔라피/알리고/바로빌) — 솔라피 추천 (이미 API 연동 완료)
+- [x] **알림톡 메시지 템플릿 설계** — `KAKAO_TEMPLATE_DESIGNS` 상수: pg-reminder-d2/d1/day/id/dues-reminder 5종, 변수(#{venue}/#{date}/#{dday}/#{name}/#{amount}/#{deadline}), 앱 딥링크 버튼 포함 (`functions/notifications/index.ts`) ※ 카카오 채널 등록 후 심사 신청 필요
+- [x] **신분증 지참 리마인드 템플릿** — `pg-reminder-id`: "본부석 신분 검인 필수, 미지참 시 출전 불가" / reminder WINDOWS에 D-2h 창 추가 (`functions/reminder/index.ts`)
 - [x] **백엔드 알림톡 Lambda 스텁** — `POST /notifications/kakao/send` Solapi REST API 연동, 환경변수 미설정 시 503 stub 반환 (`functions/notifications/index.ts`)
-- [ ] SMS fallback 설정 (알림톡 실패 시 자동)
+- [x] **SMS fallback 설정** — Solapi `failover` 필드: 알림톡 실패 시 SMS 자동 전환, `buildSmsText()` 템플릿별 SMS 텍스트 생성 (`notifications/index.ts`, `reminder/index.ts` 양쪽 적용)
 - [x] **공유 링크 카드 생성** — Web Share API(모바일) / 클립보드 복사(데스크톱) 분기, 경기 정보 + 체크인 링크 포함 텍스트 카드, 📤 버튼 (복사됨! 피드백)
-- [x] **자동 리마인드 스케줄러** — `functions/reminder/index.ts` Lambda: 매 정시 EventBridge CRON, D-2(48h)/D-1(24h)/당일(6h) 창 탐색, 미응답 팀원 필터, Solapi 알림톡 발송 (env 미설정 시 로그), `reminded_D-2/D-1/당일` 중복 방지 플래그
+- [x] **자동 리마인드 스케줄러** — `functions/reminder/index.ts` Lambda: 매 정시 EventBridge CRON, D-2(48h)/D-1(24h)/당일(6h)/신분증(2h) 4창 탐색, 미응답 팀원 필터, Solapi 알림톡+SMS fallback 발송, `reminded_*` 중복 방지 플래그
 
 #### 1-D. PWA 설정
 
@@ -405,4 +405,4 @@
 
 ---
 
-*최종 업데이트: 2026-03-01 (M4 GPS 퍼포먼스 이력 뷰어 — 마이페이지 GPS 세션 이력 섹션 추가, GET /schedule/performance 연동, 총 세션·누적 거리·최고 속도 요약 + 최근 5세션 목록)*
+*최종 업데이트: 2026-03-01 (M1-C 카카오 알림톡 완성 — KAKAO_TEMPLATE_DESIGNS 5종 템플릿 설계, 신분증 지참 pg-reminder-id 템플릿 + D-2h reminder WINDOW 추가, SMS fallback(Solapi failover) notifications·reminder Lambda 양쪽 적용)*

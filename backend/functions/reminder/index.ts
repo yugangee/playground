@@ -17,10 +17,23 @@ const KAKAO_PFID        = process.env.KAKAO_PFID ?? ''
 
 // 리마인드 창 정의 (경기 N 시간 전 ±1시간)
 const WINDOWS = [
-  { label: 'D-2', hours: 48, templateId: 'pg-reminder-d2' },
-  { label: 'D-1', hours: 24, templateId: 'pg-reminder-d1' },
+  { label: 'D-2',  hours: 48, templateId: 'pg-reminder-d2' },
+  { label: 'D-1',  hours: 24, templateId: 'pg-reminder-d1' },
   { label: '당일', hours:  6, templateId: 'pg-reminder-day' },
+  // KJA 특수: 경기 2시간 전 신분증 지참 리마인드
+  { label: '신분증', hours: 2, templateId: 'pg-reminder-id' },
 ]
+
+/** 알림톡 실패 시 SMS fallback 텍스트 */
+function buildSmsText(templateId: string, venue: string, dateStr: string, label: string): string {
+  const map: Record<string, string> = {
+    'pg-reminder-d2':  `[Playground] ${label} 경기 알림 | 장소: ${venue} | 일시: ${dateStr} | 앱에서 참석 여부를 확인해 주세요.`,
+    'pg-reminder-d1':  `[Playground] 내일 경기 알림 | 장소: ${venue} | 일시: ${dateStr} | 신분증을 챙기세요!`,
+    'pg-reminder-day': `[Playground] 오늘 경기 알림 | 장소: ${venue} | 일시: ${dateStr} | ⚠ 신분증 필수, 본부석 검인 있음`,
+    'pg-reminder-id':  `[Playground] 신분증 지참 알림 | 장소: ${venue} | 일시: ${dateStr} | 본부석 신분 검인 필수 (미지참 시 출전 불가)`,
+  }
+  return map[templateId] ?? `[Playground] 경기 알림 | ${venue} | ${dateStr}`
+}
 
 export const handler: ScheduledHandler = async () => {
   const now = Date.now()
@@ -109,6 +122,7 @@ export const handler: ScheduledHandler = async () => {
         const dateStr = new Date(scheduledAt).toLocaleString('ko-KR', {
           month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit',
         })
+        const venue = (match.venue as string) ?? '구장 미정'
         const messages = phones.map(to => ({
           to,
           from: SOLAPI_SENDER,
@@ -116,10 +130,17 @@ export const handler: ScheduledHandler = async () => {
             pfId: KAKAO_PFID,
             templateId: win.templateId,
             variables: {
-              '#{venue}': (match.venue as string) ?? '구장 미정',
+              '#{venue}': venue,
               '#{date}': dateStr,
               '#{dday}': win.label,
             },
+          },
+          // 알림톡 실패 시 SMS 자동 전환
+          failover: {
+            to,
+            from: SOLAPI_SENDER,
+            type: 'SMS' as const,
+            text: buildSmsText(win.templateId, venue, dateStr, win.label),
           },
         }))
 

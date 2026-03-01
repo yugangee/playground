@@ -26,6 +26,55 @@ const res = (statusCode: number, body: unknown) => ({
   body: JSON.stringify(body),
 })
 
+// ── 알림톡 템플릿 설계 (Kakao 채널 등록 후 아래 내용으로 심사 신청) ─────────────
+// 변수: #{venue} = 구장명, #{date} = 일시(한국어 포맷), #{dday} = D-2/D-1/당일/신분증
+export const KAKAO_TEMPLATE_DESIGNS = {
+  'pg-reminder-d2': {
+    name: '경기 D-2 알림',
+    content: '[Playground] #{dday} 경기 알림\n📍 장소: #{venue}\n📅 일시: #{date}\n\n참석 여부를 앱에서 확인해 주세요.',
+    buttons: [{ type: 'WL', name: '참석 응답하기', urlMobile: 'https://fun.sedaily.ai/schedule' }],
+  },
+  'pg-reminder-d1': {
+    name: '경기 D-1 알림',
+    content: '[Playground] 내일 경기 알림\n📍 장소: #{venue}\n📅 일시: #{date}\n\n⚠️ 신분증을 꼭 챙기세요!',
+    buttons: [{ type: 'WL', name: '라인업 확인', urlMobile: 'https://fun.sedaily.ai/schedule' }],
+  },
+  'pg-reminder-day': {
+    name: '경기 당일 알림',
+    content: '[Playground] 오늘 경기 알림\n📍 장소: #{venue}\n📅 일시: #{date}\n\n⚠️ 신분증 필수 — 경기 전 본부석 신분 검인이 있습니다.',
+    buttons: [{ type: 'WL', name: '체크인 하기', urlMobile: 'https://fun.sedaily.ai/schedule' }],
+  },
+  'pg-reminder-id': {
+    name: '신분증 지참 리마인드 (KJA)',
+    content: '[Playground] 신분증 지참 알림\n📍 장소: #{venue}\n📅 일시: #{date}\n\n⛔ 본부석 신분 검인 필수 (미지참 시 출전 불가)',
+    buttons: [{ type: 'WL', name: '경기 정보 보기', urlMobile: 'https://fun.sedaily.ai/schedule' }],
+  },
+  'pg-dues-reminder': {
+    name: '회비 미납 알림',
+    content: '[Playground] 회비 미납 알림\n안녕하세요, #{name}님.\n#{amount}원의 회비가 미납되어 있습니다.\n납부 기한: #{deadline}\n\n앱에서 납부 현황을 확인해 주세요.',
+    buttons: [{ type: 'WL', name: '회비 납부 확인', urlMobile: 'https://fun.sedaily.ai/manage/finance' }],
+  },
+}
+
+/** 알림톡 실패 시 SMS fallback 텍스트 생성 */
+function buildSmsText(templateId: string, vars: Record<string, string>): string {
+  const venue = vars['#{venue}'] ?? vars['venue'] ?? '구장 미정'
+  const date  = vars['#{date}']  ?? vars['date']  ?? ''
+  const dday  = vars['#{dday}']  ?? vars['dday']  ?? ''
+  const name   = vars['#{name}']   ?? ''
+  const amount = vars['#{amount}'] ?? ''
+  const deadline = vars['#{deadline}'] ?? ''
+
+  const map: Record<string, string> = {
+    'pg-reminder-d2':   `[Playground] ${dday} 경기 알림 | 장소: ${venue} | 일시: ${date} | 앱에서 참석 여부를 확인해 주세요.`,
+    'pg-reminder-d1':   `[Playground] 내일 경기 알림 | 장소: ${venue} | 일시: ${date} | 신분증을 챙기세요!`,
+    'pg-reminder-day':  `[Playground] 오늘 경기 알림 | 장소: ${venue} | 일시: ${date} | ⚠ 신분증 필수, 본부석 검인 있음`,
+    'pg-reminder-id':   `[Playground] 신분증 지참 알림 | 장소: ${venue} | 일시: ${date} | 본부석 신분 검인 필수 (미지참 시 출전 불가)`,
+    'pg-dues-reminder': `[Playground] 회비 미납 알림 | ${name}님, ${amount}원 미납 | 납부 기한: ${deadline} | fun.sedaily.ai`,
+  }
+  return map[templateId] ?? `[Playground] 경기 알림 | ${venue} | ${date}`
+}
+
 export const handler: APIGatewayProxyHandler = async (event) => {
   const method = event.httpMethod
   const rawDomain = event.path.startsWith('/social') ? 'social'
@@ -52,10 +101,10 @@ export const handler: APIGatewayProxyHandler = async (event) => {
           })),
         ])
         const openTeamIds = new Set((recruitResult.Items ?? []).map(r => r.teamId))
-        let items = (teamsResult.Items ?? [])
+        let items: Record<string, unknown>[] = (teamsResult.Items ?? [])
           .filter(t => t.isPublic)
-          .map(t => ({ ...t, hasOpenRecruitment: openTeamIds.has(t.id) }))
-        if (region) items = items.filter(t => t.region?.includes(region))
+          .map(t => ({ ...t, hasOpenRecruitment: openTeamIds.has(t.id as string) }))
+        if (region) items = items.filter(t => (t.region as string | undefined)?.includes(region))
         if (ageGroup) items = items.filter(t => t.ageGroup === ageGroup)
         if (recruiting === 'true') items = items.filter(t => t.hasOpenRecruitment)
         return res(200, items)
@@ -159,28 +208,39 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // ── Kakao 알림톡 (M1-C) ───────────────────────────────────────────
 
-    // POST /notifications/kakao/send — 카카오 알림톡 발송 스텁
+    // POST /notifications/kakao/send — 카카오 알림톡 발송 (SMS fallback 포함)
     if (domain === 'notifications' && method === 'POST' && parts[0] === 'kakao' && parts[1] === 'send') {
       const { phones, templateId, variables } = JSON.parse(event.body ?? '{}')
       const SOLAPI_API_KEY = process.env.SOLAPI_API_KEY
       const SOLAPI_API_SECRET = process.env.SOLAPI_API_SECRET
-      const KAKAO_PFID = process.env.KAKAO_PFID  // 카카오 채널 ID
+      const KAKAO_PFID = process.env.KAKAO_PFID
+      const SOLAPI_SENDER = process.env.SOLAPI_SENDER ?? ''
 
       if (!SOLAPI_API_KEY || !SOLAPI_API_SECRET || !KAKAO_PFID) {
         return res(503, {
           message: '카카오 알림톡 미설정. SOLAPI_API_KEY, SOLAPI_API_SECRET, KAKAO_PFID 환경변수를 설정하세요.',
           stub: true,
+          // 템플릿 설계 참고 (Kakao 채널 등록 후 아래 templateId로 심사 신청)
+          templateDesigns: KAKAO_TEMPLATE_DESIGNS,
         })
       }
 
-      // Solapi REST API를 통한 알림톡 발송
+      // Solapi REST API — 알림톡 발송 + SMS fallback
+      const vars: Record<string, string> = variables ?? {}
       const messages = (phones as string[]).map(to => ({
         to,
-        from: process.env.SOLAPI_SENDER ?? '',
+        from: SOLAPI_SENDER,
         kakaoOptions: {
           pfId: KAKAO_PFID,
           templateId,
-          variables: variables ?? {},
+          variables: vars,
+        },
+        // 알림톡 실패 시 SMS 자동 전환 (SMS fallback)
+        failover: {
+          to,
+          from: SOLAPI_SENDER,
+          type: 'SMS' as const,
+          text: buildSmsText(templateId, vars),
         },
       }))
 
