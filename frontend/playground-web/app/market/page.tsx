@@ -132,6 +132,8 @@ const products = [
 
 type SortOption = "latest" | "price_asc" | "price_desc" | "views";
 type MarketTab = "trade" | "group";
+type PayMethod = 'card' | 'kakao' | 'toss' | 'naver'
+interface PayItem { type: 'trade' | 'group'; id: number; name: string; price: number; emoji: string }
 interface SellForm { name: string; category: string; price: string; grade: string; sport: string; region: string; desc: string }
 const EMPTY_FORM: SellForm = { name: "", category: categories[1], price: "", grade: "A", sport: "축구", region: REGIONS[0], desc: "" };
 
@@ -153,9 +155,14 @@ export default function MarketPage() {
   const [selectedGroup, setSelectedGroup] = useState<GroupBuy | null>(null);
   const [showGroupForm, setShowGroupForm] = useState(false);
   const [groupForm, setGroupForm] = useState({ title: "", sport: "축구", category: categories[1], targetPrice: "", unitPrice: "", minQty: "", maxQty: "", deadline: "", description: "" });
+  const [payingItem, setPayingItem] = useState<PayItem | null>(null)
+  const [payMethod, setPayMethod] = useState<PayMethod>('card')
+  const [payForm, setPayForm] = useState({ card: '', expiry: '', name: '' })
+  const [payDone, setPayDone] = useState(false)
+  const [extraProducts, setExtraProducts] = useState<typeof products>([])
 
   const filtered = useMemo(() => {
-    let list = [...products];
+    let list = [...products, ...extraProducts];
     if (sport !== "전체") list = list.filter(p => p.sport === sport);
     if (category !== "전체 카테고리") list = list.filter(p => p.category === category);
     if (search.trim()) list = list.filter(p => p.name.includes(search.trim()));
@@ -189,6 +196,22 @@ export default function MarketPage() {
     if (sport === "전체") return groupBuys
     return groupBuys.filter(g => g.sport === sport)
   }, [groupBuys, sport])
+
+  const startPurchase = (item: PayItem) => {
+    setPayingItem(item)
+    setPayMethod('card')
+    setPayForm({ card: '', expiry: '', name: '' })
+    setPayDone(false)
+  }
+
+  const confirmPay = () => {
+    if (!payingItem) return
+    setPayDone(true)
+    if (payingItem.type === 'group') joinGroup(payingItem.id)
+    else setSelected(null)
+  }
+
+  const closePay = () => { setPayingItem(null); setPayDone(false) }
 
   return (
     <div className="max-w-4xl mx-auto space-y-5">
@@ -397,7 +420,7 @@ export default function MarketPage() {
                     </div>
                   </div>
                   <button
-                    onClick={e => { e.stopPropagation(); joinGroup(gb.id) }}
+                    onClick={e => { e.stopPropagation(); gb.joined ? joinGroup(gb.id) : startPurchase({ type: 'group', id: gb.id, name: gb.title, price: gb.targetPrice, emoji: gb.emoji }) }}
                     className="shrink-0 rounded-xl px-3 py-2 text-xs font-bold transition-colors"
                     style={gb.joined
                       ? { background: "rgba(34,197,94,0.15)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.3)" }
@@ -443,8 +466,13 @@ export default function MarketPage() {
                   className="flex-shrink-0 rounded-xl border border-white/10 px-4 py-3 text-lg hover:bg-white/5">
                   {liked.has(selected.id) ? "❤️" : "🤍"}
                 </button>
-                <button className="flex-1 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-semibold text-white hover:opacity-90">
+                <button className="flex-1 rounded-xl border border-fuchsia-500/30 py-3 text-sm font-semibold text-fuchsia-400 hover:bg-fuchsia-500/10">
                   채팅으로 문의
+                </button>
+                <button
+                  onClick={() => startPurchase({ type: 'trade', id: selected.id, name: selected.name, price: selected.price, emoji: selected.emoji })}
+                  className="flex-1 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-3 text-sm font-semibold text-white hover:opacity-90">
+                  즉시 구매
                 </button>
               </div>
             </div>
@@ -488,7 +516,8 @@ export default function MarketPage() {
               <div className="flex gap-2">
                 <button onClick={() => setSelectedGroup(null)}
                   className="flex-1 rounded-xl border border-white/10 py-3 text-sm text-gray-400 hover:bg-white/5">닫기</button>
-                <button onClick={() => joinGroup(selectedGroup.id)}
+                <button
+                  onClick={() => selectedGroup.joined ? joinGroup(selectedGroup.id) : startPurchase({ type: 'group', id: selectedGroup.id, name: selectedGroup.title, price: selectedGroup.targetPrice, emoji: selectedGroup.emoji })}
                   className="flex-1 rounded-xl py-3 text-sm font-semibold text-white"
                   style={selectedGroup.joined
                     ? { background: "rgba(34,197,94,0.15)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.3)" }
@@ -612,12 +641,98 @@ export default function MarketPage() {
               <button onClick={() => setShowSell(false)}
                 className="flex-1 rounded-xl border border-white/10 py-2.5 text-sm text-gray-400 hover:bg-white/5">취소</button>
               <button
-                onClick={() => { alert(`"${form.name}" 등록 완료! (데모)`); setShowSell(false); setForm(EMPTY_FORM); }}
+                onClick={() => {
+                  const newProd = { id: Date.now(), name: form.name, category: form.category, price: Number(form.price), grade: form.grade, emoji: "🛒", sport: form.sport, seller: "나", region: form.region, views: 0, likes: 0 }
+                  setExtraProducts(prev => [newProd, ...prev])
+                  setShowSell(false)
+                  setForm(EMPTY_FORM)
+                  setSport("전체")
+                  setTab("trade")
+                }}
                 disabled={!form.name || !form.price}
                 className="flex-1 rounded-xl bg-gradient-to-r from-fuchsia-600 to-violet-600 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
                 등록하기
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* 결제 모달 */}
+      {payingItem && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-[#1a1a2e] border border-white/10 p-5 space-y-4">
+            {payDone ? (
+              <div className="flex flex-col items-center gap-3 py-6 text-center">
+                <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center text-4xl">✅</div>
+                <h3 className="text-lg font-bold text-white">결제 완료!</h3>
+                <p className="text-sm text-gray-400 line-clamp-2">{payingItem.name}</p>
+                <p className="text-xl font-bold text-fuchsia-400">{payingItem.price.toLocaleString()}원</p>
+                <p className="text-xs text-gray-500">영수증이 이메일로 발송됩니다</p>
+                <button onClick={closePay} className="mt-1 px-8 py-2.5 rounded-xl font-semibold text-white text-sm"
+                  style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>확인</button>
+              </div>
+            ) : (
+              <>
+                {/* 주문 요약 */}
+                <div className="flex items-center gap-3 pb-3 border-b border-white/10">
+                  <span className="text-4xl">{payingItem.emoji}</span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-gray-400">{payingItem.type === 'group' ? '공동구매 참여' : '즉시 구매'}</p>
+                    <p className="text-sm font-semibold text-white line-clamp-1">{payingItem.name}</p>
+                    <p className="text-lg font-bold text-fuchsia-400">{payingItem.price.toLocaleString()}원</p>
+                  </div>
+                </div>
+
+                {/* 결제 수단 */}
+                <div>
+                  <p className="text-xs text-gray-400 mb-2">결제 수단</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(['card', 'kakao', 'toss', 'naver'] as PayMethod[]).map(m => (
+                      <button key={m} onClick={() => setPayMethod(m)}
+                        className={`py-2 rounded-lg text-[10px] font-semibold border transition-colors ${payMethod === m ? 'border-violet-500 text-white bg-violet-500/10' : 'border-white/10 text-gray-400 hover:border-white/20'}`}>
+                        {m === 'card' ? '카드' : m === 'kakao' ? '카카오페이' : m === 'toss' ? '토스페이' : '네이버페이'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 카드 폼 */}
+                {payMethod === 'card' ? (
+                  <div className="space-y-2.5">
+                    <input
+                      value={payForm.card}
+                      onChange={e => setPayForm(f => ({ ...f, card: e.target.value.replace(/\D/g, '').slice(0, 16).replace(/(.{4})/g, '$1 ').trim() }))}
+                      placeholder="카드 번호" maxLength={19}
+                      className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-violet-500 focus:outline-none" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input value={payForm.expiry} onChange={e => setPayForm(f => ({ ...f, expiry: e.target.value }))}
+                        placeholder="MM/YY" maxLength={5}
+                        className="rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-violet-500 focus:outline-none" />
+                      <input value={payForm.name} onChange={e => setPayForm(f => ({ ...f, name: e.target.value }))}
+                        placeholder="소유자명"
+                        className="rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-violet-500 focus:outline-none" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl bg-white/5 border border-white/10 p-4 text-center">
+                    <p className="text-sm text-gray-300">
+                      {payMethod === 'kakao' ? '🟡 카카오페이 앱으로 결제합니다' : payMethod === 'toss' ? '🔵 토스 앱으로 결제합니다' : '🟢 네이버페이로 결제합니다'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">결제 완료 후 자동으로 처리됩니다</p>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button onClick={closePay} className="flex-1 rounded-xl border border-white/10 py-3 text-sm text-gray-400 hover:bg-white/5">취소</button>
+                  <button onClick={confirmPay}
+                    disabled={payMethod === 'card' && (!payForm.card || !payForm.expiry || !payForm.name)}
+                    className="flex-1 rounded-xl py-3 text-sm font-bold text-white disabled:opacity-40"
+                    style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+                    {payingItem.price.toLocaleString()}원 결제하기
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

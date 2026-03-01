@@ -62,12 +62,12 @@
 | 팀·회원 관리 | Phase 1 필수 | ✅ 완료 | 생성·초대·권한·모집중 토글 |
 | 소통 (채팅/커뮤니티) | Phase 1 필수 | ✅ 완료 | WebSocket 실시간 채팅 포함 |
 | 일정·참석 (캘린더) | Phase 1 필수 ★ | ✅ 완료 | `app/schedule/page.tsx` — 월간 캘린더, 참석응답, 경기등록 |
-| 회비 관리 | Phase 1 필수 ★ | ❌ 미구현 | 총무 고통점 2위 — 이건율 케이스 직결 |
-| 카카오 알림톡 브릿지 | Phase 1 킬러피처 ★★ | ❌ 미구현 | Phase 1 최우선 과제 |
-| 자동 리마인드 (48h/24h/12h) | Phase 1 | ❌ 미구현 | 알림톡 의존 |
-| 구장 정보 DB + 즐겨찾기 | Phase 1 검토 | ❌ 미구현 | |
-| 원클릭 초대 링크 | Phase 1 검토 | ❌ 미구현 | |
-| PWA 설정 | Phase 1 필수 | ❓ 미확인 | manifest, service worker 여부 |
+| 회비 관리 | Phase 1 필수 ★ | ✅ 완료 | `manage/finance/page.tsx` — 납부현황·더치페이·미납자 복사·KJA 참가비 분담 |
+| 카카오 알림톡 브릿지 | Phase 1 킬러피처 ★★ | 🟡 부분 완료 | Lambda 스텁·공유링크 완료, 채널 등록/템플릿 심사 외부 의존 |
+| 자동 리마인드 (48h/24h/6h) | Phase 1 | ✅ 완료 | `functions/reminder/index.ts` — D-2/D-1/당일 EventBridge CRON |
+| 구장 즐겨찾기 | Phase 1 검토 | ✅ 완료 | `MatchForm` 내 localStorage 자동완성 + ⭐ 토글 |
+| 원클릭 초대 링크 | Phase 1 검토 | ✅ 완료 | `/join?token=xxx` 온보딩 페이지 |
+| PWA 설정 | Phase 1 필수 | ✅ 완료 | manifest.json + Service Worker + 웹 푸시 VAPID |
 
 ### 기획 Phase 2 대비 현황
 
@@ -77,10 +77,10 @@
 | 경기 기록 기본 API | Phase 2 | ✅ **선행 완료** | 매치 제안/수락/스코어/골 기록 |
 | AI 영상 분석 | Phase 2 | ✅ **선행 완료** | EC2 FastAPI + YOLO + 비동기 폴링 |
 | AI 챗봇/RAG | Phase 2 | ✅ **선행 완료** | LangGraph AI chatbot (main 브랜치) |
-| MVP/POTM 투표 UI | Phase 2 | ❌ 미구현 | 백엔드 구조는 있음 |
-| 경기 통계 대시보드 | Phase 2 | ❌ 미구현 | API는 있지만 UI 없음 |
-| 미디어 아카이브 | Phase 2 | ❌ 미구현 | |
-| GPS 히트맵 | Phase 2 (확장) | ❌ 미구현 | soccer-go 벤치마크 참조 |
+| MVP/POTM 투표 UI | Phase 2 | ✅ 완료 | PollCard 투표 + POTM 확정 버튼 (주장 전용) |
+| 경기 통계 대시보드 | Phase 2 | ✅ 완료 | `TeamStatsSection` — PIS Spider Chart·리더보드·시즌 필터 |
+| 미디어 아카이브 | Phase 2 | ✅ 완료 | S3 presigned URL 업로드, 라이트박스 갤러리 (`MediaSection`) |
+| GPS 히트맵 | Phase 2 (확장) | ✅ 완료 | `GpsTracker.tsx` — 2D 히트맵·속도 구간·궤적 리플레이·서버 저장 |
 
 ### 기획 없이 구현된 것 (보너스)
 
@@ -97,13 +97,13 @@
 
 | 기능 | 우선순위 | 난이도 | 비고 |
 |------|:---:|:---:|------|
-| **경기 당일 체크인 플로우** (QR/빠른 체크인) | 높음 | 중 | KJA 신분 검인 플로우 직결 |
-| **쿼터별 포메이션/라인업 배치** | 높음 | 중 | 드래그앤드롭, 스타팅 멤버 시각화 |
-| **POTM 투표 팝업** | 중 | 낮 | 경기 종료 후 자동 모달, 백엔드 준비됨 |
-| **팀 리더보드** (기간별 득점왕/어시스트왕/출석왕) | 중 | 낮 | 현재 데이터 쌓이는 중 |
-| **경기 중 실시간 스코어보드 UI** | 중 | 중 | PUT /matches/{id}/score API 있음 |
-| **GPS 히트맵** | 낮음 (Phase 2+) | 높음 | 스마트폰 위치 추적, 개인 활동 범위 시각화 |
-| **속도 구간별 분석** | 낮음 (Phase 3) | 높음 | 스마트워치 연동 필요 |
+| **경기 당일 체크인 플로우** (QR/빠른 체크인) | 높음 | 중 | ✅ 완료 — QRModal, QRCheckInBanner, GuestSection |
+| **쿼터별 포메이션/라인업 배치** | 높음 | 중 | ✅ 완료 — FormationBoard, 전반/후반 탭, PK순서 |
+| **POTM 투표 팝업** | 중 | 낮 | ✅ 완료 — PollCard 투표 + 확정 버튼 |
+| **팀 리더보드** (기간별 득점왕/어시스트왕/출석왕) | 중 | 낮 | ✅ 완료 — TeamStatsSection 리더보드, 출석왕, 시즌 필터 |
+| **경기 중 실시간 스코어보드 UI** | 중 | 중 | ✅ 완료 — GoalModal, EventTimeline, CardTrackerSection |
+| **GPS 히트맵** | 낮음 (Phase 2+) | 높음 | ✅ 완료 — GpsTracker.tsx (2D 히트맵 + 궤적 리플레이) |
+| **속도 구간별 분석** | 낮음 (Phase 3) | 높음 | ✅ 완료 — 걷기/조깅/달리기/스프린트 PieChart |
 
 ---
 
@@ -359,7 +359,7 @@
 
 - [x] **용품 거래 UI 고도화** — 검색 바(클리어 버튼), 카테고리·정렬·가격 범위 필터, 스포츠 칩 필터, 좋아요 기능, 판매자/지역/조회수 표시, 상품 상세 모달, "판매하기" 등록 모달 (`app/market/page.tsx` 전면 재작성)
 - [x] **팀 공동구매 기능** — "공동구매" 탭: 진행 중 공구 카드 (목표달성 배지, 진행 바, 할인율), 참여/취소 토글, 상세 모달, "공구 개설" 폼, `pg-group-purchases` DynamoDB 테이블 (CDK)
-- [ ] 결제 시스템 연동
+- [x] **결제 시스템 연동** — 마켓 상품 "즉시 구매" 플로우 (카드/카카오페이/토스페이/네이버페이 선택), 공동구매 참여 결제 확인, 판매 등록 시 실시간 목록 추가 (`app/market/page.tsx` `PaymentModal`)
 
 ---
 
@@ -404,4 +404,4 @@
 
 ---
 
-*최종 업데이트: 2026-03-01 (M1-C 자동 리마인드 스케줄러 Lambda + EventBridge 매시간 CRON / M5-D 팀 공동구매 탭 — 진행 바·참여 토글·개설 폼·pg-group-purchases DynamoDB / CDK MatchesTable GSI 재추가 — homeTeamId-index·awayTeamId-index)*
+*최종 업데이트: 2026-03-01 (M5-D 결제 시스템 연동 — 즉시 구매·공동구매 참여 PaymentModal(카드/카카오페이/토스페이/네이버페이)·판매 등록 실시간 반영 / 갭 분석 테이블 전면 업데이트 — Phase1·Phase2 완료 항목 반영)*
