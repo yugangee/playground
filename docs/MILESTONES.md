@@ -327,6 +327,7 @@
 - [x] **수치 데이터** — 이동 거리(m/km), 최고 속도, 평균 속도, 추적 시간 스탯 카드
 - [x] **2D 필드 리플레이어** — 추적 완료 후 재생 버튼으로 궤적 애니메이션 재생, stroke-dashoffset 기법 + requestAnimationFrame 20× 배속, 속도 구간별 컬러 플레이어 도트, 진행 바 (`FieldReplayer` 컴포넌트)
 - [x] **PlayerPerformance DynamoDB + 저장 엔드포인트** — `pg-player-performance` 테이블 (PK: userId, SK: sessionId), `POST /schedule/performance` 저장, `GET /schedule/performance` 최근 20세션 조회, GpsTracker "서버에 저장" 버튼 (최대 60포인트 다운샘플)
+- [x] **GPS 퍼포먼스 이력 뷰어** — 마이페이지 "GPS 퍼포먼스 이력" 섹션: 총 세션·누적 거리·최고 속도 요약 카드 + 최근 5세션 목록 (날짜·거리·최고속도·경과시간), `GET /schedule/performance` 연동 (`app/mypage/page.tsx`)
 - [ ] 스마트워치 연동 검토 (Phase 3)
 
 ---
@@ -404,4 +405,4 @@
 
 ---
 
-*최종 업데이트: 2026-03-01 (M5-D 결제 시스템 연동 — 즉시 구매·공동구매 참여 PaymentModal(카드/카카오페이/토스페이/네이버페이)·판매 등록 실시간 반영 / 갭 분석 테이블 전면 업데이트 — Phase1·Phase2 완료 항목 반영)*
+*최종 업데이트: 2026-03-01 (M4 GPS 퍼포먼스 이력 뷰어 — 마이페이지 GPS 세션 이력 섹션 추가, GET /schedule/performance 연동, 총 세션·누적 거리·최고 속도 요약 + 최근 5세션 목록)*
