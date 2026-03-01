@@ -174,12 +174,37 @@ export class PlaygroundStack extends cdk.Stack {
         billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
       }),
+      // M5-D: 팀 공동구매
+      groupPurchases: new dynamodb.Table(this, 'GroupPurchasesTable', {
+        tableName: 'pg-group-purchases',
+        partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      }),
     }
 
     // GSI for team-members userId queries (for GET /team endpoint)
     tables.teamMembers.addGlobalSecondaryIndex({
       indexName: 'userId-index',
       partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+    })
+
+    // GSI for matches homeTeamId / awayTeamId queries (재추가)
+    tables.matches.addGlobalSecondaryIndex({
+      indexName: 'homeTeamId-index',
+      partitionKey: { name: 'homeTeamId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'scheduledAt', type: dynamodb.AttributeType.STRING },
+    })
+    tables.matches.addGlobalSecondaryIndex({
+      indexName: 'awayTeamId-index',
+      partitionKey: { name: 'awayTeamId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'scheduledAt', type: dynamodb.AttributeType.STRING },
+    })
+
+    // GSI for group-purchases teamId queries
+    tables.groupPurchases.addGlobalSecondaryIndex({
+      indexName: 'teamId-index',
+      partitionKey: { name: 'teamId', type: dynamodb.AttributeType.STRING },
     })
 
     // GSI for finance teamId+date queries
@@ -287,6 +312,8 @@ export class PlaygroundStack extends cdk.Stack {
       KAKAO_PFID: process.env.KAKAO_PFID ?? '',
       // M4: GPS 퍼포먼스
       PLAYER_PERFORMANCE_TABLE: tables.playerPerformance.tableName,
+      // M5-D: 팀 공동구매
+      GROUP_PURCHASES_TABLE: tables.groupPurchases.tableName,
     }
 
     const lambdaDefaults = {
@@ -324,6 +351,25 @@ export class PlaygroundStack extends cdk.Stack {
         functionName: 'playground-notifications',
       }),
     }
+
+    // M1-C: 자동 리마인드 Lambda + EventBridge 매시간 스케줄
+    const reminderFn = new NodejsFunction(this, 'ReminderFunction', {
+      ...lambdaDefaults,
+      entry: '../functions/reminder/index.ts',
+      functionName: 'playground-reminder',
+      timeout: cdk.Duration.minutes(3),
+    })
+    tables.matches.grantReadWriteData(reminderFn)
+    tables.teamMembers.grantReadData(reminderFn)
+    tables.attendance.grantReadData(reminderFn)
+
+    // 매 정각 실행 (1시간마다 upcoming match 체크)
+    const reminderRule = new events.Rule(this, 'ReminderRule', {
+      ruleName: 'playground-reminder-hourly',
+      description: 'Hourly check for D-2/D-1/당일 match reminders',
+      schedule: events.Schedule.cron({ minute: '0' }),
+    })
+    reminderRule.addTarget(new targets.LambdaFunction(reminderFn))
 
     // M3-A: 시즌 리셋 Lambda + EventBridge 연간 스케줄
     const seasonResetFn = new NodejsFunction(this, 'SeasonResetFunction', {

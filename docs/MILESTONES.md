@@ -213,7 +213,7 @@
 - [x] **백엔드 알림톡 Lambda 스텁** — `POST /notifications/kakao/send` Solapi REST API 연동, 환경변수 미설정 시 503 stub 반환 (`functions/notifications/index.ts`)
 - [ ] SMS fallback 설정 (알림톡 실패 시 자동)
 - [x] **공유 링크 카드 생성** — Web Share API(모바일) / 클립보드 복사(데스크톱) 분기, 경기 정보 + 체크인 링크 포함 텍스트 카드, 📤 버튼 (복사됨! 피드백)
-- [ ] 자동 리마인드 스케줄러 (D-2/D-1/D-0.5 각 3단계)
+- [x] **자동 리마인드 스케줄러** — `functions/reminder/index.ts` Lambda: 매 정시 EventBridge CRON, D-2(48h)/D-1(24h)/당일(6h) 창 탐색, 미응답 팀원 필터, Solapi 알림톡 발송 (env 미설정 시 로그), `reminded_D-2/D-1/당일` 중복 방지 플래그
 
 #### 1-D. PWA 설정
 
@@ -358,7 +358,7 @@
 #### 5-D. 마켓 고도화
 
 - [x] **용품 거래 UI 고도화** — 검색 바(클리어 버튼), 카테고리·정렬·가격 범위 필터, 스포츠 칩 필터, 좋아요 기능, 판매자/지역/조회수 표시, 상품 상세 모달, "판매하기" 등록 모달 (`app/market/page.tsx` 전면 재작성)
-- [ ] 팀 공동구매 기능
+- [x] **팀 공동구매 기능** — "공동구매" 탭: 진행 중 공구 카드 (목표달성 배지, 진행 바, 할인율), 참여/취소 토글, 상세 모달, "공구 개설" 폼, `pg-group-purchases` DynamoDB 테이블 (CDK)
 - [ ] 결제 시스템 연동
 
 ---
@@ -369,7 +369,7 @@
 |------|:---:|:---:|
 | 다크/라이트 테마 — date input colorScheme 대응 | 낮 | ✅ globals.css `color-scheme: dark/light` |
 | 일부 페이지 하드코딩 인라인 스타일 | 낮 | 미완 |
-| MatchesTable GSI 재추가 (homeTeamId-index, awayTeamId-index) | 중 | CDK에서 제거됨, 별도 배포 필요 |
+| MatchesTable GSI 재추가 (homeTeamId-index, awayTeamId-index) | 중 | ✅ CDK에 재추가됨 (scheduledAt SK 포함) |
 | 팀 승급 조건 검증 (승수 조건) | 중 | ✅ 승급 조건 체크리스트 UI (포인트 + 누적 승수 조건 표시, 조건 충족 시 그린 배지) |
 | scoring.mjs 속성 기반 테스트 (fast-check) | 낮 | 선택사항 |
 
@@ -404,4 +404,4 @@
 
 ---
 
-*최종 업데이트: 2026-03-01 (M1-C 카카오 알림톡 Lambda 스텁 / M1-D 웹 푸시 VAPID + sw.js + PushNotificationSetup / M2-D POTM 뱃지 확정 버튼 + 백엔드 finalize 엔드포인트 / M3-A 시즌 리셋 Lambda + EventBridge CRON / M3-E 주장 채팅방 자동 생성 + frontend 링크 / M4 PlayerPerformance DynamoDB + GPS 서버 저장 버튼 / M5-D 마켓 고도화 — 검색·필터·판매 모달)*
+*최종 업데이트: 2026-03-01 (M1-C 자동 리마인드 스케줄러 Lambda + EventBridge 매시간 CRON / M5-D 팀 공동구매 탭 — 진행 바·참여 토글·개설 폼·pg-group-purchases DynamoDB / CDK MatchesTable GSI 재추가 — homeTeamId-index·awayTeamId-index)*
