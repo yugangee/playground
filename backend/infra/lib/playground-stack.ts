@@ -404,6 +404,25 @@ export class PlaygroundStack extends cdk.Stack {
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
         allowMethods: apigateway.Cors.ALL_METHODS,
+        // Authorization 헤더 포함 명시 — 없으면 Bearer 토큰 요청의 preflight가 차단됨
+        allowHeaders: apigateway.Cors.DEFAULT_HEADERS,
+      },
+    })
+
+    // Cognito authorizer 거절(401/403) 시 API Gateway 자체 응답에도 CORS 헤더 추가
+    // (Lambda 응답과 달리 Gateway 응답은 별도로 설정 필요)
+    api.addGatewayResponse('UnauthorizedCors', {
+      type: apigateway.ResponseType.UNAUTHORIZED,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+      },
+    })
+    api.addGatewayResponse('AccessDeniedCors', {
+      type: apigateway.ResponseType.ACCESS_DENIED,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
       },
     })
 
