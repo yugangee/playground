@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { ShoppingCart, Users, BarChart2, ArrowRight, Search, Zap, Shield, Check, Newspaper, Trophy, Swords } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -253,9 +253,11 @@ function LoggedInHome({ name, recentTeams: initialRecent, topMatchTeams: initial
   const [topMatchTeams, setTopMatchTeams] = useState(initialTop);
   const [filterLoading, setFilterLoading] = useState(false);
   const [visible, setVisible] = useState(true);
+  const sportRef = useRef(sport);
+  sportRef.current = sport;
 
   const handleSport = useCallback(async (s: string) => {
-    if (s === sport) return;
+    if (s === sportRef.current) return;
     // fade out
     setVisible(false);
     setFilterLoading(true);
@@ -272,7 +274,7 @@ function LoggedInHome({ name, recentTeams: initialRecent, topMatchTeams: initial
     setFilterLoading(false);
     // fade in
     setVisible(true);
-  }, [sport]);
+  }, []);
 
 
   return (

@@ -59,7 +59,8 @@ export const handler: ScheduledHandler = async () => {
   for (const match of items) {
     const scheduledAt = match.scheduledAt as string
     if (!scheduledAt) continue
-    const matchTime   = new Date(scheduledAt).getTime()
+    const matchTime = new Date(scheduledAt).getTime()
+    if (isNaN(matchTime)) continue
     const hoursUntil  = (matchTime - now) / (1000 * 60 * 60)
 
     // 해당 리마인드 창 탐색

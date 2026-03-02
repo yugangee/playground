@@ -34,6 +34,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   try {
     // GET /team
     if (method === 'GET' && parts.length === 0) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const result = await db.send(new QueryCommand({
         TableName: MEMBERS,
         IndexName: 'userId-index',
@@ -49,6 +50,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /team
     if (method === 'POST' && parts.length === 0) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const body = JSON.parse(event.body ?? '{}')
       const team = {
         id: randomUUID(),
@@ -78,6 +80,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /team/invite/:token/join
     if (method === 'POST' && parts[0] === 'invite' && parts[2] === 'join') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const token = parts[1]
       const inv = await db.send(new GetCommand({ TableName: INVITES, Key: { token } }))
       if (!inv.Item) return res(404, { message: 'Invite not found' })

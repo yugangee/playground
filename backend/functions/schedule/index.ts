@@ -107,6 +107,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // PUT /schedule/matches/:id/attendance
     if (method === 'PUT' && parts[0] === 'matches' && parts[2] === 'attendance') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const { status } = JSON.parse(event.body ?? '{}')
       const item = { matchId: parts[1], userId, status, updatedAt: new Date().toISOString() }
       await db.send(new PutCommand({ TableName: ATTENDANCE, Item: item }))
@@ -221,6 +222,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /schedule/performance — GPS 세션 저장
     if (method === 'POST' && parts[0] === 'performance') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const body = JSON.parse(event.body ?? '{}')
       const sessionId = randomUUID()
       const item = {
