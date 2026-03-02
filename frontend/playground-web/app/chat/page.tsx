@@ -161,10 +161,14 @@ export default function ChatPage() {
                     {m.from === "them" && active.type === "team" && m.userName && (
                       <span className="text-[10px] text-gray-500 mb-0.5 px-1">{m.userName}</span>
                     )}
-                    <span className={`text-xs px-3 py-2 rounded-2xl text-white`}
+                    <span
+                      className={`text-xs px-3 py-2 rounded-2xl ${m.from === "me"
+                          ? "text-white"
+                          : "text-gray-900 dark:text-white bg-gray-100 dark:bg-white/10"
+                        }`}
                       style={m.from === "me"
                         ? { background: "linear-gradient(to right, #c026d3, #7c3aed)" }
-                        : { background: "#000000" }}>
+                        : undefined}>
                       {m.text}
                     </span>
                   </div>
