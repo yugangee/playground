@@ -109,7 +109,7 @@ class AnalyzeResponse(BaseModel):
     team_ball_control: dict = {}
     message: str
 
-def analyze_video(input_path: str, output_path: str):
+def analyze_video(input_path: str, output_path: str, job_id: str = None):
     """영상 분석 메인 로직"""
     vector_store_path = os.path.abspath(
         os.path.join("commentary_ai", "generator", "vector_store.pkl")
@@ -211,9 +211,10 @@ def analyze_video(input_path: str, output_path: str):
         else:
             speed = 0
 
-        if frame_num % 48 == 0:
+        if frame_num % 120 == 0:
+            seconds = frame_num / 24  # 24fps 기준
             query = (
-                f"프레임 {frame_num}에서, "
+                f"{seconds:.0f}초 시점에서, "
                 f"플레이어 {assigned_player}은(는) 속도 {speed:.2f}로 이동 중이며, "
                 f"볼의 속도는 {ball_speed:.2f}입니다. "
                 f"현재 볼 소유 팀은 {current_team_with_ball}이고, "
@@ -223,6 +224,10 @@ def analyze_video(input_path: str, output_path: str):
 
             subtitle_text = generate_commentary(query, vector_store_path)
             subtitle_data.append(subtitle_text)
+            
+            # 실시간으로 jobs에 추가
+            if job_id and job_id in jobs:
+                jobs[job_id]["partial_subtitles"] = subtitle_data.copy()
 
         previous_player_with_ball = assigned_player
         previous_team_with_ball = current_team_with_ball
@@ -264,7 +269,7 @@ def run_analysis_job(job_id, s3_key):
 
         jobs[job_id]["status"] = "analyzing"
         print(f"[{job_id}] Starting analysis...")
-        events, ball_control, subtitles, event_texts, team_colors = analyze_video(input_local_path, output_local_path)
+        events, ball_control, subtitles, event_texts, team_colors = analyze_video(input_local_path, output_local_path, job_id)
 
         jobs[job_id]["status"] = "uploading"
         output_s3_key = f"outputs/analyzed_{timestamp}_{job_id}.mp4"
@@ -351,9 +356,12 @@ async def get_job_status(job_id: str):
             "error": job["error"],
         }
     else:
+        # 분석 중에도 현재까지 생성된 subtitles 반환
+        partial_subtitles = job.get("partial_subtitles", [])
         return {
             "status": job["status"],
             "message": "분석 진행 중...",
+            "partial_subtitles": partial_subtitles,
         }
 
 

@@ -1,0 +1,60 @@
+service: playground-chatbot
+
+provider:
+  name: aws
+  runtime: python3.11
+  region: us-east-1
+  stage: ${opt:stage, 'prod'}
+  memorySize: 1024
+  timeout: 30
+  environment:
+    AWS_REGION: ${env:AWS_REGION, 'us-east-1'}
+    BEDROCK_MODEL_ID: ${env:BEDROCK_MODEL_ID}
+    BEDROCK_EMBEDDING_MODEL_ID: ${env:BEDROCK_EMBEDDING_MODEL_ID}
+    BEDROCK_TEMPERATURE: ${env:BEDROCK_TEMPERATURE, '0.7'}
+    BEDROCK_MAX_TOKENS: ${env:BEDROCK_MAX_TOKENS, '2000'}
+    TAVILY_API_KEY: ${env:TAVILY_API_KEY}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - bedrock:InvokeModel
+            - bedrock:InvokeModelWithResponseStream
+          Resource: '*'
+
+functions:
+  api:
+    handler: lambda_handler.handler
+    events:
+      - http:
+          path: /{proxy+}
+          method: ANY
+          cors: true
+      - http:
+          path: /
+          method: ANY
+          cors: true
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
+    layer: true
+    zip: true
+    slim: true
+    strip: false
+    useDownloadCache: true
+    useStaticCache: true
+
+package:
+  individually: false
+  patterns:
+    - '!node_modules/**'
+    - '!.venv/**'
+    - '!__pycache__/**'
+    - '!.pytest_cache/**'
+    - '!tests/**'
+    - '!.git/**'

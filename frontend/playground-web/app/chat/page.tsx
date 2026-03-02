@@ -55,13 +55,15 @@ export default function ChatPage() {
 
   function send() {
     if (!input.trim() || !active) return;
+    const message = input.trim();
+    setInput(""); // 먼저 입력창 초기화
+    
     if (isLiveRoom) {
-      wsSend(input);
-      addLiveMsg(active.id, { from: "me", text: input, userName: user?.name, email: user?.email, timestamp: new Date().toISOString() });
+      wsSend(message);
+      addLiveMsg(active.id, { from: "me", text: message, userName: user?.name, email: user?.email, timestamp: new Date().toISOString() });
     } else {
-      sendMsg(active.id, input);
+      sendMsg(active.id, message);
     }
-    setInput("");
   }
 
   function sendDate() {
