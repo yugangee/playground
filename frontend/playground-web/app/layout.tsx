@@ -15,6 +15,7 @@ import AIChatbot from "@/components/AIChatbot";
 import PWAInstallBanner from "@/components/PWAInstallBanner"
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import PushNotificationSetup from "@/components/PushNotificationSetup";
+import TodayBanner from "@/components/layout/TodayBannerNew";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -65,6 +66,7 @@ export default function RootLayout({
                     <Sidebar />
                     <div className="flex-1 flex flex-col">
                       <HeaderAuth />
+                      <TodayBanner />
                       <main className="flex-1 px-8 pt-8 pb-8">
                         <ScrollToTop />
                         {children}
