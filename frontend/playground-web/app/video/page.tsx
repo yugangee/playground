@@ -136,10 +136,10 @@ export default function VideoPage() {
       const uploadRes = await fetch(upload_url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
       if (!uploadRes.ok) throw new Error(`S3 업로드 실패 (${uploadRes.status})`);
       setProgressMessage("영상 업로드 완료");
-      setProgressPercent(20);
+      setProgressPercent(25);
       setStatus("analyzing");
       setProgressMessage("AI 분석 시작...");
-      setProgressPercent(25);
+      // 백엔드 진행률은 25%부터 시작하도록 오프셋 설정하지 않음 (백엔드에서 조정)
       setEstimatedTime(0);
       const analyzeStart = Date.now();
       const analyzeRes = await fetch(`${API_URL}/api/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ video_s3_key: s3_key }) });
@@ -334,7 +334,7 @@ export default function VideoPage() {
                   진행시간: {Math.floor(estimatedTime / 60)}분 {estimatedTime % 60}초
                 </p>
               )}
-              {totalFrames > 0 && (
+              {status === "analyzing" && totalFrames > 0 && (
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   프레임: {currentFrame.toLocaleString()} / {totalFrames.toLocaleString()}
                 </p>

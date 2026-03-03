@@ -150,7 +150,7 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
     if job_id and job_id in jobs:
         jobs[job_id]["total_frames"] = total_frames
         jobs[job_id]["current_frame"] = 0
-        jobs[job_id]["progress_percent"] = 0
+        jobs[job_id]["progress_percent"] = 25
         jobs[job_id]["progress_stage"] = "영상 로딩중"
 
     # 480p 리사이즈로 YOLO 처리 속도 향상
@@ -162,22 +162,22 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
         video_frames = [cv2.resize(f, (new_w, new_h)) for f in video_frames]
         print(f"[RESIZE] {w}x{h} → {new_w}x{new_h} ({len(video_frames)} frames)")
 
-    # 1단계: 선수 추적 (0-30%)
+    # 1단계: 선수 추적 (25-45%)
     if job_id and job_id in jobs:
         jobs[job_id]["progress_stage"] = "선수 추적중"
-        jobs[job_id]["progress_percent"] = 5
+        jobs[job_id]["progress_percent"] = 25
     
     tracker = Tracker('models/best.pt')
     tracks = tracker.get_object_tracks(video_frames, read_from_stub=False, stub_path=None)
     tracker.add_positions_to_tracks(tracks)
     
     if job_id and job_id in jobs:
-        jobs[job_id]["progress_percent"] = 30
+        jobs[job_id]["progress_percent"] = 45
 
-    # 2단계: 카메라 움직임 분석 (30-40%)
+    # 2단계: 카메라 움직임 분석 (45-55%)
     if job_id and job_id in jobs:
         jobs[job_id]["progress_stage"] = "카메라 움직임 분석중"
-        jobs[job_id]["progress_percent"] = 30
+        jobs[job_id]["progress_percent"] = 45
     
     camera_movement_estimator = CameraMovementEstimator(video_frames[0])
     camera_movement_per_frame = camera_movement_estimator.get_camera_movement(
@@ -186,12 +186,12 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
     camera_movement_estimator.add_adjust_positions_to_tracks(tracks, camera_movement_per_frame)
     
     if job_id and job_id in jobs:
-        jobs[job_id]["progress_percent"] = 40
+        jobs[job_id]["progress_percent"] = 55
 
-    # 3단계: 좌표 변환 및 속도 계산 (40-50%)
+    # 3단계: 좌표 변환 및 속도 계산 (55-60%)
     if job_id and job_id in jobs:
         jobs[job_id]["progress_stage"] = "좌표 변환중"
-        jobs[job_id]["progress_percent"] = 40
+        jobs[job_id]["progress_percent"] = 55
     
     view_transformer = ViewTransformer()
     view_transformer.add_transformed_position_to_tracks(tracks)
@@ -202,12 +202,12 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
     speed_and_distance_estimator.add_speed_and_distance_to_tracks(tracks)
     
     if job_id and job_id in jobs:
-        jobs[job_id]["progress_percent"] = 50
+        jobs[job_id]["progress_percent"] = 60
 
-    # 4단계: 팀 배정 (50-55%)
+    # 4단계: 팀 배정 (60-65%)
     if job_id and job_id in jobs:
         jobs[job_id]["progress_stage"] = "팀 분석중"
-        jobs[job_id]["progress_percent"] = 50
+        jobs[job_id]["progress_percent"] = 60
     
     team_assigner = TeamAssigner()
     team_assigner.assign_team_color(video_frames[0], tracks['players'][0])
@@ -218,12 +218,12 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
             tracks['players'][frame_num][player_id]['team_color'] = team_assigner.team_colors[team]
     
     if job_id and job_id in jobs:
-        jobs[job_id]["progress_percent"] = 55
+        jobs[job_id]["progress_percent"] = 65
 
-    # 5단계: 이벤트 감지 (55-85%)
+    # 5단계: 이벤트 감지 (65-85%)
     if job_id and job_id in jobs:
         jobs[job_id]["progress_stage"] = "이벤트 감지중"
-        jobs[job_id]["progress_percent"] = 55
+        jobs[job_id]["progress_percent"] = 65
     
     player_assigner = PlayerBallAssigner()
     team_ball_control = []
@@ -238,10 +238,10 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
     events_list = []
 
     for frame_num, player_track in enumerate(tracks['players']):
-        # 프레임별 진행률 업데이트 (55% → 85%)
+        # 프레임별 진행률 업데이트 (65% → 85%)
         if job_id and job_id in jobs and total_player_frames > 0:
             jobs[job_id]["current_frame"] = frame_num
-            frame_progress = int(55 + (frame_num / total_player_frames) * 30)
+            frame_progress = int(65 + (frame_num / total_player_frames) * 20)
             jobs[job_id]["progress_percent"] = frame_progress
         
         ball_bbox = tracks['ball'][frame_num][1]['bbox']
