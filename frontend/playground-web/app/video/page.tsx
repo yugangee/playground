@@ -107,8 +107,19 @@ export default function VideoPage() {
     setProgressPercent(0);
     const controller = new AbortController();
     setAbortController(controller);
+    
     try {
+      // EC2 인스턴스 확인 및 시작
       setStatus("uploading");
+      setProgressMessage("서버 준비중...");
+      setProgressPercent(3);
+      
+      const { ensureEC2Running } = await import("@/lib/ensureEC2");
+      const ec2Ready = await ensureEC2Running();
+      if (!ec2Ready) {
+        console.warn("[EC2] Instance may not be ready, but continuing...");
+      }
+      
       setProgressMessage("영상 업로드 준비중...");
       setProgressPercent(5);
       const presignRes = await fetch(`${API_URL}/api/presigned-upload-url?filename=${encodeURIComponent(file.name)}`);
@@ -135,22 +146,6 @@ export default function VideoPage() {
         await new Promise(r => setTimeout(r, pollInterval)); elapsed += pollInterval;
         setEstimatedTime(Math.floor((Date.now() - analyzeStart) / 1000));
         
-        // 진행 상태 메시지 업데이트 (시간 기반 추정)
-        const seconds = Math.floor((Date.now() - analyzeStart) / 1000);
-        if (seconds < 30) {
-          setProgressMessage("선수 추적중...");
-          setProgressPercent(30 + Math.floor(seconds / 30 * 20));
-        } else if (seconds < 60) {
-          setProgressMessage("이벤트 감지중...");
-          setProgressPercent(50 + Math.floor((seconds - 30) / 30 * 15));
-        } else if (seconds < 90) {
-          setProgressMessage("팀 분석중...");
-          setProgressPercent(65 + Math.floor((seconds - 60) / 30 * 15));
-        } else {
-          setProgressMessage("최종 처리중...");
-          setProgressPercent(Math.min(95, 80 + Math.floor((seconds - 90) / 30 * 5)));
-        }
-        
         const statusRes = await fetch(`${API_URL}/api/status/${jobId}`);
         if (!statusRes.ok) {
           // 504 등의 에러는 무시하고 계속 polling
@@ -158,6 +153,14 @@ export default function VideoPage() {
           continue;
         }
         const statusData = await statusRes.json();
+        
+        // 백엔드에서 받은 실제 진행률 업데이트
+        if (statusData.progress_percent !== undefined) {
+          setProgressPercent(statusData.progress_percent);
+        }
+        if (statusData.progress_stage) {
+          setProgressMessage(statusData.progress_stage);
+        }
         
         // 분석 중에도 중계 데이터 업데이트
         if (statusData.partial_subtitles && statusData.partial_subtitles.length > 0) {
