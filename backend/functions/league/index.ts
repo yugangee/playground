@@ -7,7 +7,7 @@ function getUserId(event: APIGatewayProxyEvent): string | undefined {
 }
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb'
-import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
+import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb'
 import { randomUUID } from 'crypto'
 
 const db = DynamoDBDocumentClient.from(new DynamoDBClient({}))
@@ -91,6 +91,25 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return res(200, { message: 'updated' })
     }
 
+    // DELETE /league/:id  (주최자만, 연관 teams/matches cascade 삭제)
+    if (method === 'DELETE' && parts.length === 1) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      const league = await db.send(new GetCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
+      if (!league.Item) return res(404, { message: 'League not found' })
+      if (league.Item.organizerId !== userId) return res(403, { message: '리그 주최자만 삭제할 수 있습니다' })
+      // cascade: LEAGUE_TEAMS 삭제
+      const teamsResult = await db.send(new QueryCommand({
+        TableName: LEAGUE_TEAMS,
+        KeyConditionExpression: 'leagueId = :lid',
+        ExpressionAttributeValues: { ':lid': leagueId },
+      }))
+      await Promise.all((teamsResult.Items ?? []).map(t =>
+        db.send(new DeleteCommand({ TableName: LEAGUE_TEAMS, Key: { leagueId, teamId: t.teamId } }))
+      ))
+      await db.send(new DeleteCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
+      return res(200, { message: 'deleted' })
+    }
+
     // GET /league/:id/teams
     if (method === 'GET' && parts[1] === 'teams') {
       const result = await db.send(new QueryCommand({
@@ -127,6 +146,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return res(201, { leagueId, teamId })
     }
 
+    // DELETE /league/:id/teams/:teamId  (팀 참가 취소)
+    if (method === 'DELETE' && parts[1] === 'teams' && parts[2]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      await db.send(new DeleteCommand({ TableName: LEAGUE_TEAMS, Key: { leagueId, teamId: parts[2] } }))
+      return res(200, { message: 'deleted' })
+    }
+
     // GET /league/:id/matches
     if (method === 'GET' && parts[1] === 'matches') {
       const result = await db.send(new QueryCommand({
@@ -150,6 +176,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       const item = { id: randomUUID(), leagueId, ...body, status: 'pending', createdAt: new Date().toISOString() }
       await db.send(new PutCommand({ TableName: LEAGUE_MATCHES, Item: item }))
       return res(201, item)
+    }
+
+    // DELETE /league/:id/matches/:matchId
+    if (method === 'DELETE' && parts[1] === 'matches' && parts[2]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      const league = await db.send(new GetCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
+      if (!league.Item) return res(404, { message: 'League not found' })
+      if (league.Item.organizerId !== userId) return res(403, { message: '리그 주최자만 경기를 삭제할 수 있습니다' })
+      await db.send(new DeleteCommand({ TableName: LEAGUE_MATCHES, Key: { id: parts[2] } }))
+      return res(200, { message: 'deleted' })
     }
 
     // PATCH /league/:id/matches/:matchId  (결과 입력)

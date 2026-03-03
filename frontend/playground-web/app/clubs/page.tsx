@@ -7,8 +7,15 @@ import { useClub } from "@/context/ClubContext";
 import { useAuth } from "@/context/AuthContext";
 import { regionData } from "../signup/regions";
 import RatingBadge from "@/components/RatingBadge";
+import { manageFetch } from "@/lib/manageFetch";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
+
+const sportTypeLabel: Record<string, string> = {
+  soccer: "축구", futsal: "풋살", basketball: "농구", baseball: "야구",
+  volleyball: "배구", ice_hockey: "아이스하키",
+  running: "러닝크루", snowboard: "스노보드", badminton: "배드민턴",
+};
 
 interface Toast { id: number; message: string; type: 'success' | 'error' }
 
@@ -118,16 +125,30 @@ export default function ClubsPage() {
     }
   };
 
-  // API에서 클럽 목록 불러오기
+  // API에서 클럽 목록 불러오기 (Auth API + Manage API 병합)
   useEffect(() => {
-    fetch(`${API}/clubs`)
-      .then(r => r.json())
-      .then(d => {
-        const list = d.clubs || [];
-        setAllClubs(list);
-        setAiPool([...list].sort(() => Math.random() - 0.5).slice(0, 4));
-      })
-      .catch(() => { });
+    const loadAuthClubs = fetch(`${API}/clubs`).then(r => r.json()).then(d => d.clubs || []).catch(() => []);
+    const loadManageTeams = manageFetch('/discover/teams').then((teams: any[]) =>
+      (teams || []).map((t: any): DbClub & { isManageTeam: boolean } => ({
+        clubId: t.id,
+        name: t.name,
+        sport: sportTypeLabel[t.sportType] ?? t.sportType ?? '-',
+        areas: t.region ? [{ sido: t.region, sigungu: '' }] : [],
+        members: t.memberCount ?? 0,
+        styles: [],
+        image: t.logoUrl ?? '',
+        record: '-',
+        winRate: 0,
+        recruiting: false,
+        createdAt: t.createdAt ?? '',
+        isManageTeam: true,
+      }))
+    ).catch(() => []);
+    Promise.all([loadAuthClubs, loadManageTeams]).then(([authClubs, manageTeams]) => {
+      const list = [...authClubs, ...manageTeams];
+      setAllClubs(list);
+      setAiPool([...authClubs].sort(() => Math.random() - 0.5).slice(0, 4));
+    });
   }, []);
 
   const aiMatches = aiPool.filter((c) => !dismissed.includes(c.clubId));
@@ -378,6 +399,7 @@ export default function ClubsPage() {
               <div>
                 <p className="text-white font-semibold text-sm">{c.name}</p>
                 <div className="flex items-center gap-1.5 mt-1">
+                  {(c as any).isManageTeam && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">팀</span>}
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-fuchsia-500/15 text-fuchsia-400">{c.sport}</span>
                   {(c as any).teamRating && <RatingBadge tier={(c as any).teamRating.tier} type="team" size="sm" />}
                   <MapPin size={10} className="text-gray-400" />

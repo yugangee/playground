@@ -4,15 +4,23 @@ import Link from "next/link";
 import { MapPin, Shield, Trophy, Crosshair, Pencil, X, User, Mail, Calendar, Activity, Globe, Camera } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useTeam } from "@/context/TeamContext";
 import { regionData } from "@/app/signup/regions";
 import RatingBadge from "@/components/RatingBadge";
 import { manageFetch } from "@/lib/manageFetch";
+
+const sportTypeLabel: Record<string, string> = {
+  soccer: "축구", futsal: "풋살", basketball: "농구", baseball: "야구",
+  volleyball: "배구", ice_hockey: "아이스하키",
+  running: "러닝크루", snowboard: "스노보드", badminton: "배드민턴",
+};
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 const allSports = ["축구", "풋살", "농구", "야구", "배구", "배드민턴", "아이스하키", "스노보드", "러닝크루", "기타"];
 
 export default function MyPage() {
   const { user, loading, refresh } = useAuth();
+  const { teams: manageTeams } = useTeam();
   const [club, setClub] = useState<any>(null);
   const [myClubs, setMyClubs] = useState<any[]>([]);
   const [editing, setEditing] = useState(false);
@@ -619,7 +627,7 @@ export default function MyPage() {
             + 새 팀
           </button>
         </div>
-        {myClubs.length > 0 ? myClubs.map((c: any) => (
+        {myClubs.map((c: any) => (
           <div key={c.clubId} className="bg-white/5 rounded-lg px-4 py-3 flex items-center justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -637,7 +645,24 @@ export default function MyPage() {
               <Pencil size={14} />
             </button>
           </div>
-        )) : (
+        ))}
+        {manageTeams.map((t) => (
+          <div key={t.id} className="bg-white/5 rounded-lg px-4 py-3 flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                {t.logoUrl && <img src={t.logoUrl} alt={t.name} className="w-6 h-6 rounded-full object-cover" />}
+                <span className="text-white text-sm font-semibold">{t.name}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">팀</span>
+                {t.sportType && <span className="text-[10px] px-1.5 py-0.5 rounded bg-fuchsia-500/15 text-fuchsia-400">{sportTypeLabel[t.sportType] ?? t.sportType}</span>}
+              </div>
+              {t.region && <p className="text-xs text-gray-500">{t.region}</p>}
+            </div>
+            <Link href="/team" className="text-gray-500 hover:text-white transition-colors">
+              <Pencil size={14} />
+            </Link>
+          </div>
+        ))}
+        {myClubs.length === 0 && manageTeams.length === 0 && (
           <p className="text-xs text-gray-500">소속팀이 없습니다</p>
         )}
       </div>

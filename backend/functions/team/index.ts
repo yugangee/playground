@@ -168,6 +168,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return res(200, { message: 'updated' })
     }
 
+    // DELETE /team/:id/members/:userId  (리더만 가능, 본인 제외)
+    if (method === 'DELETE' && parts[1] === 'members' && parts[2]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      const team = await db.send(new GetCommand({ TableName: TEAMS, Key: { id: teamId } }))
+      if (!team.Item) return res(404, { message: 'Team not found' })
+      if (team.Item.leaderId !== userId) return res(403, { message: '팀 리더만 멤버를 삭제할 수 있습니다' })
+      if (parts[2] === userId) return res(400, { message: '본인은 삭제할 수 없습니다' })
+      await db.send(new DeleteCommand({ TableName: MEMBERS, Key: { teamId, userId: parts[2] } }))
+      return res(200, { message: 'deleted' })
+    }
+
     // POST /team/:id/invite
     if (method === 'POST' && parts[1] === 'invite') {
       if (!userId) return res(401, { message: 'Unauthorized' })

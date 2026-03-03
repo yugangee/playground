@@ -6,7 +6,7 @@ function getUserId(event: APIGatewayProxyEvent): string | undefined {
   return undefined
 }
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
+import { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb'
 import { randomUUID } from 'crypto'
 
 const db = DynamoDBDocumentClient.from(new DynamoDBClient({}))
@@ -51,6 +51,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return res(201, item)
     }
 
+    // DELETE /finance/transactions/:id
+    if (method === 'DELETE' && parts[0] === 'transactions' && parts[1]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      await db.send(new DeleteCommand({ TableName: FINANCE, Key: { id: parts[1] } }))
+      return res(200, { message: 'deleted' })
+    }
+
     // ── Dues ─────────────────────────────────────────────────────────
 
     // GET /finance/dues?teamId=xxx
@@ -87,6 +94,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return res(200, { message: 'updated' })
     }
 
+    // DELETE /finance/dues/:id
+    if (method === 'DELETE' && parts[0] === 'dues' && parts[1]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      await db.send(new DeleteCommand({ TableName: DUES, Key: { id: parts[1] } }))
+      return res(200, { message: 'deleted' })
+    }
+
     // ── Fines ────────────────────────────────────────────────────────
 
     // GET /finance/fines?teamId=xxx
@@ -121,6 +135,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         ExpressionAttributeValues: { ':t': true, ':at': new Date().toISOString() },
       }))
       return res(200, { message: 'updated' })
+    }
+
+    // DELETE /finance/fines/:id
+    if (method === 'DELETE' && parts[0] === 'fines' && parts[1]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      await db.send(new DeleteCommand({ TableName: FINES, Key: { id: parts[1] } }))
+      return res(200, { message: 'deleted' })
     }
 
     return res(404, { message: 'Not found' })

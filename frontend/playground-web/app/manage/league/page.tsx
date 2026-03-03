@@ -346,6 +346,26 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
     loadTeams()
   }
 
+  const deleteLeague = async () => {
+    if (!confirm(`"${league.name}" 리그를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return
+    try {
+      await manageFetch(`/league/${league.id}`, { method: 'DELETE' })
+      onBack()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '삭제 실패')
+    }
+  }
+
+  const removeTeam = async (teamId: string) => {
+    if (!confirm('이 팀을 리그에서 제거하시겠습니까?')) return
+    try {
+      await manageFetch(`/league/${league.id}/teams/${teamId}`, { method: 'DELETE' })
+      loadTeams()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '제거 실패')
+    }
+  }
+
   // 대회 시작: 대진표 자동 생성 + 상태를 ongoing으로 변경
   const startLeague = async () => {
     const typeLabel = league.type === 'tournament' ? '토너먼트 대진표' : '라운드 로빈 일정'
@@ -444,24 +464,31 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
         {isLeader && (
           <div className="flex flex-shrink-0 gap-2">
             {league.status === 'recruiting' && (
-              <button
-                onClick={startLeague}
-                disabled={generating}
-                className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">
-                {generating ? (
-                  <>
-                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    생성 중...
-                  </>
-                ) : (
-                  <>
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
-                    </svg>
-                    대회 시작
-                  </>
-                )}
-              </button>
+              <>
+                <button
+                  onClick={startLeague}
+                  disabled={generating}
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">
+                  {generating ? (
+                    <>
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      생성 중...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+                      </svg>
+                      대회 시작
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={deleteLeague}
+                  className="rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50">
+                  리그 삭제
+                </button>
+              </>
             )}
             {league.status === 'ongoing' && (
               <button
@@ -512,6 +539,7 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
                   <tr className="border-b border-slate-100 bg-slate-50">
                     <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">팀</th>
                     <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">참가일</th>
+                    {isLeader && league.status === 'recruiting' && <th className="px-5 py-3.5" />}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -526,6 +554,17 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
                         ) : t.teamId}
                       </td>
                       <td className="px-5 py-3.5 text-slate-500">{new Date(t.joinedAt).toLocaleDateString('ko-KR')}</td>
+                      {isLeader && league.status === 'recruiting' && (
+                        <td className="px-5 py-3.5 text-right">
+                          <button onClick={() => removeTeam(t.teamId)}
+                            className="text-slate-400 hover:text-red-500 transition-colors"
+                            title="팀 제거">
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                            </svg>
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -609,6 +648,16 @@ function MatchesSection({ leagueId, matches, onRefresh, isLeader, leagueStatus }
     onRefresh()
   }
 
+  const deleteMatch = async (matchId: string) => {
+    if (!confirm('이 경기를 삭제하시겠습니까?')) return
+    try {
+      await manageFetch(`/league/${leagueId}/matches/${matchId}`, { method: 'DELETE' })
+      onRefresh()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '삭제 실패')
+    }
+  }
+
   // 라운드별 그룹핑
   const rounds = Array.from(new Set(matches.map(m => m.round ?? ''))).filter(Boolean)
   const ungrouped = matches.filter(m => !m.round)
@@ -656,14 +705,14 @@ function MatchesSection({ leagueId, matches, onRefresh, isLeader, leagueStatus }
               <div className="space-y-3">
                 {matches.filter(m => m.round === round).map(m => (
                   <MatchCard key={m.id} match={m} isLeader={isLeader} leagueStatus={leagueStatus}
-                    scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} />
+                    scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} onDelete={() => deleteMatch(m.id)} />
                 ))}
               </div>
             </div>
           ))}
           {ungrouped.length > 0 && ungrouped.map(m => (
             <MatchCard key={m.id} match={m} isLeader={isLeader} leagueStatus={leagueStatus}
-              scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} />
+              scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} onDelete={() => deleteMatch(m.id)} />
           ))}
         </div>
       )}
@@ -671,13 +720,14 @@ function MatchesSection({ leagueId, matches, onRefresh, isLeader, leagueStatus }
   )
 }
 
-function MatchCard({ match: m, isLeader, leagueStatus, scores, setScores, onSave }: {
+function MatchCard({ match: m, isLeader, leagueStatus, scores, setScores, onSave, onDelete }: {
   match: LeagueMatch
   isLeader: boolean
   leagueStatus: string
   scores: Record<string, { home: string; away: string }>
   setScores: React.Dispatch<React.SetStateAction<Record<string, { home: string; away: string }>>>
   onSave: () => void
+  onDelete: () => void
 }) {
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -689,7 +739,16 @@ function MatchCard({ match: m, isLeader, leagueStatus, scores, setScores, onSave
             : <span className="text-slate-300">vs</span>}
           <span className="text-slate-900">{m.awayTeamId}</span>
         </div>
-        <StatusBadge status={m.status} />
+        <div className="flex items-center gap-2">
+          <StatusBadge status={m.status} />
+          {isLeader && leagueStatus !== 'finished' && m.status !== 'completed' && (
+            <button onClick={onDelete} className="text-slate-400 hover:text-red-500 transition-colors" title="경기 삭제">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
       <div className="mt-2 text-xs text-slate-400">{new Date(m.scheduledAt).toLocaleString('ko-KR')} · {m.venue}</div>
 

@@ -218,6 +218,18 @@ export default function TeamPage() {
     } catch { alert("멤버 수정에 실패했습니다"); }
   }
 
+  // 멤버 삭제 (Manage API)
+  async function deleteMemberAPI(userId: string) {
+    if (!currentTeam) return;
+    if (!confirm('이 멤버를 팀에서 제거하시겠습니까?')) return;
+    try {
+      await manageFetch(`/team/${currentTeam.id}/members/${userId}`, { method: 'DELETE' });
+      setMembers(prev => prev.filter(m => m.userId !== userId));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '멤버 삭제에 실패했습니다');
+    }
+  }
+
   // 초대 링크 (Manage API)
   async function openInvite() {
     if (!currentTeam) return;
@@ -380,6 +392,7 @@ export default function TeamPage() {
       completeActivityAPI={completeActivityAPI}
       router={router}
       loadingMembers={loadingMembers}
+      deleteMemberAPI={deleteMemberAPI}
     />
   </>);
 }
@@ -409,6 +422,7 @@ function TeamPageContent({
   activities = [], activityForm = { date: "", venue: "" }, setActivityForm = () => {},
   createActivityAPI, joinActivityAPI, completeActivityAPI,
   router = null, loadingMembers = false,
+  deleteMemberAPI = () => {},
 }: any) {
   if (!club) {
     return (
@@ -528,6 +542,14 @@ function TeamPageContent({
                     className="text-gray-500 hover:text-fuchsia-400 transition-colors shrink-0"
                   >
                     <Pencil size={11} />
+                  </button>
+                )}
+                {memberEditing && !isDemo && isLeaderUser && !isLeaderMember && currentUser?.username !== m.userId && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteMemberAPI(m.userId); }}
+                    className="text-gray-600 hover:text-red-400 transition-colors shrink-0"
+                  >
+                    <X size={11} />
                   </button>
                 )}
               </div>

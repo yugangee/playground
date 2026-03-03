@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Wallet, TrendingDown, Plus, X, Bot } from "lucide-react";
+import { Wallet, TrendingDown, Plus, X, Bot, Trash2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { manageFetch } from "@/lib/manageFetch";
 import Link from "next/link";
@@ -29,6 +29,7 @@ export default function FinancePage() {
   const [selMonth, setSelMonth] = useState(new Date().toISOString().slice(0, 7));
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ category: "", amount: "", memo: "" });
+  const [isLeaderUser, setIsLeaderUser] = useState(false);
 
   const loadDues = async (tid: string) => {
     const data = await manageFetch(`/finance/dues?teamId=${tid}`).catch(() => []);
@@ -43,6 +44,7 @@ export default function FinancePage() {
         if (!teams?.length) return;
         const team = teams[0];
         setTeamId(team.id);
+        setIsLeaderUser(team.leaderId === user?.username);
         const [teamMembers, teamDues, teamTxns] = await Promise.all([
           manageFetch(`/team/${team.id}/members`).catch(() => []),
           manageFetch(`/finance/dues?teamId=${team.id}`).catch(() => []),
@@ -127,6 +129,26 @@ export default function FinancePage() {
       await loadDues(teamId);
     } catch (e) {
       alert(e instanceof Error ? e.message : "처리 실패");
+    }
+  };
+
+  const deleteExpense = async (id: string) => {
+    if (!teamId || !confirm('이 지출 항목을 삭제하시겠습니까?')) return;
+    try {
+      await manageFetch(`/finance/transactions/${id}`, { method: 'DELETE' });
+      setTransactions((p) => p.filter((t) => t.id !== id));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '삭제 실패');
+    }
+  };
+
+  const deleteDue = async (dueId: string) => {
+    if (!teamId || !confirm('이 회비 기록을 삭제하시겠습니까?')) return;
+    try {
+      await manageFetch(`/finance/dues/${dueId}`, { method: 'DELETE' });
+      setDuesList((p) => p.filter((d) => d.id !== dueId));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '삭제 실패');
     }
   };
 
@@ -272,21 +294,30 @@ export default function FinancePage() {
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   {paidList.map((m) => (
-                    <button
+                    <div
                       key={m.userId}
-                      onClick={() => togglePaid(m)}
-                      disabled={m.paid}
-                      className="flex items-center justify-between px-3 py-2 rounded-lg transition-colors disabled:cursor-default"
+                      className="flex items-center justify-between px-3 py-2 rounded-lg"
                       style={{
                         background: m.paid ? "rgba(192,38,211,0.1)" : "var(--chip-inactive-bg)",
                         border: `1px solid ${m.paid ? "rgba(192,38,211,0.3)" : "var(--chip-inactive-border)"}`,
                       }}
                     >
-                      <span className="text-sm text-white font-mono text-xs">{m.userId.slice(0, 10)}…</span>
-                      <span className={`text-xs font-semibold ${m.paid ? "text-fuchsia-400" : "text-gray-600"}`}>
-                        {m.paid ? "납부" : "미납"}
-                      </span>
-                    </button>
+                      <button
+                        onClick={() => togglePaid(m)}
+                        disabled={m.paid}
+                        className="flex-1 flex items-center justify-between transition-colors disabled:cursor-default"
+                      >
+                        <span className="text-sm text-white font-mono text-xs">{m.userId.slice(0, 10)}…</span>
+                        <span className={`text-xs font-semibold ${m.paid ? "text-fuchsia-400" : "text-gray-600"}`}>
+                          {m.paid ? "납부" : "미납"}
+                        </span>
+                      </button>
+                      {isLeaderUser && m.dueId && (
+                        <button onClick={() => deleteDue(m.dueId!)} className="ml-2 text-gray-600 hover:text-red-400 transition-colors">
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
@@ -329,7 +360,14 @@ export default function FinancePage() {
                         <span className={`text-xs px-2 py-0.5 rounded font-semibold ${categoryColors[e.category] ?? categoryColors["기타"]}`}>{e.category}</span>
                         <span className="text-gray-400 text-xs">{e.memo}</span>
                       </div>
-                      <span className="text-white text-sm font-semibold">{e.amount.toLocaleString()}원</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-white text-sm font-semibold">{e.amount.toLocaleString()}원</span>
+                        {isLeaderUser && (
+                          <button onClick={() => deleteExpense(e.id)} className="text-gray-600 hover:text-red-400 transition-colors">
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}

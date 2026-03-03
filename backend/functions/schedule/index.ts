@@ -6,7 +6,7 @@ function getUserId(event: APIGatewayProxyEvent): string | undefined {
   return undefined
 }
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand, GetCommand } from '@aws-sdk/lib-dynamodb'
+import { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand, GetCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb'
 import { randomUUID } from 'crypto'
 
 const db = DynamoDBDocumentClient.from(new DynamoDBClient({}))
@@ -93,6 +93,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return res(200, { message: 'updated', captainRoomId: body.captainRoomId })
     }
 
+    // DELETE /schedule/matches/:id
+    if (method === 'DELETE' && parts[0] === 'matches' && parts[1]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      await db.send(new DeleteCommand({ TableName: MATCHES, Key: { id: parts[1] } }))
+      return res(200, { message: 'deleted' })
+    }
+
     // ── Attendance ───────────────────────────────────────────────────
 
     // GET /schedule/matches/:id/attendance
@@ -136,6 +143,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       const item = { id: randomUUID(), ...body, authorId: userId, createdAt: new Date().toISOString() }
       await db.send(new PutCommand({ TableName: ANNOUNCEMENTS, Item: item }))
       return res(201, item)
+    }
+
+    // DELETE /schedule/announcements/:id
+    if (method === 'DELETE' && parts[0] === 'announcements' && parts[1]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      await db.send(new DeleteCommand({ TableName: ANNOUNCEMENTS, Key: { id: parts[1] } }))
+      return res(200, { message: 'deleted' })
     }
 
     // ── Polls ────────────────────────────────────────────────────────
@@ -216,6 +230,13 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
 
       return res(200, { winnerIdx: winIdx, winnerName, votes: tally })
+    }
+
+    // DELETE /schedule/polls/:id
+    if (method === 'DELETE' && parts[0] === 'polls' && parts[1]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      await db.send(new DeleteCommand({ TableName: POLLS, Key: { id: parts[1] } }))
+      return res(200, { message: 'deleted' })
     }
 
     // ── Player Performance (M4 DynamoDB) ─────────────────────────────
