@@ -13,6 +13,7 @@ import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useTeam } from "@/context/TeamContext";
+import { startEC2IfNeeded } from "@/lib/ensureEC2";
 
 const generalNavItems = [
   { href: "/clubs",          label: "클럽 탐색",        icon: Shield },
@@ -153,10 +154,19 @@ export default function Sidebar() {
         {navItems.map(({ href, label, icon: Icon, ...rest }) => {
           const highlight = (rest as { highlight?: boolean }).highlight;
           const active = pathname === href || (href !== "/league" && pathname.startsWith(href));
+          
+          // AI 영상분석 메뉴 클릭 시 EC2 인스턴스 시작
+          const handleClick = (e: React.MouseEvent) => {
+            if (href === "/video") {
+              startEC2IfNeeded();
+            }
+          };
+          
           return (
             <Link
               key={href}
               href={href}
+              onClick={handleClick}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active
                   ? "text-white bg-gradient-to-r from-fuchsia-600/20 to-violet-600/20 border border-fuchsia-500/30"
                   : highlight

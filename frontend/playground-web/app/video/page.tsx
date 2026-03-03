@@ -53,6 +53,8 @@ export default function VideoPage() {
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [progressMessage, setProgressMessage] = useState<string>("");
   const [progressPercent, setProgressPercent] = useState<number>(0);
+  const [currentFrame, setCurrentFrame] = useState<number>(0);
+  const [totalFrames, setTotalFrames] = useState<number>(0);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const sampleResult = {
@@ -90,6 +92,8 @@ export default function VideoPage() {
       setAbortController(null);
       setProgressMessage("");
       setProgressPercent(0);
+      setCurrentFrame(0);
+      setTotalFrames(0);
       setError("분석이 중지되었습니다");
     }
   }
@@ -106,10 +110,23 @@ export default function VideoPage() {
     setError(null);
     setProgressMessage("");
     setProgressPercent(0);
+    setCurrentFrame(0);
+    setTotalFrames(0);
     const controller = new AbortController();
     setAbortController(controller);
+    
     try {
+      // EC2 인스턴스 확인 및 시작
       setStatus("uploading");
+      setProgressMessage("서버 준비중...");
+      setProgressPercent(3);
+      
+      const { ensureEC2Running } = await import("@/lib/ensureEC2");
+      const ec2Ready = await ensureEC2Running();
+      if (!ec2Ready) {
+        console.warn("[EC2] Instance may not be ready, but continuing...");
+      }
+      
       setProgressMessage("영상 업로드 준비중...");
       setProgressPercent(5);
       const presignRes = await fetch(`${API_URL}/api/presigned-upload-url?filename=${encodeURIComponent(file.name)}`);
@@ -120,10 +137,10 @@ export default function VideoPage() {
       const uploadRes = await fetch(upload_url, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
       if (!uploadRes.ok) throw new Error(`S3 업로드 실패 (${uploadRes.status})`);
       setProgressMessage("영상 업로드 완료");
-      setProgressPercent(20);
+      setProgressPercent(25);
       setStatus("analyzing");
       setProgressMessage("AI 분석 시작...");
-      setProgressPercent(25);
+      // 백엔드 진행률은 25%부터 시작하도록 오프셋 설정하지 않음 (백엔드에서 조정)
       setEstimatedTime(0);
       const analyzeStart = Date.now();
       const analyzeRes = await fetch(`${API_URL}/api/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ video_s3_key: s3_key }) });
@@ -136,22 +153,6 @@ export default function VideoPage() {
         await new Promise(r => setTimeout(r, pollInterval)); elapsed += pollInterval;
         setEstimatedTime(Math.floor((Date.now() - analyzeStart) / 1000));
         
-        // 진행 상태 메시지 업데이트 (시간 기반 추정)
-        const seconds = Math.floor((Date.now() - analyzeStart) / 1000);
-        if (seconds < 30) {
-          setProgressMessage("선수 추적중...");
-          setProgressPercent(30 + Math.floor(seconds / 30 * 20));
-        } else if (seconds < 60) {
-          setProgressMessage("이벤트 감지중...");
-          setProgressPercent(50 + Math.floor((seconds - 30) / 30 * 15));
-        } else if (seconds < 90) {
-          setProgressMessage("팀 분석중...");
-          setProgressPercent(65 + Math.floor((seconds - 60) / 30 * 15));
-        } else {
-          setProgressMessage("최종 처리중...");
-          setProgressPercent(Math.min(95, 80 + Math.floor((seconds - 90) / 30 * 5)));
-        }
-        
         const statusRes = await fetch(`${API_URL}/api/status/${jobId}`);
         if (!statusRes.ok) {
           // 504 등의 에러는 무시하고 계속 polling
@@ -159,6 +160,20 @@ export default function VideoPage() {
           continue;
         }
         const statusData = await statusRes.json();
+        
+        // 백엔드에서 받은 실제 진행률 업데이트
+        if (statusData.progress_percent !== undefined) {
+          setProgressPercent(statusData.progress_percent);
+        }
+        if (statusData.progress_stage) {
+          setProgressMessage(statusData.progress_stage);
+        }
+        if (statusData.current_frame !== undefined) {
+          setCurrentFrame(statusData.current_frame);
+        }
+        if (statusData.total_frames !== undefined) {
+          setTotalFrames(statusData.total_frames);
+        }
         
         // 분석 중에도 중계 데이터 업데이트
         if (statusData.partial_subtitles && statusData.partial_subtitles.length > 0) {
@@ -233,12 +248,29 @@ export default function VideoPage() {
     const items: TItem[] = [];
     // 분석 중이거나 완료된 경우 모두 표시
     if (done || (status === "analyzing" && result)) { 
-      uniqueSubtitles.forEach((text, i) => {
-        const seconds = i * 5;
-        const minutes = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        const timeStr = `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-        items.push({ frame: i * 120, kind: "subtitle", text, time: timeStr });
+      uniqueSubtitles.forEach((subtitle: any, i: number) => {
+        // subtitle이 객체인 경우 (새 형식)
+        if (typeof subtitle === 'object' && subtitle.time !== undefined) {
+          const seconds = subtitle.time;
+          const minutes = Math.floor(seconds / 60);
+          const secs = Math.floor(seconds % 60);
+          const timeStr = `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+          items.push({ 
+            frame: subtitle.frame || i * 48, 
+            kind: "subtitle", 
+            text: subtitle.text, 
+            time: timeStr 
+          });
+        } 
+        // subtitle이 문자열인 경우 (기존 형식 - 하위 호환성)
+        else {
+          const text = typeof subtitle === 'string' ? subtitle : subtitle?.text;
+          const seconds = i * 4; // 96프레임 = 4초 (24fps 기준)
+          const minutes = Math.floor(seconds / 60);
+          const secs = seconds % 60;
+          const timeStr = `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+          items.push({ frame: i * 96, kind: "subtitle", text, time: timeStr });
+        }
       });
     }
     return items;
@@ -297,11 +329,18 @@ export default function VideoPage() {
             <div className="w-full h-2 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-fuchsia-500 to-purple-600 transition-all duration-500" style={{ width: `${progressPercent}%` }} />
             </div>
-            {estimatedTime !== null && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                진행시간: {Math.floor(estimatedTime / 60)}분 {estimatedTime % 60}초
-              </p>
-            )}
+            <div className="flex items-center justify-between mt-2">
+              {estimatedTime !== null && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  진행시간: {Math.floor(estimatedTime / 60)}분 {estimatedTime % 60}초
+                </p>
+              )}
+              {status === "analyzing" && totalFrames > 0 && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  프레임: {currentFrame.toLocaleString()} / {totalFrames.toLocaleString()}
+                </p>
+              )}
+            </div>
           </div>
         )}
         {error && <div className="w-full py-3 rounded-xl text-center text-sm text-red-500 dark:text-red-400 border border-red-200 dark:border-red-400/20 bg-red-50 dark:bg-red-400/5">{error}</div>}
@@ -334,20 +373,26 @@ export default function VideoPage() {
             <div className="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl p-5">
               <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">중계 타임라인</p>
               <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
-                {showSkeleton ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />) : timelineItems.length > 0 ? timelineItems.map((item, i) => (
-                  <button
-                    key={`sub-${i}`}
-                    onClick={() => seekToTime(i * 5)}
-                    className="w-full flex items-start gap-3 p-3 rounded-lg border border-indigo-200 dark:border-indigo-400/20 bg-indigo-50 dark:bg-indigo-400/5 hover:bg-indigo-100 dark:hover:bg-indigo-400/10 transition-colors cursor-pointer text-left"
-                  >
-                    <MessageSquare size={16} className="mt-0.5 shrink-0 text-indigo-500 dark:text-indigo-400" />
-                    <div className="min-w-0">
-                      <span className="text-xs font-semibold text-indigo-500 dark:text-indigo-400">AI 중계</span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">{item.time}</span>
-                      <p className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 break-words">{item.text}</p>
-                    </div>
-                  </button>
-                )) : <p className="text-sm text-gray-400 dark:text-gray-600">분석 후 타임라인이 표시됩니다</p>}
+                {showSkeleton ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />) : timelineItems.length > 0 ? timelineItems.map((item, i) => {
+                  // item.time을 초로 변환 (MM:SS 형식)
+                  const [minutes, seconds] = (item.time || "0:0").split(':').map(Number);
+                  const totalSeconds = minutes * 60 + seconds;
+                  
+                  return (
+                    <button
+                      key={`sub-${i}`}
+                      onClick={() => seekToTime(totalSeconds)}
+                      className="w-full flex items-start gap-3 p-3 rounded-lg border border-indigo-200 dark:border-indigo-400/20 bg-indigo-50 dark:bg-indigo-400/5 hover:bg-indigo-100 dark:hover:bg-indigo-400/10 transition-colors cursor-pointer text-left"
+                    >
+                      <MessageSquare size={16} className="mt-0.5 shrink-0 text-indigo-500 dark:text-indigo-400" />
+                      <div className="min-w-0">
+                        <span className="text-xs font-semibold text-indigo-500 dark:text-indigo-400">AI 중계</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">{item.time}</span>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 break-words">{item.text}</p>
+                      </div>
+                    </button>
+                  );
+                }) : <p className="text-sm text-gray-400 dark:text-gray-600">분석 후 타임라인이 표시됩니다</p>}
               </div>
             </div>
 
