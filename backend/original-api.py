@@ -28,7 +28,12 @@ from typing import List, Optional
 coaching_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def generate_coaching(subtitle_data, event_data, ball_control, my_team=None):
-    commentary_text = "\n".join([s for s in subtitle_data if s and s.strip()])
+    # subtitle_data가 딕셔너리 리스트인 경우 text 추출
+    if subtitle_data and isinstance(subtitle_data[0], dict):
+        commentary_text = "\n".join([s.get('text', '') for s in subtitle_data if s.get('text', '').strip()])
+    else:
+        commentary_text = "\n".join([s for s in subtitle_data if s and s.strip()])
+    
     events_text = "\n".join([e for e in event_data if e and e.strip()])
     ball_info = f"팀1 점유율: {ball_control.get('team1', 0)}%, 팀2 점유율: {ball_control.get('team2', 0)}%"
 
@@ -146,7 +151,7 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
         jobs[job_id]["total_frames"] = total_frames
         jobs[job_id]["current_frame"] = 0
         jobs[job_id]["progress_percent"] = 0
-        jobs[job_id]["progress_stage"] = "초기화"
+        jobs[job_id]["progress_stage"] = "영상 로딩중"
 
     # 480p 리사이즈로 YOLO 처리 속도 향상
     import cv2
@@ -472,7 +477,7 @@ async def get_job_status(job_id: str):
             "message": "분석 진행 중...",
             "partial_subtitles": partial_subtitles,
             "progress_percent": job.get("progress_percent", 0),
-            "progress_stage": job.get("progress_stage", "대기중"),
+            "progress_stage": job.get("progress_stage", "분석 준비중"),
             "current_frame": job.get("current_frame", 0),
             "total_frames": job.get("total_frames", 0),
         }
