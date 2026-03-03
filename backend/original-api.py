@@ -289,6 +289,8 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
             speed = 0
 
         if frame_num % 48 == 0:
+            # 24fps 기준으로 시간 계산 (48프레임 = 2초)
+            seconds = frame_num / 24
             query = (
                 f"프레임 {frame_num}에서, "
                 f"플레이어 {assigned_player}은(는) 속도 {speed:.2f}로 이동 중이며, "
@@ -299,7 +301,15 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
             )
 
             subtitle_text = generate_commentary(query, vector_store_path)
-            subtitle_data.append(subtitle_text)
+            subtitle_data.append({
+                "frame": frame_num,
+                "time": seconds,
+                "text": subtitle_text
+            })
+            
+            # 실시간으로 jobs에 추가
+            if job_id and job_id in jobs:
+                jobs[job_id]["partial_subtitles"] = subtitle_data.copy()
 
         previous_player_with_ball = assigned_player
         previous_team_with_ball = current_team_with_ball

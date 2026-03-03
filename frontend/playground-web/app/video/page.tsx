@@ -247,12 +247,29 @@ export default function VideoPage() {
     const items: TItem[] = [];
     // 분석 중이거나 완료된 경우 모두 표시
     if (done || (status === "analyzing" && result)) { 
-      uniqueSubtitles.forEach((text, i) => {
-        const seconds = i * 5;
-        const minutes = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        const timeStr = `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-        items.push({ frame: i * 120, kind: "subtitle", text, time: timeStr });
+      uniqueSubtitles.forEach((subtitle: any, i: number) => {
+        // subtitle이 객체인 경우 (새 형식)
+        if (typeof subtitle === 'object' && subtitle.time !== undefined) {
+          const seconds = subtitle.time;
+          const minutes = Math.floor(seconds / 60);
+          const secs = Math.floor(seconds % 60);
+          const timeStr = `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+          items.push({ 
+            frame: subtitle.frame || i * 48, 
+            kind: "subtitle", 
+            text: subtitle.text, 
+            time: timeStr 
+          });
+        } 
+        // subtitle이 문자열인 경우 (기존 형식 - 하위 호환성)
+        else {
+          const text = typeof subtitle === 'string' ? subtitle : subtitle?.text;
+          const seconds = i * 2; // 48프레임 = 2초 (24fps 기준)
+          const minutes = Math.floor(seconds / 60);
+          const secs = seconds % 60;
+          const timeStr = `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+          items.push({ frame: i * 48, kind: "subtitle", text, time: timeStr });
+        }
       });
     }
     return items;
@@ -355,20 +372,26 @@ export default function VideoPage() {
             <div className="bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl p-5">
               <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">중계 타임라인</p>
               <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
-                {showSkeleton ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />) : timelineItems.length > 0 ? timelineItems.map((item, i) => (
-                  <button
-                    key={`sub-${i}`}
-                    onClick={() => seekToTime(i * 5)}
-                    className="w-full flex items-start gap-3 p-3 rounded-lg border border-indigo-200 dark:border-indigo-400/20 bg-indigo-50 dark:bg-indigo-400/5 hover:bg-indigo-100 dark:hover:bg-indigo-400/10 transition-colors cursor-pointer text-left"
-                  >
-                    <MessageSquare size={16} className="mt-0.5 shrink-0 text-indigo-500 dark:text-indigo-400" />
-                    <div className="min-w-0">
-                      <span className="text-xs font-semibold text-indigo-500 dark:text-indigo-400">AI 중계</span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">{item.time}</span>
-                      <p className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 break-words">{item.text}</p>
-                    </div>
-                  </button>
-                )) : <p className="text-sm text-gray-400 dark:text-gray-600">분석 후 타임라인이 표시됩니다</p>}
+                {showSkeleton ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />) : timelineItems.length > 0 ? timelineItems.map((item, i) => {
+                  // item.time을 초로 변환 (MM:SS 형식)
+                  const [minutes, seconds] = (item.time || "0:0").split(':').map(Number);
+                  const totalSeconds = minutes * 60 + seconds;
+                  
+                  return (
+                    <button
+                      key={`sub-${i}`}
+                      onClick={() => seekToTime(totalSeconds)}
+                      className="w-full flex items-start gap-3 p-3 rounded-lg border border-indigo-200 dark:border-indigo-400/20 bg-indigo-50 dark:bg-indigo-400/5 hover:bg-indigo-100 dark:hover:bg-indigo-400/10 transition-colors cursor-pointer text-left"
+                    >
+                      <MessageSquare size={16} className="mt-0.5 shrink-0 text-indigo-500 dark:text-indigo-400" />
+                      <div className="min-w-0">
+                        <span className="text-xs font-semibold text-indigo-500 dark:text-indigo-400">AI 중계</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">{item.time}</span>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 break-words">{item.text}</p>
+                      </div>
+                    </button>
+                  );
+                }) : <p className="text-sm text-gray-400 dark:text-gray-600">분석 후 타임라인이 표시됩니다</p>}
               </div>
             </div>
 
