@@ -476,7 +476,7 @@ async def get_job_status(job_id: str):
             "status": job["status"],
             "message": "분석 진행 중...",
             "partial_subtitles": partial_subtitles,
-            "progress_percent": job.get("progress_percent", 0),
+            "progress_percent": job.get("progress_percent", 25),
             "progress_stage": job.get("progress_stage", "분석 준비중"),
             "current_frame": job.get("current_frame", 0),
             "total_frames": job.get("total_frames", 0),
