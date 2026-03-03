@@ -92,8 +92,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
       if (parts[0] === 'teams' || parts.length === 0) {
         const { recruiting } = event.queryStringParameters ?? {}
+        const limit = Math.min(parseInt(event.queryStringParameters?.limit ?? '100', 10), 200)
         const [teamsResult, recruitResult] = await Promise.all([
-          db.send(new ScanCommand({ TableName: TEAMS })),
+          db.send(new ScanCommand({ TableName: TEAMS, Limit: limit })),
           db.send(new ScanCommand({
             TableName: RECRUITMENT,
             FilterExpression: 'isOpen = :t',
@@ -111,7 +112,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
 
       if (parts[0] === 'leagues') {
-        const result = await db.send(new ScanCommand({ TableName: LEAGUES }))
+        const limit = Math.min(parseInt(event.queryStringParameters?.limit ?? '100', 10), 200)
+        const result = await db.send(new ScanCommand({ TableName: LEAGUES, Limit: limit }))
         let items = (result.Items ?? []).filter(l => l.isPublic === 'true')
         if (region) items = items.filter(l => l.region?.includes(region))
         if (type) items = items.filter(l => l.type === type)

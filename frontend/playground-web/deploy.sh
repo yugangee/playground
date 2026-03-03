@@ -12,6 +12,11 @@ echo ""
 echo "📦 Next.js 빌드 중..."
 npm run build
 
+# E-2: SW 캐시 버전에 git 커밋 해시 주입 (out/sw.js만 수정, public/sw.js 유지)
+GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "local")
+sed -i '' "s/playground-v[a-zA-Z0-9._-]*/playground-${GIT_HASH}/" out/sw.js
+echo "🔖 SW 캐시 버전: playground-${GIT_HASH}"
+
 echo ""
 echo "☁️  S3에 업로드 중..."
 echo "⚠️  uploads/ 폴더는 제외됩니다 (사용자 업로드 파일 보호)"

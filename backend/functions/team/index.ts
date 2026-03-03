@@ -24,6 +24,14 @@ const res = (statusCode: number, body: unknown) => ({
   body: JSON.stringify(body),
 })
 
+function parseBody(raw: string | null): Record<string, unknown> | null {
+  try {
+    return JSON.parse(raw ?? '{}')
+  } catch {
+    return null
+  }
+}
+
 export const handler: APIGatewayProxyHandler = async (event) => {
   const method = event.httpMethod
   const parts = event.path.replace(/^\/team\/?/, '').split('/').filter(Boolean)
@@ -51,7 +59,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // POST /team
     if (method === 'POST' && parts.length === 0) {
       if (!userId) return res(401, { message: 'Unauthorized' })
-      const body = JSON.parse(event.body ?? '{}')
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
+      if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
+        return res(400, { message: '팀 이름(name)은 필수입니다' })
+      }
       const team = {
         id: randomUUID(),
         ...body,
@@ -116,7 +128,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /team/:id/members
     if (method === 'POST' && parts[1] === 'members') {
-      const body = JSON.parse(event.body ?? '{}')
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
+      if (!body.userId || typeof body.userId !== 'string') {
+        return res(400, { message: '멤버 userId는 필수입니다' })
+      }
       const member = {
         teamId,
         userId: body.userId,
@@ -131,7 +148,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // PATCH /team/:id/members/:userId
     if (method === 'PATCH' && parts[1] === 'members' && parts[2]) {
-      const body = JSON.parse(event.body ?? '{}')
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
       const updates = Object.entries(body).filter(([k]) => k !== 'teamId' && k !== 'userId')
       if (updates.length === 0) return res(400, { message: 'No fields to update' })
 
@@ -151,6 +170,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /team/:id/invite
     if (method === 'POST' && parts[1] === 'invite') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const token = randomUUID()
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       await db.send(new PutCommand({
@@ -175,7 +195,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // PATCH /team/:id/stats/:userId
     if (method === 'PATCH' && parts[1] === 'stats' && parts[2]) {
-      const body = JSON.parse(event.body ?? '{}')
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
       const updates = Object.entries(body).filter(([k]) => k !== 'teamId' && k !== 'userId')
       if (updates.length === 0) return res(400, { message: 'No fields to update' })
       const expr = 'SET ' + updates.map(([k], i) => `#f${i} = :v${i}`).join(', ')
@@ -205,7 +226,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /team/:id/uniforms
     if (method === 'POST' && parts[1] === 'uniforms') {
-      const body = JSON.parse(event.body ?? '{}')
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
       const item = { teamId, ...body, updatedAt: new Date().toISOString() }
       await db.send(new PutCommand({ TableName: UNIFORMS, Item: item }))
       return res(201, item)
@@ -213,7 +235,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // PATCH /team/:id/uniforms/:userId
     if (method === 'PATCH' && parts[1] === 'uniforms' && parts[2]) {
-      const body = JSON.parse(event.body ?? '{}')
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
       const updates = Object.entries(body).filter(([k]) => k !== 'teamId' && k !== 'userId')
       if (updates.length === 0) return res(400, { message: 'No fields to update' })
       const expr = 'SET ' + updates.map(([k], i) => `#f${i} = :v${i}`).join(', ')
@@ -244,7 +267,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /team/:id/equipment
     if (method === 'POST' && parts[1] === 'equipment') {
-      const body = JSON.parse(event.body ?? '{}')
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
       const item = { id: randomUUID(), teamId, ...body, createdAt: new Date().toISOString() }
       await db.send(new PutCommand({ TableName: EQUIPMENT, Item: item }))
       return res(201, item)
@@ -252,7 +276,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // PATCH /team/:id/equipment/:equipId
     if (method === 'PATCH' && parts[1] === 'equipment' && parts[2]) {
-      const body = JSON.parse(event.body ?? '{}')
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
       const updates = Object.entries(body).filter(([k]) => k !== 'id')
       if (updates.length === 0) return res(400, { message: 'No fields to update' })
       const expr = 'SET ' + updates.map(([k], i) => `#f${i} = :v${i}`).join(', ')
@@ -289,7 +314,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /team/:id/recruitment
     if (method === 'POST' && parts[1] === 'recruitment') {
-      const body = JSON.parse(event.body ?? '{}')
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
       const item = { id: randomUUID(), teamId, ...body, isOpen: true, createdAt: new Date().toISOString() }
       await db.send(new PutCommand({ TableName: RECRUITMENT, Item: item }))
       return res(201, item)
@@ -297,7 +323,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // PATCH /team/:id/recruitment/:recruitId
     if (method === 'PATCH' && parts[1] === 'recruitment' && parts[2]) {
-      const body = JSON.parse(event.body ?? '{}')
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
       const updates = Object.entries(body).filter(([k]) => k !== 'id')
       if (updates.length === 0) return res(400, { message: 'No fields to update' })
       const expr = 'SET ' + updates.map(([k], i) => `#f${i} = :v${i}`).join(', ')

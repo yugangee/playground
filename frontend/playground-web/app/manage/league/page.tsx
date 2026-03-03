@@ -34,7 +34,12 @@ function firstRoundName(n: number): string {
 }
 
 function generateTournamentPairs(teamIds: string[]) {
-  const shuffled = [...teamIds].sort(() => Math.random() - 0.5)
+  // Fisher-Yates shuffle (unbiased)
+  const shuffled = [...teamIds]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
   const rName = firstRoundName(shuffled.length)
   const pairs: Array<{ homeTeamId: string; awayTeamId: string; round: string }> = []
   for (let i = 0; i + 1 < shuffled.length; i += 2) {
@@ -44,13 +49,23 @@ function generateTournamentPairs(teamIds: string[]) {
 }
 
 function generateRoundRobin(teamIds: string[]) {
+  // Circle algorithm: N teams → N-1 rounds, each round has N/2 matches
+  const teams = [...teamIds]
+  if (teams.length % 2 !== 0) teams.push('BYE') // odd: add dummy bye
+  const N = teams.length
   const pairs: Array<{ homeTeamId: string; awayTeamId: string; round: string }> = []
-  let roundNum = 1
-  for (let i = 0; i < teamIds.length; i++) {
-    for (let j = i + 1; j < teamIds.length; j++) {
-      pairs.push({ homeTeamId: teamIds[i], awayTeamId: teamIds[j], round: `${roundNum}라운드` })
-      roundNum++
+
+  for (let round = 0; round < N - 1; round++) {
+    for (let i = 0; i < N / 2; i++) {
+      const home = teams[i]
+      const away = teams[N - 1 - i]
+      if (home !== 'BYE' && away !== 'BYE') {
+        pairs.push({ homeTeamId: home, awayTeamId: away, round: `${round + 1}라운드` })
+      }
     }
+    // Rotate: keep teams[0] fixed, rotate the rest
+    const last = teams.splice(N - 1, 1)[0]
+    teams.splice(1, 0, last)
   }
   return pairs
 }

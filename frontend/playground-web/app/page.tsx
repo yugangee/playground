@@ -247,7 +247,13 @@ function getGreeting() {
 
 function LoggedInHome({ name, recentTeams: initialRecent, topMatchTeams: initialTop }: { name: string; recentTeams: any[]; topMatchTeams: any[] }) {
   const [sport, setSport] = useState<string>(() => {
-    try { return localStorage.getItem("pg_sport") ?? "전체"; } catch { return "전체"; }
+    try {
+      if (typeof window !== 'undefined') {
+        const fromUrl = new URLSearchParams(window.location.search).get('sport');
+        if (fromUrl && SPORTS.includes(fromUrl)) return fromUrl;
+      }
+      return localStorage.getItem("pg_sport") ?? "전체";
+    } catch { return "전체"; }
   });
   const [recentTeams, setRecentTeams] = useState(initialRecent);
   const [topMatchTeams, setTopMatchTeams] = useState(initialTop);
@@ -258,6 +264,11 @@ function LoggedInHome({ name, recentTeams: initialRecent, topMatchTeams: initial
 
   const handleSport = useCallback(async (s: string) => {
     if (s === sportRef.current) return;
+    // Update URL query param
+    if (typeof window !== 'undefined') {
+      const url = s === "전체" ? window.location.pathname : `${window.location.pathname}?sport=${encodeURIComponent(s)}`;
+      window.history.replaceState(null, '', url);
+    }
     // fade out
     setVisible(false);
     setFilterLoading(true);

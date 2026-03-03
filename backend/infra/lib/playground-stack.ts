@@ -226,6 +226,11 @@ export class PlaygroundStack extends cdk.Stack {
       indexName: 'leagueId-index',
       partitionKey: { name: 'leagueId', type: dynamodb.AttributeType.STRING },
     })
+    // F-8: teamId로 참가 리그 역방향 조회
+    tables.leagueTeams.addGlobalSecondaryIndex({
+      indexName: 'teamId-index',
+      partitionKey: { name: 'teamId', type: dynamodb.AttributeType.STRING },
+    })
 
     // GSI for teamId-based queries
     tables.announcements.addGlobalSecondaryIndex({
@@ -318,6 +323,7 @@ export class PlaygroundStack extends cdk.Stack {
 
     const lambdaDefaults = {
       runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64, // E-4: Graviton2 — 콜드스타트 ~15% 감소, 비용 ~20% 절감
       environment: commonEnv,
       bundling: {
         forceDockerBundling: false, // Docker 없이 로컬 esbuild 사용

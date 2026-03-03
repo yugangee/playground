@@ -25,19 +25,36 @@ async function doFetch(path: string, options: RequestInit = {}): Promise<Respons
 export async function manageFetch(path: string, options: RequestInit = {}) {
   let res = await doFetch(path, options);
 
-  // 401이면 토큰 갱신 후 1회 재시도
+  // 401 처리: 토큰이 있었으면 갱신 시도, 없었으면 단순 에러
   if (res.status === 401) {
-    const refreshed = await tryRefreshTokens();
-    if (refreshed) {
-      res = await doFetch(path, options);
+    const hadToken = getToken() !== null;
+    if (hadToken) {
+      const refreshed = await tryRefreshTokens();
+      if (refreshed) {
+        res = await doFetch(path, options);
+      } else {
+        clearTokens();
+        if (typeof window !== "undefined") window.location.href = "/login";
+        throw new Error("세션이 만료되었습니다. 다시 로그인해 주세요.");
+      }
     } else {
-      clearTokens();
-      if (typeof window !== "undefined") window.location.href = "/login";
-      throw new Error("세션이 만료되었습니다. 다시 로그인해 주세요.");
+      throw new Error("로그인이 필요합니다.");
     }
   }
 
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const text = await res.text();
+    let message = text;
+    try {
+      const json = JSON.parse(text);
+      message = json.message || json.error || text;
+    } catch {
+      if (text.includes('<html') || text.includes('<!DOCTYPE')) {
+        message = `서버 오류 (${res.status})`;
+      }
+    }
+    throw new Error(message);
+  }
   if (res.status === 204) return null;
   return res.json();
 }

@@ -6,7 +6,7 @@ function getUserId(event: APIGatewayProxyEvent): string | undefined {
   return undefined
 }
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand, ScanCommand } from '@aws-sdk/lib-dynamodb'
+import { DynamoDBDocumentClient, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
 import { randomUUID } from 'crypto'
 
 const db = DynamoDBDocumentClient.from(new DynamoDBClient({}))
