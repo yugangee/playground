@@ -7,7 +7,23 @@ import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import RatingBadge from "@/components/RatingBadge";
 import { useRouter } from "next/navigation";
-import { manageFetch } from "@/lib/manageFetch";
+
+// Auth API 전용 fetch — /clubs, /matches, /activities, /club-members 등
+const AUTH_API = process.env.NEXT_PUBLIC_API_URL;
+async function authFetch(path: string, options: RequestInit = {}) {
+  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+  const res = await fetch(`${AUTH_API}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers as Record<string, string> ?? {}),
+    },
+  });
+  if (!res.ok) throw new Error(await res.text());
+  if (res.status === 204) return null;
+  return res.json();
+}
 
 const COMPETITIVE_SPORTS = ["축구", "풋살", "농구", "야구", "배구", "아이스하키"];
 const CASUAL_SPORTS = ["러닝크루", "스노보드", "배드민턴"];
@@ -65,8 +81,8 @@ export default function TeamPage() {
     if (!selectedTeamId) { setClub(null); setMembers([]); setLoadingTeam(false); return; }
     setLoadingTeam(true);
     Promise.all([
-      manageFetch('/clubs'),
-      manageFetch(`/club-members/${selectedTeamId}`),
+      authFetch('/clubs'),
+      authFetch(`/club-members/${selectedTeamId}`),
     ]).then(([clubsData, membersData]) => {
       const allClubsList = clubsData.clubs || [];
       setTeamClubs(allClubsList.filter((c: any) => teamIds.includes(c.clubId)));
@@ -89,9 +105,9 @@ export default function TeamPage() {
 
   useEffect(() => {
     if (!selectedTeamId) return;
-    manageFetch(`/matches?clubId=${selectedTeamId}`).then(d => setMatches(d.matches || [])).catch(() => {});
-    manageFetch(`/activities?clubId=${selectedTeamId}`).then(d => setActivities(d.activities || [])).catch(() => {});
-    manageFetch('/clubs').then(d => setAllClubs(d.clubs || [])).catch(() => {});
+    authFetch(`/matches?clubId=${selectedTeamId}`).then(d => setMatches(d.matches || [])).catch(() => {});
+    authFetch(`/activities?clubId=${selectedTeamId}`).then(d => setActivities(d.activities || [])).catch(() => {});
+    authFetch('/clubs').then(d => setAllClubs(d.clubs || [])).catch(() => {});
   }, [selectedTeamId]);
 
   const clubNameMap: Record<string, string> = {};
@@ -107,13 +123,13 @@ export default function TeamPage() {
 
   async function acceptMatchAPI(matchId: string) {
     try {
-      await manageFetch(`/matches/${matchId}/accept`, { method: "PUT" });
+      await authFetch(`/matches/${matchId}/accept`, { method: "PUT" });
       setMatches(prev => prev.map(m => m.matchId === matchId ? { ...m, status: "scheduled" } : m));
     } catch { alert("수락 실패"); }
   }
   async function declineMatchAPI(matchId: string) {
     try {
-      await manageFetch(`/matches/${matchId}/decline`, { method: "PUT" });
+      await authFetch(`/matches/${matchId}/decline`, { method: "PUT" });
       setMatches(prev => prev.filter(m => m.matchId !== matchId));
     } catch { alert("거절 실패"); }
   }
@@ -123,11 +139,11 @@ export default function TeamPage() {
     const theirScore = parseInt(scoreForm.theirScore);
     if (isNaN(ourScore) || isNaN(theirScore)) { alert("스코어를 입력하세요"); return; }
     try {
-      const data = await manageFetch(`/matches/${scoreModal.matchId}/score`, {
+      const data = await authFetch(`/matches/${scoreModal.matchId}/score`, {
         method: "PUT",
         body: JSON.stringify({ clubId: selectedTeamId, userEmail: user.email, ourScore, theirScore }),
       });
-      manageFetch(`/matches?clubId=${selectedTeamId}`).then(d => setMatches(d.matches || [])).catch(() => {});
+      authFetch(`/matches?clubId=${selectedTeamId}`).then(d => setMatches(d.matches || [])).catch(() => {});
       setScoreModal(null);
       setScoreForm({ ourScore: "", theirScore: "" });
       alert(data.message);
@@ -138,11 +154,11 @@ export default function TeamPage() {
     const goals = Object.entries(goalSelections).filter(([, count]) => count > 0).map(([scorer, count]) => ({ scorer, club: selectedTeamId, count }));
     if (goals.length === 0) { alert("골 기록을 선택하세요"); return; }
     try {
-      await manageFetch(`/matches/${goalModal.matchId}/goals`, {
+      await authFetch(`/matches/${goalModal.matchId}/goals`, {
         method: "PUT",
         body: JSON.stringify({ clubId: selectedTeamId, userEmail: user.email, goals }),
       });
-      manageFetch(`/matches?clubId=${selectedTeamId}`).then(d => setMatches(d.matches || [])).catch(() => {});
+      authFetch(`/matches?clubId=${selectedTeamId}`).then(d => setMatches(d.matches || [])).catch(() => {});
       setGoalModal(null);
       setGoalSelections({});
     } catch { alert("골 기록 추가 실패"); }
@@ -151,39 +167,39 @@ export default function TeamPage() {
     if (!user || !club) return;
     if (!activityForm.date) { alert("날짜를 입력하세요"); return; }
     try {
-      await manageFetch('/activities', {
+      await authFetch('/activities', {
         method: "POST",
         body: JSON.stringify({ clubId: selectedTeamId, sport: club.sport, date: activityForm.date, venue: activityForm.venue, createdBy: user.email }),
       });
-      manageFetch(`/activities?clubId=${selectedTeamId}`).then(d => setActivities(d.activities || [])).catch(() => {});
+      authFetch(`/activities?clubId=${selectedTeamId}`).then(d => setActivities(d.activities || [])).catch(() => {});
       setActivityForm({ date: "", venue: "" });
     } catch { alert("활동 생성 실패"); }
   }
   async function joinActivityAPI(activityId: string) {
     if (!user) return;
     try {
-      await manageFetch(`/activities/${activityId}/join`, {
+      await authFetch(`/activities/${activityId}/join`, {
         method: "PUT",
         body: JSON.stringify({ email: user.email }),
       });
-      manageFetch(`/activities?clubId=${selectedTeamId}`).then(d => setActivities(d.activities || [])).catch(() => {});
+      authFetch(`/activities?clubId=${selectedTeamId}`).then(d => setActivities(d.activities || [])).catch(() => {});
     } catch { alert("참가 실패"); }
   }
   async function completeActivityAPI(activityId: string) {
     if (!user) return;
     try {
-      await manageFetch(`/activities/${activityId}/complete`, {
+      await authFetch(`/activities/${activityId}/complete`, {
         method: "PUT",
         body: JSON.stringify({ email: user.email }),
       });
-      manageFetch(`/activities?clubId=${selectedTeamId}`).then(d => setActivities(d.activities || [])).catch(() => {});
+      authFetch(`/activities?clubId=${selectedTeamId}`).then(d => setActivities(d.activities || [])).catch(() => {});
     } catch { alert("완료 실패"); }
   }
 
   async function saveCaptain(email: string) {
     setCaptainSaving(true);
     try {
-      await manageFetch('/clubs', {
+      await authFetch('/clubs', {
         method: "PUT",
         body: JSON.stringify({ clubId: selectedTeamId, captainEmail: email }),
       });
@@ -199,7 +215,7 @@ export default function TeamPage() {
   async function deleteMember(email: string) {
     if (!confirm("정말 이 멤버를 삭제하시겠습니까?")) return;
     try {
-      await manageFetch('/club-members', {
+      await authFetch('/club-members', {
         method: "DELETE",
         body: JSON.stringify({ clubId: selectedTeamId, email }),
       });
@@ -212,7 +228,7 @@ export default function TeamPage() {
   async function saveEditMember() {
     if (!editingMember) return;
     try {
-      await manageFetch('/club-members', {
+      await authFetch('/club-members', {
         method: "PUT",
         body: JSON.stringify({ clubId: selectedTeamId, email: editingMember.email, name: editForm.name, position: editForm.position }),
       });
@@ -225,7 +241,7 @@ export default function TeamPage() {
 
   async function toggleRecruiting(val: boolean) {
     try {
-      await manageFetch('/clubs', { method: "PUT", body: JSON.stringify({ clubId: selectedTeamId, recruiting: val }) });
+      await authFetch('/clubs', { method: "PUT", body: JSON.stringify({ clubId: selectedTeamId, recruiting: val }) });
       setClub((prev: any) => prev ? { ...prev, recruiting: val } : prev);
     } catch {
       alert("모집 상태 변경에 실패했습니다");

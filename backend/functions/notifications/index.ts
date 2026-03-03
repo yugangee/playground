@@ -123,6 +123,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // GET /social/friends
     if (domain === 'social' && method === 'GET' && parts[0] === 'friends') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const result = await db.send(new QueryCommand({
         TableName: FRIENDS,
         KeyConditionExpression: 'userId = :uid',
@@ -133,6 +134,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /social/friends  { friendId }
     if (domain === 'social' && method === 'POST' && parts[0] === 'friends') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const { friendId } = JSON.parse(event.body ?? '{}')
       const now = new Date().toISOString()
       await Promise.all([
@@ -144,6 +146,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // DELETE /social/friends/:friendId
     if (domain === 'social' && method === 'DELETE' && parts[0] === 'friends' && parts[1]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const friendId = parts[1]
       await Promise.all([
         db.send(new DeleteCommand({ TableName: FRIENDS, Key: { userId, friendId } })),
@@ -156,6 +159,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // GET /social/favorites
     if (domain === 'social' && method === 'GET' && parts[0] === 'favorites') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const result = await db.send(new QueryCommand({
         TableName: FAVORITES,
         KeyConditionExpression: 'userId = :uid',
@@ -166,6 +170,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /social/favorites  { targetId, targetType }
     if (domain === 'social' && method === 'POST' && parts[0] === 'favorites') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const { targetId, targetType } = JSON.parse(event.body ?? '{}')
       await db.send(new PutCommand({ TableName: FAVORITES, Item: { userId, targetId, targetType, createdAt: new Date().toISOString() } }))
       return res(201, { userId, targetId, targetType })
@@ -173,6 +178,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // DELETE /social/favorites/:targetId
     if (domain === 'social' && method === 'DELETE' && parts[0] === 'favorites' && parts[1]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       await db.send(new DeleteCommand({ TableName: FAVORITES, Key: { userId, targetId: parts[1] } }))
       return res(200, { message: 'removed' })
     }
@@ -181,6 +187,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /notifications/push/subscribe — 웹 푸시 구독 저장
     if (domain === 'notifications' && method === 'POST' && parts[0] === 'push' && parts[1] === 'subscribe') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const subscription = JSON.parse(event.body ?? '{}')
       const subId = `${userId}_${Date.now()}`
       await db.send(new PutCommand({

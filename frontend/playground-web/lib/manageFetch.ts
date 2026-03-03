@@ -1,11 +1,14 @@
-const BASE = process.env.NEXT_PUBLIC_MANAGE_API_URL || process.env.NEXT_PUBLIC_API_URL!
+const BASE = process.env.NEXT_PUBLIC_MANAGE_API_URL || process.env.NEXT_PUBLIC_API_URL
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem('accessToken')
+  // Manage API uses CognitoUserPoolsAuthorizer (REST), which only propagates
+  // claims (claims.sub) for ID tokens, not Access tokens.
+  return localStorage.getItem('idToken') || localStorage.getItem('accessToken')
 }
 
 export async function manageFetch(path: string, options: RequestInit = {}) {
+  if (!BASE) throw new Error('API URL이 설정되지 않았습니다. 환경변수를 확인하세요.')
   const token = getToken()
   const res = await fetch(`${BASE}${path}`, {
     ...options,

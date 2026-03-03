@@ -364,7 +364,12 @@ export default function MyPage() {
     }
   }
 
-  function closeTeamEdit() { setEditing(false); setLeaveConfirm(false); }
+  function closeTeamEdit() {
+    setEditing(false);
+    setLeaveConfirm(false);
+    setEditingTeamId(null);
+    setTeamDraft({ sport: "", teamId: null, position: "" });
+  }
 
   const record = user?.record || { games: 0, goals: 0, assists: 0 };
   const recentGoals = user?.recentGoals || [];

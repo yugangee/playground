@@ -76,6 +76,7 @@ export default function VideoPage() {
     const f = e.target.files?.[0];
     if (!f) return;
     if (f.size >= 5 * 1024 * 1024 * 1024) { setError("5GB 미만의 영상만 업로드 가능합니다"); return; }
+    if (f.type && !f.type.startsWith("video/")) { setError("영상 파일만 업로드 가능합니다 (mp4, mov, webm 등)"); return; }
     setFile(f); setLocalUrl(URL.createObjectURL(f)); setResult(null); setStatus("idle"); setError(null);
   }
 

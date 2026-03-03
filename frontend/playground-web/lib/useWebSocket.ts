@@ -66,7 +66,7 @@ export function useWebSocket({ roomId, userName, email, onMessage }: Options) {
       clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
     };
-  }, [roomId]);
+  }, [roomId, connect]);
 
   const send = useCallback((text: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
