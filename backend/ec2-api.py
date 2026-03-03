@@ -205,12 +205,15 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
     subtitle_data = []
     event_data = []
     events_list = []
+    
+    # 총 프레임 수 (이벤트 감지 진행률 계산용)
+    total_player_frames = len(tracks['players'])
 
     for frame_num, player_track in enumerate(tracks['players']):
         # 프레임별 진행률 업데이트 (55% → 85%)
-        if job_id and job_id in jobs:
+        if job_id and job_id in jobs and total_player_frames > 0:
             jobs[job_id]["current_frame"] = frame_num
-            frame_progress = int(55 + (frame_num / total_frames) * 30)
+            frame_progress = int(55 + (frame_num / total_player_frames) * 30)
             jobs[job_id]["progress_percent"] = frame_progress
         ball_bbox = tracks['ball'][frame_num][1]['bbox']
         ball_speed = tracks['ball'][frame_num].get('speed', 0)
@@ -318,7 +321,7 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
 
     if job_id and job_id in jobs:
         jobs[job_id]["progress_percent"] = 100
-        jobs[job_id]["current_frame"] = total_frames
+        jobs[job_id]["current_frame"] = total_player_frames
 
     return events_list, ball_control, subtitle_data, event_data, team_colors_rgb
 
