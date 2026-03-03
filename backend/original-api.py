@@ -288,8 +288,8 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
         else:
             speed = 0
 
-        if frame_num % 48 == 0:
-            # 24fps 기준으로 시간 계산 (48프레임 = 2초)
+        if frame_num % 96 == 0:
+            # 24fps 기준으로 시간 계산 (96프레임 = 4초)
             seconds = frame_num / 24
             query = (
                 f"프레임 {frame_num}에서, "

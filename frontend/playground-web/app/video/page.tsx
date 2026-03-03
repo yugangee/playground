@@ -264,11 +264,11 @@ export default function VideoPage() {
         // subtitle이 문자열인 경우 (기존 형식 - 하위 호환성)
         else {
           const text = typeof subtitle === 'string' ? subtitle : subtitle?.text;
-          const seconds = i * 2; // 48프레임 = 2초 (24fps 기준)
+          const seconds = i * 4; // 96프레임 = 4초 (24fps 기준)
           const minutes = Math.floor(seconds / 60);
           const secs = seconds % 60;
           const timeStr = `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-          items.push({ frame: i * 48, kind: "subtitle", text, time: timeStr });
+          items.push({ frame: i * 96, kind: "subtitle", text, time: timeStr });
         }
       });
     }
