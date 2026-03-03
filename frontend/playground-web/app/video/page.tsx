@@ -53,6 +53,8 @@ export default function VideoPage() {
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [progressMessage, setProgressMessage] = useState<string>("");
   const [progressPercent, setProgressPercent] = useState<number>(0);
+  const [currentFrame, setCurrentFrame] = useState<number>(0);
+  const [totalFrames, setTotalFrames] = useState<number>(0);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const sampleResult = {
@@ -89,6 +91,8 @@ export default function VideoPage() {
       setAbortController(null);
       setProgressMessage("");
       setProgressPercent(0);
+      setCurrentFrame(0);
+      setTotalFrames(0);
       setError("분석이 중지되었습니다");
     }
   }
@@ -105,6 +109,8 @@ export default function VideoPage() {
     setError(null);
     setProgressMessage("");
     setProgressPercent(0);
+    setCurrentFrame(0);
+    setTotalFrames(0);
     const controller = new AbortController();
     setAbortController(controller);
     
@@ -160,6 +166,12 @@ export default function VideoPage() {
         }
         if (statusData.progress_stage) {
           setProgressMessage(statusData.progress_stage);
+        }
+        if (statusData.current_frame !== undefined) {
+          setCurrentFrame(statusData.current_frame);
+        }
+        if (statusData.total_frames !== undefined) {
+          setTotalFrames(statusData.total_frames);
         }
         
         // 분석 중에도 중계 데이터 업데이트
@@ -299,11 +311,18 @@ export default function VideoPage() {
             <div className="w-full h-2 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-fuchsia-500 to-purple-600 transition-all duration-500" style={{ width: `${progressPercent}%` }} />
             </div>
-            {estimatedTime !== null && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                진행시간: {Math.floor(estimatedTime / 60)}분 {estimatedTime % 60}초
-              </p>
-            )}
+            <div className="flex items-center justify-between mt-2">
+              {estimatedTime !== null && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  진행시간: {Math.floor(estimatedTime / 60)}분 {estimatedTime % 60}초
+                </p>
+              )}
+              {totalFrames > 0 && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  프레임: {currentFrame.toLocaleString()} / {totalFrames.toLocaleString()}
+                </p>
+              )}
+            </div>
           </div>
         )}
         {error && <div className="w-full py-3 rounded-xl text-center text-sm text-red-500 dark:text-red-400 border border-red-200 dark:border-red-400/20 bg-red-50 dark:bg-red-400/5">{error}</div>}
