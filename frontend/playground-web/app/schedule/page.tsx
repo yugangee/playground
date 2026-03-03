@@ -3680,7 +3680,7 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
                         style={{ borderColor: 'var(--card-border)', background: 'var(--sidebar-bg)' }}>
                         {/* M3-A: PIS Spider Chart */}
                         <div style={{ height: '130px' }}>
-                          <ResponsiveContainer width="100%" height="100%">
+                          <ResponsiveContainer width="99%" height="100%">
                             {(() => {
                               const [l0, l1, l2, l3, l4] = getPisLabels(sportType)
                               return (

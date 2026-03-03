@@ -595,7 +595,7 @@ export function GpsTracker({ onClose }: GpsTrackerProps) {
                       <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">속도 구간 분포</div>
                       <div className="flex items-center gap-4">
                         <div style={{ width: 120, height: 120, flexShrink: 0 }}>
-                          <ResponsiveContainer width="100%" height="100%">
+                          <ResponsiveContainer width="99%" height="100%">
                             <PieChart>
                               <Pie data={stats.zonePie} cx="50%" cy="50%" innerRadius={28} outerRadius={52} dataKey="value" paddingAngle={2}>
                                 {stats.zonePie.map((entry, i) => (

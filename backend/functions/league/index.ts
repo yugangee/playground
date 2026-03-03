@@ -39,6 +39,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /league
     if (method === 'POST' && parts.length === 0) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const body = JSON.parse(event.body ?? '{}')
       const item = { id: randomUUID(), ...body, organizerId: userId, status: 'recruiting', isPublic: String(body.isPublic ?? true), createdAt: new Date().toISOString() }
       await db.send(new PutCommand({ TableName: LEAGUES, Item: item }))
@@ -58,6 +59,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // PATCH /league/:id  (status 변경 등)
     if (method === 'PATCH' && parts.length === 1) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const league = await db.send(new GetCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
       if (!league.Item) return res(404, { message: 'League not found' })
       if (league.Item.organizerId !== userId) return res(403, { message: '리그 주최자만 수정할 수 있습니다' })
@@ -82,6 +84,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /league/:id/teams  (팀 초대/참가)
     if (method === 'POST' && parts[1] === 'teams') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const { teamId } = JSON.parse(event.body ?? '{}')
       await db.send(new PutCommand({ TableName: LEAGUE_TEAMS, Item: { leagueId, teamId, joinedAt: new Date().toISOString() } }))
       return res(201, { leagueId, teamId })
@@ -100,6 +103,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /league/:id/matches
     if (method === 'POST' && parts[1] === 'matches') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const body = JSON.parse(event.body ?? '{}')
       const item = { id: randomUUID(), leagueId, ...body, status: 'pending', createdAt: new Date().toISOString() }
       await db.send(new PutCommand({ TableName: LEAGUE_MATCHES, Item: item }))
@@ -108,6 +112,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // PATCH /league/:id/matches/:matchId  (결과 입력)
     if (method === 'PATCH' && parts[1] === 'matches' && parts[2]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const league = await db.send(new GetCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
       if (!league.Item) return res(404, { message: 'League not found' })
       if (league.Item.organizerId !== userId) return res(403, { message: '리그 주최자만 경기 결과를 수정할 수 있습니다' })

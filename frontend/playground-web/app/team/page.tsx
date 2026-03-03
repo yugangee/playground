@@ -7,19 +7,31 @@ import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import RatingBadge from "@/components/RatingBadge";
 import { useRouter } from "next/navigation";
+import { tryRefreshTokens, clearTokens } from "@/lib/tokenRefresh";
 
 // Auth API 전용 fetch — /clubs, /matches, /activities, /club-members 등
 const AUTH_API = process.env.NEXT_PUBLIC_API_URL;
 async function authFetch(path: string, options: RequestInit = {}) {
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-  const res = await fetch(`${AUTH_API}${path}`, {
+  const getToken = () => typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+  const buildReq = () => ({
     ...options,
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
       ...(options.headers as Record<string, string> ?? {}),
     },
   });
+  let res = await fetch(`${AUTH_API}${path}`, buildReq());
+  if (res.status === 401) {
+    const refreshed = await tryRefreshTokens();
+    if (refreshed) {
+      res = await fetch(`${AUTH_API}${path}`, buildReq());
+    } else {
+      clearTokens();
+      if (typeof window !== "undefined") window.location.href = "/login";
+      throw new Error("세션이 만료되었습니다. 다시 로그인해 주세요.");
+    }
+  }
   if (!res.ok) throw new Error(await res.text());
   if (res.status === 204) return null;
   return res.json();

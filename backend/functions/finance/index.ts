@@ -44,6 +44,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /finance/transactions
     if (method === 'POST' && parts[0] === 'transactions') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const body = JSON.parse(event.body ?? '{}')
       const item = { id: randomUUID(), ...body, createdBy: userId, createdAt: new Date().toISOString() }
       await db.send(new PutCommand({ TableName: FINANCE, Item: item }))
@@ -67,6 +68,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /finance/dues
     if (method === 'POST' && parts[0] === 'dues') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const body = JSON.parse(event.body ?? '{}')
       const item = { id: randomUUID(), ...body, paid: false, createdAt: new Date().toISOString() }
       await db.send(new PutCommand({ TableName: DUES, Item: item }))
@@ -75,6 +77,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // PATCH /finance/dues/:id/pay
     if (method === 'PATCH' && parts[0] === 'dues' && parts[2] === 'pay') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       await db.send(new UpdateCommand({
         TableName: DUES,
         Key: { id: parts[1] },
@@ -101,6 +104,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /finance/fines
     if (method === 'POST' && parts[0] === 'fines') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const body = JSON.parse(event.body ?? '{}')
       const item = { id: randomUUID(), ...body, paid: false, createdAt: new Date().toISOString() }
       await db.send(new PutCommand({ TableName: FINES, Item: item }))
@@ -109,6 +113,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // PATCH /finance/fines/:id/pay
     if (method === 'PATCH' && parts[0] === 'fines' && parts[2] === 'pay') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       await db.send(new UpdateCommand({
         TableName: FINES,
         Key: { id: parts[1] },
