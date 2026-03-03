@@ -2,7 +2,9 @@ const BASE = process.env.NEXT_PUBLIC_MANAGE_API_URL || process.env.NEXT_PUBLIC_A
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem('accessToken')
+  // Manage API uses CognitoUserPoolsAuthorizer (REST), which only propagates
+  // claims (claims.sub) for ID tokens, not Access tokens.
+  return localStorage.getItem('idToken') || localStorage.getItem('accessToken')
 }
 
 export async function manageFetch(path: string, options: RequestInit = {}) {
