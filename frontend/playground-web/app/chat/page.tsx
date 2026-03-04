@@ -293,8 +293,8 @@ export default function ChatPage() {
                           style={m.from === "me" ? { background: "linear-gradient(to right, #c026d3, #7c3aed)" } : undefined}>
                           {m.text}
                         </span>
-                        {/* 시간 + 읽음 (hover 시 표시) */}
-                        <div className={`flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity ${m.from === "me" ? "flex-row-reverse" : ""}`}>
+                        {/* 시간 + 읽음 (항상 표시) */}
+                        <div className={`flex items-center gap-0.5 transition-opacity ${m.from === "me" ? "flex-row-reverse" : ""}`}>
                           {m.timestamp && (
                             <span className="text-[10px] text-gray-600 whitespace-nowrap">{formatTime(m.timestamp)}</span>
                           )}
@@ -302,8 +302,8 @@ export default function ChatPage() {
                         </div>
                       </div>
 
-                      {/* 이모지 리액션 추가 버튼 (hover 시 표시) */}
-                      <div className={`flex gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${m.from === "me" ? "flex-row-reverse" : ""}`}>
+                      {/* 이모지 리액션 추가 버튼 (항상 표시) */}
+                      <div className={`flex gap-1 mt-1 ${m.from === "me" ? "flex-row-reverse" : ""}`}>
                         {EMOJI_LIST.slice(0, 5).map(emoji => (
                           <button key={emoji} onClick={() => addReaction(i, emoji)}
                             className="text-sm hover:scale-125 transition-transform leading-none">
