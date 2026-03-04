@@ -105,7 +105,7 @@ export default function LoginPage() {
         <button
           onClick={() => {
             const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-            const redirect = encodeURIComponent(`${window.location.origin}/auth/google/callback`);
+            const redirect = encodeURIComponent(`https://fun.sedaily.ai/auth/google/callback`);
             window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirect}&response_type=code&scope=openid%20email%20profile`;
           }}
           className="w-full py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
