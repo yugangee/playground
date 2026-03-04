@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -11,7 +11,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleLogin = async () => {
     setError("");
@@ -92,7 +97,10 @@ export default function LoginPage() {
         <button
           onClick={() => {
             const clientId = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
-            const redirect = encodeURIComponent(`https://fun.sedaily.ai/auth/kakao/callback`);
+            const baseUrl = window.location.hostname === 'localhost' 
+              ? 'http://localhost:3000' 
+              : 'https://fun.sedaily.ai';
+            const redirect = encodeURIComponent(`${baseUrl}/auth/kakao/callback`);
             window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirect}&response_type=code`;
           }}
           className="w-full py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
