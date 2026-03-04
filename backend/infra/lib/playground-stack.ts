@@ -5,6 +5,8 @@ import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as apigateway from 'aws-cdk-lib/aws-apigateway'
 import * as s3 from 'aws-cdk-lib/aws-s3'
 import * as sns from 'aws-cdk-lib/aws-sns'
+import * as events from 'aws-cdk-lib/aws-events'
+import * as targets from 'aws-cdk-lib/aws-events-targets'
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
 import { Construct } from 'constructs'
 
@@ -13,30 +15,11 @@ export class PlaygroundStack extends cdk.Stack {
     super(scope, id, props)
 
     // ─── Cognito User Pool ───────────────────────────────────────────
-    const userPool = new cognito.UserPool(this, 'UserPool', {
-      userPoolName: 'playground-user-pool',
-      selfSignUpEnabled: true,
-      signInAliases: { email: true },
-      standardAttributes: {
-        fullname: { required: true, mutable: true },
-      },
-      passwordPolicy: {
-        minLength: 8,
-        requireUppercase: false,
-        requireSymbols: false,
-      },
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-    })
-
-    // Google, Apple 소셜 로그인은 추후 Identity Provider로 추가
-    const userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
-      userPool,
-      generateSecret: false,
-      authFlows: {
-        userPassword: true,
-        userSrp: true,
-      },
-    })
+    // 기존 playground-users 풀 (us-east-1_dolZhFZDJ) import — 실제 사용자 데이터 보존
+    const userPool = cognito.UserPool.fromUserPoolId(this, 'UserPool', 'us-east-1_dolZhFZDJ')
+    const userPoolClient = cognito.UserPoolClient.fromUserPoolClientId(
+      this, 'UserPoolClient', '2m16g04t6prj9p79m7h12adn11'
+    )
 
     // ─── DynamoDB Tables ─────────────────────────────────────────────
     const tables = {
@@ -174,12 +157,54 @@ export class PlaygroundStack extends cdk.Stack {
         billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
       }),
+      // M1-D: 웹 푸시 구독 저장
+      pushSubscriptions: new dynamodb.Table(this, 'PushSubscriptionsTable', {
+        tableName: 'pg-push-subscriptions',
+        partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+        sortKey: { name: 'subId', type: dynamodb.AttributeType.STRING },
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+        timeToLiveAttribute: 'ttl',
+      }),
+      // M4: GPS 퍼포먼스 세션 저장
+      playerPerformance: new dynamodb.Table(this, 'PlayerPerformanceTable', {
+        tableName: 'pg-player-performance',
+        partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+        sortKey: { name: 'sessionId', type: dynamodb.AttributeType.STRING },
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      }),
+      // M5-D: 팀 공동구매
+      groupPurchases: new dynamodb.Table(this, 'GroupPurchasesTable', {
+        tableName: 'pg-group-purchases',
+        partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      }),
     }
 
     // GSI for team-members userId queries (for GET /team endpoint)
     tables.teamMembers.addGlobalSecondaryIndex({
       indexName: 'userId-index',
       partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+    })
+
+    // GSI for matches homeTeamId / awayTeamId queries (재추가)
+    tables.matches.addGlobalSecondaryIndex({
+      indexName: 'homeTeamId-index',
+      partitionKey: { name: 'homeTeamId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'scheduledAt', type: dynamodb.AttributeType.STRING },
+    })
+    tables.matches.addGlobalSecondaryIndex({
+      indexName: 'awayTeamId-index',
+      partitionKey: { name: 'awayTeamId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'scheduledAt', type: dynamodb.AttributeType.STRING },
+    })
+
+    // GSI for group-purchases teamId queries
+    tables.groupPurchases.addGlobalSecondaryIndex({
+      indexName: 'teamId-index',
+      partitionKey: { name: 'teamId', type: dynamodb.AttributeType.STRING },
     })
 
     // GSI for finance teamId+date queries
@@ -201,15 +226,10 @@ export class PlaygroundStack extends cdk.Stack {
       indexName: 'leagueId-index',
       partitionKey: { name: 'leagueId', type: dynamodb.AttributeType.STRING },
     })
-
-    // GSI for matches teamId queries
-    tables.matches.addGlobalSecondaryIndex({
-      indexName: 'homeTeamId-index',
-      partitionKey: { name: 'homeTeamId', type: dynamodb.AttributeType.STRING },
-    })
-    tables.matches.addGlobalSecondaryIndex({
-      indexName: 'awayTeamId-index',
-      partitionKey: { name: 'awayTeamId', type: dynamodb.AttributeType.STRING },
+    // F-8: teamId로 참가 리그 역방향 조회
+    tables.leagueTeams.addGlobalSecondaryIndex({
+      indexName: 'teamId-index',
+      partitionKey: { name: 'teamId', type: dynamodb.AttributeType.STRING },
     })
 
     // GSI for teamId-based queries
@@ -286,10 +306,24 @@ export class PlaygroundStack extends cdk.Stack {
       EQUIPMENT_TABLE: tables.equipment.tableName,
       RECRUITMENT_TABLE: tables.recruitment.tableName,
       INVITES_TABLE: tables.invites.tableName,
+      // M1-D: 웹 푸시
+      PUSH_SUBSCRIPTIONS_TABLE: tables.pushSubscriptions.tableName,
+      VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY ?? 'BMO0kv1PDklqtDl_fmj22UXXY5XpHs3EdCGZlOu1jJGpKfKs7pcF1Zk_HHjbxvDsheNK_W92bmANA1W_8ce4RCo',
+      VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY ?? 'DkgjAacvGh-PUob6b3H6M5L8mpDgHpq-e8boIKUsDN4',
+      // M1-C: 카카오 알림톡 (Solapi)
+      SOLAPI_API_KEY: process.env.SOLAPI_API_KEY ?? '',
+      SOLAPI_API_SECRET: process.env.SOLAPI_API_SECRET ?? '',
+      SOLAPI_SENDER: process.env.SOLAPI_SENDER ?? '',
+      KAKAO_PFID: process.env.KAKAO_PFID ?? '',
+      // M4: GPS 퍼포먼스
+      PLAYER_PERFORMANCE_TABLE: tables.playerPerformance.tableName,
+      // M5-D: 팀 공동구매
+      GROUP_PURCHASES_TABLE: tables.groupPurchases.tableName,
     }
 
     const lambdaDefaults = {
       runtime: lambda.Runtime.NODEJS_20_X,
+      architecture: lambda.Architecture.ARM_64, // E-4: Graviton2 — 콜드스타트 ~15% 감소, 비용 ~20% 절감
       environment: commonEnv,
       bundling: {
         forceDockerBundling: false, // Docker 없이 로컬 esbuild 사용
@@ -324,6 +358,43 @@ export class PlaygroundStack extends cdk.Stack {
       }),
     }
 
+    // M1-C: 자동 리마인드 Lambda + EventBridge 매시간 스케줄
+    const reminderFn = new NodejsFunction(this, 'ReminderFunction', {
+      ...lambdaDefaults,
+      entry: '../functions/reminder/index.ts',
+      functionName: 'playground-reminder',
+      timeout: cdk.Duration.minutes(3),
+    })
+    tables.matches.grantReadWriteData(reminderFn)
+    tables.teamMembers.grantReadData(reminderFn)
+    tables.attendance.grantReadData(reminderFn)
+
+    // 매 정각 실행 (1시간마다 upcoming match 체크)
+    const reminderRule = new events.Rule(this, 'ReminderRule', {
+      ruleName: 'playground-reminder-hourly',
+      description: 'Hourly check for D-2/D-1/당일 match reminders',
+      schedule: events.Schedule.cron({ minute: '0' }),
+    })
+    reminderRule.addTarget(new targets.LambdaFunction(reminderFn))
+
+    // M3-A: 시즌 리셋 Lambda + EventBridge 연간 스케줄
+    const seasonResetFn = new NodejsFunction(this, 'SeasonResetFunction', {
+      ...lambdaDefaults,
+      entry: '../functions/seasonReset/index.ts',
+      functionName: 'playground-season-reset',
+      timeout: cdk.Duration.minutes(5),
+    })
+    tables.stats.grantReadWriteData(seasonResetFn)
+    tables.teams.grantReadWriteData(seasonResetFn)
+
+    // 매년 12월 31일 15:00 UTC (= 1월 1일 00:00 KST) 자동 실행
+    const seasonResetRule = new events.Rule(this, 'SeasonResetRule', {
+      ruleName: 'playground-season-reset-annual',
+      description: 'Annual season reset: 50% point decay on Jan 1 KST',
+      schedule: events.Schedule.cron({ minute: '0', hour: '15', day: '31', month: '12', year: '*' }),
+    })
+    seasonResetRule.addTarget(new targets.LambdaFunction(seasonResetFn))
+
     // Lambda에 DynamoDB, S3, SNS 권한 부여
     Object.values(tables).forEach(table => {
       Object.values(functions).forEach(fn => table.grantReadWriteData(fn))
@@ -339,6 +410,25 @@ export class PlaygroundStack extends cdk.Stack {
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
         allowMethods: apigateway.Cors.ALL_METHODS,
+        // Authorization 헤더 포함 명시 — 없으면 Bearer 토큰 요청의 preflight가 차단됨
+        allowHeaders: apigateway.Cors.DEFAULT_HEADERS,
+      },
+    })
+
+    // Cognito authorizer 거절(401/403) 시 API Gateway 자체 응답에도 CORS 헤더 추가
+    // (Lambda 응답과 달리 Gateway 응답은 별도로 설정 필요)
+    api.addGatewayResponse('UnauthorizedCors', {
+      type: apigateway.ResponseType.UNAUTHORIZED,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+      },
+    })
+    api.addGatewayResponse('AccessDeniedCors', {
+      type: apigateway.ResponseType.ACCESS_DENIED,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
       },
     })
 

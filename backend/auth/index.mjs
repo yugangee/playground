@@ -98,6 +98,22 @@ async function signup(body) {
   return res(200, { message: "회원가입 성공", userSub: result.UserSub, confirmed: true });
 }
 
+async function refreshTokens(body) {
+  const { refreshToken } = body;
+  if (!refreshToken) return res(400, { message: "refreshToken이 필요합니다" });
+  const result = await cognito.send(new InitiateAuthCommand({
+    AuthFlow: "REFRESH_TOKEN_AUTH",
+    ClientId: CLIENT_ID,
+    AuthParameters: { REFRESH_TOKEN: refreshToken },
+  }));
+  const auth = result.AuthenticationResult;
+  return res(200, {
+    accessToken: auth.AccessToken,
+    idToken: auth.IdToken,
+    expiresIn: auth.ExpiresIn,
+  });
+}
+
 async function login(body) {
   const { email, password } = body;
   const result = await cognito.send(new InitiateAuthCommand({
@@ -760,6 +776,9 @@ export const handler = async (event) => {
     }
     if (method === "POST" && path === "/auth/login") {
       return await login(JSON.parse(event.body));
+    }
+    if (method === "POST" && path === "/auth/refresh") {
+      return await refreshTokens(JSON.parse(event.body));
     }
     if (method === "GET" && path === "/auth/me") {
       const token = (event.headers.Authorization || event.headers.authorization || "").replace("Bearer ", "");

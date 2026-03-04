@@ -139,6 +139,14 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
     )
 
     video_frames = read_video(input_path)
+    total_frames = len(video_frames)
+    
+    # 진행 상황 초기화
+    if job_id and job_id in jobs:
+        jobs[job_id]["total_frames"] = total_frames
+        jobs[job_id]["current_frame"] = 0
+        jobs[job_id]["progress_percent"] = 0
+        jobs[job_id]["progress_stage"] = "초기화"
 
     # fps 구하기
     import cv2 as cv2_cap
@@ -163,19 +171,49 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
         video_frames = [cv2.resize(f, (new_w, new_h)) for f in video_frames]
         print(f"[RESIZE] {w}x{h} → {new_w}x{new_h} ({len(video_frames)} frames)")
 
+<<<<<<< HEAD
     update_stage("선수/볼 추적 중...", 10)
+=======
+    # 1단계: 선수 추적 (0-30%)
+    if job_id and job_id in jobs:
+        jobs[job_id]["progress_stage"] = "선수 추적중"
+        jobs[job_id]["progress_percent"] = 5
+    
+>>>>>>> 3a56648fe97aabd89a299735a258b59d57fcf981
     tracker = Tracker('models/best.pt')
     tracks = tracker.get_object_tracks(video_frames, read_from_stub=False, stub_path=None)
     tracker.add_positions_to_tracks(tracks)
+    
+    if job_id and job_id in jobs:
+        jobs[job_id]["progress_percent"] = 30
 
+<<<<<<< HEAD
     update_stage("카메라 움직임 분석 중...", 30)
+=======
+    # 2단계: 카메라 움직임 분석 (30-40%)
+    if job_id and job_id in jobs:
+        jobs[job_id]["progress_stage"] = "카메라 움직임 분석중"
+        jobs[job_id]["progress_percent"] = 30
+    
+>>>>>>> 3a56648fe97aabd89a299735a258b59d57fcf981
     camera_movement_estimator = CameraMovementEstimator(video_frames[0])
     camera_movement_per_frame = camera_movement_estimator.get_camera_movement(
         video_frames, read_from_stub=False, stub_path=None
     )
     camera_movement_estimator.add_adjust_positions_to_tracks(tracks, camera_movement_per_frame)
+    
+    if job_id and job_id in jobs:
+        jobs[job_id]["progress_percent"] = 40
 
+<<<<<<< HEAD
     update_stage("좌표 변환 중...", 40)
+=======
+    # 3단계: 좌표 변환 및 속도 계산 (40-50%)
+    if job_id and job_id in jobs:
+        jobs[job_id]["progress_stage"] = "좌표 변환중"
+        jobs[job_id]["progress_percent"] = 40
+    
+>>>>>>> 3a56648fe97aabd89a299735a258b59d57fcf981
     view_transformer = ViewTransformer()
     view_transformer.add_transformed_position_to_tracks(tracks)
 
@@ -184,7 +222,15 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
     update_stage("속도/거리 계산 중...", 45)
     speed_and_distance_estimator = SpeedAndDistance_Estimator()
     speed_and_distance_estimator.add_speed_and_distance_to_tracks(tracks)
+    
+    if job_id and job_id in jobs:
+        jobs[job_id]["progress_percent"] = 50
 
+    # 4단계: 팀 배정 (50-55%)
+    if job_id and job_id in jobs:
+        jobs[job_id]["progress_stage"] = "팀 분석중"
+        jobs[job_id]["progress_percent"] = 50
+    
     team_assigner = TeamAssigner()
     team_assigner.assign_team_color(video_frames[0], tracks['players'][0])
     for frame_num, player_track in enumerate(tracks['players']):
@@ -192,7 +238,15 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
             team = team_assigner.get_player_team(video_frames[frame_num], track['bbox'], player_id)
             tracks['players'][frame_num][player_id]['team'] = team
             tracks['players'][frame_num][player_id]['team_color'] = team_assigner.team_colors[team]
+    
+    if job_id and job_id in jobs:
+        jobs[job_id]["progress_percent"] = 55
 
+    # 5단계: 이벤트 감지 (55-85%)
+    if job_id and job_id in jobs:
+        jobs[job_id]["progress_stage"] = "이벤트 감지중"
+        jobs[job_id]["progress_percent"] = 55
+    
     player_assigner = PlayerBallAssigner()
     team_ball_control = []
     previous_player_with_ball = -1
@@ -201,6 +255,9 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
     subtitle_data = []
     event_data = []
     events_list = []
+    
+    # 총 프레임 수 (이벤트 감지 진행률 계산용)
+    total_player_frames = len(tracks['players'])
 
     def frame_to_time(f):
         total_sec = int(f / video_fps)
@@ -210,6 +267,7 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
     total_frames = len(tracks['players'])
 
     for frame_num, player_track in enumerate(tracks['players']):
+<<<<<<< HEAD
         # 진행률 업데이트 (50~90% 범위, 10프레임마다)
         if job_id and job_id in jobs and frame_num % 10 == 0:
             frame_progress = 50 + ((frame_num + 1) / total_frames * 40)
@@ -218,6 +276,13 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
             jobs[job_id]["live_subtitles"] = subtitle_data.copy()
             jobs[job_id]["live_events"] = events_list.copy()
 
+=======
+        # 프레임별 진행률 업데이트 (55% → 85%)
+        if job_id and job_id in jobs and total_player_frames > 0:
+            jobs[job_id]["current_frame"] = frame_num
+            frame_progress = int(55 + (frame_num / total_player_frames) * 30)
+            jobs[job_id]["progress_percent"] = frame_progress
+>>>>>>> 3a56648fe97aabd89a299735a258b59d57fcf981
         ball_bbox = tracks['ball'][frame_num][1]['bbox']
         ball_speed = tracks['ball'][frame_num].get('speed', 0)
         assigned_player = player_assigner.assign_ball_to_player(player_track, ball_bbox)
@@ -267,6 +332,7 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
         else:
             speed = 0
 
+<<<<<<< HEAD
         if frame_num % 72 == 0:
             # 최근 이벤트 수집 (이 구간 동안 발생한 이벤트)
             recent_events = [e for e in events_list if e["frame"] > max(0, frame_num - 72) and e["frame"] <= frame_num]
@@ -298,13 +364,45 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
 
             subtitle_text = generate_commentary(query, vector_store_path)
             subtitle_data.append({"frame": frame_num, "time": frame_to_time(frame_num), "text": subtitle_text})
+=======
+        if frame_num % 120 == 0:
+            seconds = frame_num / 24  # 24fps 기준
+            query = (
+                f"{seconds:.0f}초 시점에서, "
+                f"플레이어 {assigned_player}은(는) 속도 {speed:.2f}로 이동 중이며, "
+                f"볼의 속도는 {ball_speed:.2f}입니다. "
+                f"현재 볼 소유 팀은 {current_team_with_ball}이고, "
+                f"볼의 위치는 {ball_bbox}입니다. "
+                f"이 상황에 대해 해설해주세요."
+            )
+
+            subtitle_text = generate_commentary(query, vector_store_path)
+            subtitle_data.append(subtitle_text)
+            
+            # 실시간으로 jobs에 추가
+            if job_id and job_id in jobs:
+                jobs[job_id]["partial_subtitles"] = subtitle_data.copy()
+>>>>>>> 3a56648fe97aabd89a299735a258b59d57fcf981
 
         previous_player_with_ball = assigned_player
         previous_team_with_ball = current_team_with_ball
 
+    # 6단계: 영상 렌더링 (85-95%)
+    if job_id and job_id in jobs:
+        jobs[job_id]["progress_stage"] = "영상 렌더링중"
+        jobs[job_id]["progress_percent"] = 85
+    
     output_video_frames = tracker.draw_annotations(video_frames, tracks, team_ball_control)
     save_video(output_video_frames, output_path)
+    
+    if job_id and job_id in jobs:
+        jobs[job_id]["progress_percent"] = 95
 
+    # 7단계: 최종 처리 (95-100%)
+    if job_id and job_id in jobs:
+        jobs[job_id]["progress_stage"] = "최종 처리중"
+        jobs[job_id]["progress_percent"] = 95
+    
     import subprocess
     h264_path = output_path.replace(".mp4", "_h264.mp4")
     subprocess.run(["ffmpeg", "-y", "-i", output_path, "-vcodec", "libx264", "-acodec", "aac", h264_path], capture_output=True)
@@ -322,6 +420,10 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
     team_colors_rgb = {}
     for team_id, color in team_assigner.team_colors.items():
         team_colors_rgb[str(team_id)] = [int(color[2]), int(color[1]), int(color[0])]
+
+    if job_id and job_id in jobs:
+        jobs[job_id]["progress_percent"] = 100
+        jobs[job_id]["current_frame"] = total_player_frames
 
     return events_list, ball_control, subtitle_data, event_data, team_colors_rgb
 
@@ -375,7 +477,17 @@ def run_analysis_job(job_id, s3_key):
         print(f"[{job_id}] Analysis Error: {str(e)}")
         print(traceback.format_exc())
         jobs[job_id]["status"] = "error"
-        jobs[job_id]["error"] = str(e)
+        
+        # 실패 시 어느 프레임에서 실패했는지 포함
+        current_frame = jobs[job_id].get("current_frame", 0)
+        total_frames = jobs[job_id].get("total_frames", 0)
+        progress_stage = jobs[job_id].get("progress_stage", "알 수 없음")
+        
+        error_msg = f"{str(e)}"
+        if total_frames > 0:
+            error_msg += f" (진행: {current_frame}/{total_frames} 프레임, 단계: {progress_stage})"
+        
+        jobs[job_id]["error"] = error_msg
     finally:
         for path in [input_local_path, output_local_path]:
             if os.path.exists(path):
@@ -435,13 +547,25 @@ async def get_job_status(job_id: str):
             "message": "분석이 중지되었습니다",
         }
     else:
-        return {
+        # 분석 중에도 현재까지 생성된 subtitles와 진행률 반환
+        partial_subtitles = job.get("partial_subtitles", [])
+        progress_info = {
             "status": job["status"],
+<<<<<<< HEAD
             "message": job.get("stage", "분석 진행 중..."),
             "progress": job.get("progress", 0),
             "live_subtitles": job.get("live_subtitles", []),
             "live_events": job.get("live_events", []),
+=======
+            "message": "분석 진행 중...",
+            "partial_subtitles": partial_subtitles,
+            "progress_percent": job.get("progress_percent", 0),
+            "progress_stage": job.get("progress_stage", "대기중"),
+            "current_frame": job.get("current_frame", 0),
+            "total_frames": job.get("total_frames", 0),
+>>>>>>> 3a56648fe97aabd89a299735a258b59d57fcf981
         }
+        return progress_info
 
 
 @app.post("/api/cancel/{job_id}")

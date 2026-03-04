@@ -4,7 +4,7 @@ import { MessageCircle, X, Send } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { ensureEC2Running } from "@/lib/ensureEC2";
 
-const API_URL = process.env.NEXT_PUBLIC_VIDEO_API_URL || "https://d2e8khynpnbcpl.cloudfront.net";
+const API_URL = process.env.NEXT_PUBLIC_CHATBOT_API_URL || "https://7ymq2ssv3e.execute-api.us-east-1.amazonaws.com";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -19,12 +19,15 @@ export default function AIChatbot() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
+  const [isComposing, setIsComposing] = useState(false);
+
   async function send() {
     if (!input.trim() || loading) return;
-    const userMsg: Msg = { role: "user", content: input.trim() };
+    const message = input.trim();
+    setInput(""); // 먼저 초기화
+    const userMsg: Msg = { role: "user", content: message };
     const newMsgs = [...msgs, userMsg];
     setMsgs(newMsgs);
-    setInput("");
     setLoading(true);
     try {
       // EC2 서버 확인 및 시작
@@ -99,7 +102,14 @@ export default function AIChatbot() {
           <div className="px-3 pb-3 pt-1 border-t border-gray-200 dark:border-white/10">
             <div className="flex gap-2">
               <input value={input} onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && send()}
+                onCompositionStart={() => setIsComposing(true)}
+                onCompositionEnd={() => setIsComposing(false)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && !isComposing && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    send();
+                  }
+                }}
                 placeholder="메시지를 입력하세요..."
                 className="flex-1 bg-gray-100 dark:bg-white/10 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-black dark:focus:border-white/40 transition-colors"
                 style={{ color: "var(--text-primary)" }} />

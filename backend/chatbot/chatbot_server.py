@@ -4,25 +4,58 @@ LangGraph 기반 축구 AI 챗봇 서버
 - 경기 분석 결과 기반 대화
 """
 import os
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_aws import ChatBedrock, BedrockEmbeddings
 from langchain_community.vectorstores import FAISS
+from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, Annotated
 import operator
 import json
+import boto3
+
+# Load environment variables
+load_dotenv()
 
 app = FastAPI(title="Football AI Chatbot")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7, max_tokens=800, api_key=OPENAI_API_KEY)
-embeddings = OpenAIEmbeddings(api_key=OPENAI_API_KEY)
+# Bedrock Configuration
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "us.anthropic.claude-opus-4-5-20251101-v1:0")
+BEDROCK_EMBEDDING_MODEL_ID = os.getenv("BEDROCK_EMBEDDING_MODEL_ID", "amazon.titan-embed-text-v2:0")
+BEDROCK_TEMPERATURE = float(os.getenv("BEDROCK_TEMPERATURE", "0.7"))
+BEDROCK_MAX_TOKENS = int(os.getenv("BEDROCK_MAX_TOKENS", "2000"))
+
+bedrock_runtime = boto3.client(
+    service_name="bedrock-runtime",
+    region_name=AWS_REGION
+)
+
+llm = ChatBedrock(
+    model_id=BEDROCK_MODEL_ID,
+    client=bedrock_runtime,
+    model_kwargs={"temperature": BEDROCK_TEMPERATURE, "max_tokens": BEDROCK_MAX_TOKENS}
+)
+
+# Bedrock Embeddings
+from langchain_aws import BedrockEmbeddings
+embeddings = BedrockEmbeddings(
+    client=bedrock_runtime,
+    model_id=BEDROCK_EMBEDDING_MODEL_ID
+)
+
+# Tavily Search Tool
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+web_search = None
+if TAVILY_API_KEY and TAVILY_API_KEY != "your-tavily-api-key-here":
+    web_search = TavilySearchResults(api_key=TAVILY_API_KEY, max_results=3)
 
 # ─── 축구 지식 벡터스토어 ───
 VECTOR_STORE_PATH = os.path.join(os.path.dirname(__file__), "football_knowledge")
@@ -97,21 +130,52 @@ class ChatState(TypedDict):
     messages: list
     context: str
     analysis_data: str
+    web_search_results: str
     response: str
 
 # ─── LangGraph 노드 ───
 def classify_intent(state: ChatState) -> ChatState:
-    """사용자 의도 분류: RAG 검색 필요 여부 판단"""
+    """사용자 의도 분류: RAG 검색, 웹 검색, 일반 대화 판단"""
     last_msg = state["messages"][-1]["content"]
+    
     # 분석 데이터가 있으면 분석 기반 대화
     if state["analysis_data"]:
         return state
+    
+    # 웹 검색이 필요한 키워드 (최신 정보, 선수, 팀, 리그 등)
+    web_keywords = ["최신", "뉴스", "이적", "순위", "일정", "결과", "선수", "팀", "리그", 
+                    "월드컵", "챔피언스리그", "프리미어리그", "라리가", "분데스리가", "세리에",
+                    "메시", "호날두", "음바페", "손흥민", "토트넘", "맨시티", "레알", "바르셀로나"]
+    if web_search and any(k in last_msg for k in web_keywords):
+        state["context"] = "web"
+        return state
+    
     # 축구 규칙/전술 관련 키워드 체크
-    keywords = ["규칙", "전술", "포메이션", "오프사이드", "페널티", "포지션", "훈련", "카드", "VAR",
-                "티키타카", "게겐프레싱", "역습", "프리킥", "코너킥", "골킥", "스로인",
-                "수비", "공격", "미드필더", "골키퍼", "윙어", "스트라이커", "풀백", "센터백"]
-    if any(k in last_msg for k in keywords):
+    rag_keywords = ["규칙", "전술", "포메이션", "오프사이드", "페널티", "포지션", "훈련", "카드", "VAR",
+                    "티키타카", "게겐프레싱", "역습", "프리킥", "코너킥", "골킥", "스로인",
+                    "수비", "공격", "미드필더", "골키퍼", "윙어", "스트라이커", "풀백", "센터백"]
+    if any(k in last_msg for k in rag_keywords):
         state["context"] = "rag"
+    
+    return state
+
+def search_web(state: ChatState) -> ChatState:
+    """웹 검색 수행"""
+    if state["context"] != "web" or not web_search:
+        return state
+    
+    last_msg = state["messages"][-1]["content"]
+    try:
+        results = web_search.invoke(last_msg)
+        search_context = "\n\n".join([
+            f"[{r.get('title', 'No title')}]({r.get('url', '')})\n{r.get('content', '')}"
+            for r in results
+        ])
+        state["web_search_results"] = search_context
+    except Exception as e:
+        print(f"[WEB SEARCH ERROR] {e}")
+        state["web_search_results"] = ""
+    
     return state
 
 def retrieve_knowledge(state: ChatState) -> ChatState:
@@ -156,8 +220,16 @@ def generate_response(state: ChatState) -> ChatState:
     if state["analysis_data"]:
         system_parts.append(f"\n[경기 분석 데이터]\n{state['analysis_data']}\n이 데이터를 참고하여 경기에 대한 질문에 답변해.")
 
+<<<<<<< HEAD
     if state["context"] and state["context"] != "rag":
         system_parts.append(f"\n[Context]\n{state['context']}")
+=======
+    if state.get("web_search_results"):
+        system_parts.append(f"\n[웹 검색 결과]\n{state['web_search_results']}\n최신 정보를 바탕으로 답변하고, 출처 링크를 포함해.")
+
+    if state["context"] and state["context"] not in ["rag", "web"]:
+        system_parts.append(f"\n[참고 자료]\n{state['context']}\n이 자료를 바탕으로 답변해.")
+>>>>>>> 3a56648fe97aabd89a299735a258b59d57fcf981
 
     msgs = [SystemMessage(content="\n".join(system_parts))]
     for m in state["messages"]:
@@ -174,10 +246,17 @@ def generate_response(state: ChatState) -> ChatState:
 def build_graph():
     graph = StateGraph(ChatState)
     graph.add_node("classify", classify_intent)
+    graph.add_node("web_search", search_web)
     graph.add_node("retrieve", retrieve_knowledge)
     graph.add_node("generate", generate_response)
     graph.add_edge(START, "classify")
-    graph.add_edge("classify", "retrieve")
+    graph.add_edge("classify", "web_search")
+    graph.add_edge("web_search", "retrieve")
+    graph.add_edge("retrieve", "generate")
+    graph.add_edge("generate", END)
+    graph.add_edge(START, "classify")
+    graph.add_edge("classify", "web_search")
+    graph.add_edge("web_search", "retrieve")
     graph.add_edge("retrieve", "generate")
     graph.add_edge("generate", END)
     return graph.compile()
@@ -202,6 +281,7 @@ async def chat_endpoint(req: ChatRequest):
         "messages": req.messages,
         "context": "",
         "analysis_data": analysis_data,
+        "web_search_results": "",
         "response": "",
     }
     result = chat_graph.invoke(state)

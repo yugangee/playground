@@ -1,6 +1,11 @@
 // ── Team ──────────────────────────────────────────────
 export type TeamRole = 'leader' | 'member'
 export type AgeGroup = 'elementary' | 'middle' | 'high' | 'university' | 'worker' | 'senior' | 'mixed'
+export type SportCategory = 'competitive' | 'club'
+export type SportType =
+  | 'soccer' | 'futsal'
+  | 'basketball' | 'baseball' | 'volleyball' | 'ice_hockey'
+  | 'running' | 'snowboard' | 'badminton'
 
 export interface Team {
   id: string
@@ -11,6 +16,7 @@ export interface Team {
   activityDays: string[]
   activityTime?: string
   ageGroup: AgeGroup
+  sportType?: SportType
   isPublic: boolean
   leaderId: string
   createdAt: string
@@ -99,7 +105,27 @@ export interface Fine {
 
 // ── Match / Schedule ──────────────────────────────────
 export type MatchStatus = 'pending' | 'accepted' | 'rejected' | 'completed'
+export type MatchType = 'match' | 'training'
 export type AttendanceStatus = 'attending' | 'absent' | 'pending'
+
+export interface GoalRecord {
+  scorer: string   // userId
+  assist?: string  // userId
+  minute?: number
+}
+
+export type CardType = 'yellow' | 'red'
+
+export interface CardRecord {
+  playerId: string  // userId
+  type: CardType
+  minute?: number
+}
+
+export interface Lineup {
+  starters: string[]  // userIds (max 11)
+  subs: string[]      // bench userIds
+}
 
 export interface Match {
   id: string
@@ -108,9 +134,18 @@ export interface Match {
   scheduledAt: string
   venue: string
   venueAddress?: string
+  matchType?: MatchType   // 'training'이면 훈련 일정
   status: MatchStatus
   homeScore?: number
   awayScore?: number
+  goals?: GoalRecord[]
+  cards?: CardRecord[]
+  lineup?: Lineup           // 전반 라인업
+  lineupSecond?: Lineup     // 후반 라인업
+  pkOrder?: string[]                      // PK 순서 (userIds, KJA 규칙)
+  cardReset?: { at: string; by: string }  // 경고 초기화 이벤트 (KJA 4강 진출 시)
+  guests?: string[]                       // 용병(Guest) 임시 등록 이름 목록
+  media?: string[]                         // 경기 미디어 (사진/영상 URL 목록)
   note?: string
   createdAt: string
 }

@@ -231,10 +231,28 @@ function DuesTab({ teamId, isLeader, members }: { teamId: string; isLeader: bool
 
   const unpaid = items.filter(i => !i.paid)
   const paid = items.filter(i => i.paid)
+  const [reminderCopied, setReminderCopied] = useState(false)
 
   const memberName = (uid: string) => {
     const m = members.find(m => m.userId === uid)
     return m ? memberLabel(m) : uid.slice(0, 8)
+  }
+
+  const copyReminder = async () => {
+    const lines = [
+      '[회비 미납 안내]',
+      '아직 납부하지 않은 분들:',
+      ...unpaid.map(d => {
+        const due = d.dueDate ? ` (기한: ${d.dueDate})` : ''
+        return `• ${memberName(d.userId)} — ${d.amount.toLocaleString()}원 ${d.description}${due}`
+      }),
+      '',
+      '빠른 납부 부탁드립니다! 🙏',
+      '👉 납부 현황: https://fun.sedaily.ai/manage/finance',
+    ]
+    await navigator.clipboard.writeText(lines.join('\n'))
+    setReminderCopied(true)
+    setTimeout(() => setReminderCopied(false), 2000)
   }
 
   return (
@@ -257,6 +275,19 @@ function DuesTab({ teamId, isLeader, members }: { teamId: string; isLeader: bool
           <div className="mt-1 text-xs text-slate-400">{paid.length}명</div>
         </div>
       </div>
+
+      {/* 미납자 리마인드 복사 */}
+      {isLeader && unpaid.length > 0 && (
+        <button onClick={copyReminder}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all hover:opacity-80"
+          style={{
+            background: reminderCopied ? 'rgba(74,222,128,0.08)' : 'rgba(239,68,68,0.06)',
+            color: reminderCopied ? '#4ade80' : '#ef4444',
+            borderColor: reminderCopied ? 'rgba(74,222,128,0.3)' : 'rgba(239,68,68,0.2)',
+          }}>
+          {reminderCopied ? '✓ 복사됨! 카톡에 붙여넣기 하세요' : `📤 미납자 ${unpaid.length}명 리마인드 복사`}
+        </button>
+      )}
 
       {isLeader ? (
         <>
@@ -497,6 +528,44 @@ function SettlementTab({ teamId, isLeader, members }: { teamId: string; isLeader
 
   return (
     <div className="space-y-5">
+
+      {/* 대회 참가비 분담 — KJA 케이스 */}
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-base">🏆</span>
+          <h3 className="text-sm font-semibold text-amber-800">대회 참가비 분담</h3>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-700 font-bold">KJA</span>
+        </div>
+        <p className="text-xs text-amber-700 mb-3">
+          한국기자협회 축구대회 참가비 <strong>30만원</strong>을 출전 선수 인원수로 자동 분배합니다.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: '30만원 ÷ 전체', amount: 300000, useAll: true },
+            { label: '30만원 직접 입력', amount: 300000, useAll: false },
+          ].map(preset => (
+            <button
+              key={preset.label}
+              onClick={() => {
+                setTotalCost(String(preset.amount))
+                if (preset.useAll) setSelectedIds(new Set(members.map(m => m.userId)))
+              }}
+              className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors bg-amber-200 text-amber-800 hover:bg-amber-300"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+        {totalCost === '300000' && count > 0 && (
+          <div className="mt-3 rounded-xl bg-white border border-amber-200 px-4 py-3 flex items-center justify-between">
+            <span className="text-sm text-slate-600">인당 부담금 ({count}명)</span>
+            <span className="text-xl font-bold text-amber-600">
+              {Math.ceil(300000 / count).toLocaleString()}<span className="text-sm font-normal text-slate-400 ml-1">원</span>
+            </span>
+          </div>
+        )}
+      </div>
+
       <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
         <h3 className="mb-5 text-sm font-semibold text-slate-700">경기 비용 1/N 정산</h3>
 

@@ -13,33 +13,36 @@ import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useTeam } from "@/context/TeamContext";
+import { startEC2IfNeeded } from "@/lib/ensureEC2";
 
 const generalNavItems = [
-  { href: "/clubs",     label: "클럽 탐색",    icon: Shield },
-  { href: "/league",    label: "리그 탐색",    icon: Trophy },
-  { href: "/players",   label: "선수 탐색",    icon: UserSearch },
-  { href: "/chat",      label: "채팅",         icon: MessageCircle },
-  { href: "/community", label: "커뮤니티",     icon: Globe },
-  { href: "/market",    label: "마켓",         icon: ShoppingCart },
-  { href: "/team",      label: "팀 관리",      icon: Users },
-  { href: "/finance",   label: "팀 매니지먼트", icon: Landmark },
-  { href: "/report",    label: "AI 리포트",    icon: BarChart2 },
-  { href: "/video",     label: "AI 영상분석",  icon: Clapperboard },
+  { href: "/clubs",          label: "클럽 탐색",        icon: Shield },
+  { href: "/league",         label: "리그 탐색",        icon: Trophy },
+  { href: "/league/kja-51",  label: "🏆 기자협회 대회", icon: Trophy, highlight: true },
+  { href: "/players",        label: "선수 탐색",        icon: UserSearch },
+  { href: "/schedule",       label: "일정·참석",        icon: Calendar },
+  { href: "/chat",           label: "채팅",             icon: MessageCircle },
+  // { href: "/community",      label: "커뮤니티",         icon: Globe },
+  // { href: "/market",         label: "마켓",             icon: ShoppingCart },
+  { href: "/team",           label: "팀 관리",          icon: Users },
+  { href: "/finance",        label: "팀 매니지먼트",    icon: Landmark },
+  { href: "/report",         label: "AI 리포트",        icon: BarChart2 },
+  { href: "/video",          label: "AI 영상분석",      icon: Clapperboard },
 ];
 
 const manageNavItems = [
-  { href: "/manage/team",     label: "팀 관리",          icon: Users },
-  { href: "/manage/schedule", label: "경기 일정",         icon: Calendar },
-  { href: "/manage/league",   label: "리그 & 토너먼트",   icon: Trophy },
-  { href: "/manage/finance",  label: "재정 관리",         icon: Landmark },
-  { href: "/manage/social",   label: "소셜",              icon: Star },
-  { href: "/manage/discover", label: "탐색",              icon: Search },
+  { href: "/manage/team", label: "팀 관리", icon: Users },
+  { href: "/manage/schedule", label: "경기 일정", icon: Calendar },
+  { href: "/manage/league", label: "리그 & 토너먼트", icon: Trophy },
+  { href: "/manage/finance", label: "재정 관리", icon: Landmark },
+  { href: "/manage/social", label: "소셜", icon: Star },
+  { href: "/manage/discover", label: "탐색", icon: Search },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const { user } = useAuth();
   const { theme, toggle } = useTheme();
   const { teams, currentTeam, setCurrentTeam } = useTeam();
@@ -148,18 +151,29 @@ export default function Sidebar() {
 
       {/* 네비게이션 */}
       <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname.startsWith(href);
+        {navItems.map(({ href, label, icon: Icon, ...rest }) => {
+          const highlight = (rest as { highlight?: boolean }).highlight;
+          const active = pathname === href || (href !== "/league" && pathname.startsWith(href));
+          
+          // AI 영상분석 메뉴 클릭 시 EC2 인스턴스 시작
+          const handleClick = (e: React.MouseEvent) => {
+            if (href === "/video") {
+              startEC2IfNeeded();
+            }
+          };
+          
           return (
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                active
+              onClick={handleClick}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active
                   ? "text-white bg-gradient-to-r from-fuchsia-600/20 to-violet-600/20 border border-fuchsia-500/30"
+                  : highlight
+                  ? "hover:bg-[var(--card-bg)] border border-fuchsia-500/20"
                   : "hover:bg-[var(--card-bg)]"
               } ${collapsed ? "justify-center" : ""}`}
-              style={active ? undefined : { color: "var(--text-muted)" }}
+              style={active ? undefined : highlight ? { color: "#e879f9" } : { color: "var(--text-muted)" }}
               title={collapsed ? label : undefined}
             >
               <Icon size={18} className="shrink-0" />

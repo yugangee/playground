@@ -6,7 +6,8 @@ function getUserId(event: APIGatewayProxyEvent): string | undefined {
   return undefined
 }
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
+import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb'
+import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb'
 import { randomUUID } from 'crypto'
 
 const db = DynamoDBDocumentClient.from(new DynamoDBClient({}))
@@ -19,6 +20,14 @@ const res = (statusCode: number, body: unknown) => ({
   headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
   body: JSON.stringify(body),
 })
+
+function parseBody(raw: string | null): Record<string, unknown> | null {
+  try {
+    return JSON.parse(raw ?? '{}')
+  } catch {
+    return null
+  }
+}
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   const method = event.httpMethod
@@ -39,7 +48,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /league
     if (method === 'POST' && parts.length === 0) {
-      const body = JSON.parse(event.body ?? '{}')
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
+      // F-3: 필수 필드 검증
+      if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
+        return res(400, { message: '리그 이름(name)은 필수입니다' })
+      }
+      if (!body.organizerTeamId || typeof body.organizerTeamId !== 'string') {
+        return res(400, { message: '주최 팀 ID(organizerTeamId)는 필수입니다' })
+      }
       const item = { id: randomUUID(), ...body, organizerId: userId, status: 'recruiting', isPublic: String(body.isPublic ?? true), createdAt: new Date().toISOString() }
       await db.send(new PutCommand({ TableName: LEAGUES, Item: item }))
       // 주최 팀 자동 참가
@@ -58,16 +76,38 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // PATCH /league/:id  (status 변경 등)
     if (method === 'PATCH' && parts.length === 1) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const league = await db.send(new GetCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
       if (!league.Item) return res(404, { message: 'League not found' })
       if (league.Item.organizerId !== userId) return res(403, { message: '리그 주최자만 수정할 수 있습니다' })
-      const body = JSON.parse(event.body ?? '{}')
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
       const updates = Object.entries(body)
+      if (updates.length === 0) return res(400, { message: '수정할 필드가 없습니다' })
       const expr = 'SET ' + updates.map(([k], i) => `#f${i} = :v${i}`).join(', ')
       const names = Object.fromEntries(updates.map(([k], i) => [`#f${i}`, k]))
       const values = Object.fromEntries(updates.map(([, v], i) => [`:v${i}`, v]))
       await db.send(new UpdateCommand({ TableName: LEAGUES, Key: { id: leagueId }, UpdateExpression: expr, ExpressionAttributeNames: names, ExpressionAttributeValues: values }))
       return res(200, { message: 'updated' })
+    }
+
+    // DELETE /league/:id  (주최자만, 연관 teams/matches cascade 삭제)
+    if (method === 'DELETE' && parts.length === 1) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      const league = await db.send(new GetCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
+      if (!league.Item) return res(404, { message: 'League not found' })
+      if (league.Item.organizerId !== userId) return res(403, { message: '리그 주최자만 삭제할 수 있습니다' })
+      // cascade: LEAGUE_TEAMS 삭제
+      const teamsResult = await db.send(new QueryCommand({
+        TableName: LEAGUE_TEAMS,
+        KeyConditionExpression: 'leagueId = :lid',
+        ExpressionAttributeValues: { ':lid': leagueId },
+      }))
+      await Promise.all((teamsResult.Items ?? []).map(t =>
+        db.send(new DeleteCommand({ TableName: LEAGUE_TEAMS, Key: { leagueId, teamId: t.teamId } }))
+      ))
+      await db.send(new DeleteCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
+      return res(200, { message: 'deleted' })
     }
 
     // GET /league/:id/teams
@@ -82,9 +122,35 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /league/:id/teams  (팀 초대/참가)
     if (method === 'POST' && parts[1] === 'teams') {
-      const { teamId } = JSON.parse(event.body ?? '{}')
-      await db.send(new PutCommand({ TableName: LEAGUE_TEAMS, Item: { leagueId, teamId, joinedAt: new Date().toISOString() } }))
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
+      // F-3: 필수 필드 검증
+      const { teamId } = body as { teamId?: string }
+      if (!teamId || typeof teamId !== 'string') {
+        return res(400, { message: '팀 ID(teamId)는 필수입니다' })
+      }
+      // F-2: 중복 참가 방지 (ConditionExpression)
+      try {
+        await db.send(new PutCommand({
+          TableName: LEAGUE_TEAMS,
+          Item: { leagueId, teamId, joinedAt: new Date().toISOString() },
+          ConditionExpression: 'attribute_not_exists(leagueId) AND attribute_not_exists(teamId)',
+        }))
+      } catch (e) {
+        if (e instanceof ConditionalCheckFailedException) {
+          return res(409, { message: '이미 참가한 팀입니다' })
+        }
+        throw e
+      }
       return res(201, { leagueId, teamId })
+    }
+
+    // DELETE /league/:id/teams/:teamId  (팀 참가 취소)
+    if (method === 'DELETE' && parts[1] === 'teams' && parts[2]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      await db.send(new DeleteCommand({ TableName: LEAGUE_TEAMS, Key: { leagueId, teamId: parts[2] } }))
+      return res(200, { message: 'deleted' })
     }
 
     // GET /league/:id/matches
@@ -100,19 +166,38 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
     // POST /league/:id/matches
     if (method === 'POST' && parts[1] === 'matches') {
-      const body = JSON.parse(event.body ?? '{}')
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
+      // F-3: 필수 필드 검증
+      if (!body.homeTeamId || !body.awayTeamId) {
+        return res(400, { message: 'homeTeamId, awayTeamId는 필수입니다' })
+      }
       const item = { id: randomUUID(), leagueId, ...body, status: 'pending', createdAt: new Date().toISOString() }
       await db.send(new PutCommand({ TableName: LEAGUE_MATCHES, Item: item }))
       return res(201, item)
     }
 
+    // DELETE /league/:id/matches/:matchId
+    if (method === 'DELETE' && parts[1] === 'matches' && parts[2]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      const league = await db.send(new GetCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
+      if (!league.Item) return res(404, { message: 'League not found' })
+      if (league.Item.organizerId !== userId) return res(403, { message: '리그 주최자만 경기를 삭제할 수 있습니다' })
+      await db.send(new DeleteCommand({ TableName: LEAGUE_MATCHES, Key: { id: parts[2] } }))
+      return res(200, { message: 'deleted' })
+    }
+
     // PATCH /league/:id/matches/:matchId  (결과 입력)
     if (method === 'PATCH' && parts[1] === 'matches' && parts[2]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
       const league = await db.send(new GetCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
       if (!league.Item) return res(404, { message: 'League not found' })
       if (league.Item.organizerId !== userId) return res(403, { message: '리그 주최자만 경기 결과를 수정할 수 있습니다' })
-      const body = JSON.parse(event.body ?? '{}')
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
       const updates = Object.entries(body)
+      if (updates.length === 0) return res(400, { message: '수정할 필드가 없습니다' })
       const expr = 'SET ' + updates.map(([k], i) => `#f${i} = :v${i}`).join(', ')
       const names = Object.fromEntries(updates.map(([k], i) => [`#f${i}`, k]))
       const values = Object.fromEntries(updates.map(([, v], i) => [`:v${i}`, v]))

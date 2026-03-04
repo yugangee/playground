@@ -4,14 +4,23 @@ import Link from "next/link";
 import { MapPin, Shield, Trophy, Crosshair, Pencil, X, User, Mail, Calendar, Activity, Globe, Camera } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useTeam } from "@/context/TeamContext";
 import { regionData } from "@/app/signup/regions";
 import RatingBadge from "@/components/RatingBadge";
+import { manageFetch } from "@/lib/manageFetch";
+
+const sportTypeLabel: Record<string, string> = {
+  soccer: "축구", futsal: "풋살", basketball: "농구", baseball: "야구",
+  volleyball: "배구", ice_hockey: "아이스하키",
+  running: "러닝크루", snowboard: "스노보드", badminton: "배드민턴",
+};
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 const allSports = ["축구", "풋살", "농구", "야구", "배구", "배드민턴", "아이스하키", "스노보드", "러닝크루", "기타"];
 
 export default function MyPage() {
   const { user, loading, refresh } = useAuth();
+  const { teams: manageTeams } = useTeam();
   const [club, setClub] = useState<any>(null);
   const [myClubs, setMyClubs] = useState<any[]>([]);
   const [editing, setEditing] = useState(false);
@@ -21,6 +30,7 @@ export default function MyPage() {
   const [leaveConfirm, setLeaveConfirm] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [gpsSessions, setGpsSessions] = useState<any[]>([]);
 
   // 개인정보 편집
   const [profileEditing, setProfileEditing] = useState(false);
@@ -95,6 +105,13 @@ export default function MyPage() {
         const found = allClubs.find((c: any) => c.clubId === user?.teamId);
         setClub(found || matched[0] || null);
       })
+      .catch(() => {});
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) { setGpsSessions([]); return; }
+    manageFetch('/schedule/performance')
+      .then((data: any) => setGpsSessions(Array.isArray(data) ? data.sort((a: any, b: any) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()) : []))
       .catch(() => {});
   }, [user]);
 
@@ -355,7 +372,12 @@ export default function MyPage() {
     }
   }
 
-  function closeTeamEdit() { setEditing(false); setLeaveConfirm(false); }
+  function closeTeamEdit() {
+    setEditing(false);
+    setLeaveConfirm(false);
+    setEditingTeamId(null);
+    setTeamDraft({ sport: "", teamId: null, position: "" });
+  }
 
   const record = user?.record || { games: 0, goals: 0, assists: 0 };
   const recentGoals = user?.recentGoals || [];
@@ -536,6 +558,64 @@ export default function MyPage() {
         </p>
       </div>
 
+      {/* GPS 퍼포먼스 이력 */}
+      <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <Activity size={14} className="text-emerald-400" />
+          <span className="text-sm font-semibold text-gray-300">GPS 퍼포먼스 이력</span>
+        </div>
+        {gpsSessions.length > 0 ? (
+          <>
+            {/* 요약 수치 */}
+            <div className="grid grid-cols-3 gap-2 text-center">
+              {[
+                { label: "총 세션", value: `${gpsSessions.length}회` },
+                {
+                  label: "누적 거리",
+                  value: (() => {
+                    const total = gpsSessions.reduce((s: number, g: any) => s + (g.distanceM ?? 0), 0);
+                    return total >= 1000 ? `${(total / 1000).toFixed(1)}km` : `${Math.round(total)}m`;
+                  })(),
+                },
+                {
+                  label: "최고 속도",
+                  value: `${Math.max(...gpsSessions.map((g: any) => g.maxSpeedKmh ?? 0)).toFixed(1)}km/h`,
+                },
+              ].map(({ label, value }) => (
+                <div key={label} className="bg-white/5 rounded-lg py-2.5 px-1">
+                  <p className="text-emerald-400 font-bold text-sm">{value}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">{label}</p>
+                </div>
+              ))}
+            </div>
+            {/* 최근 세션 목록 */}
+            <div className="space-y-2">
+              {gpsSessions.slice(0, 5).map((s: any) => {
+                const dist = s.distanceM >= 1000
+                  ? `${(s.distanceM / 1000).toFixed(2)}km`
+                  : `${Math.round(s.distanceM)}m`;
+                const mins = Math.floor((s.elapsedSec ?? 0) / 60);
+                const secs = (s.elapsedSec ?? 0) % 60;
+                return (
+                  <div key={s.sessionId} className="flex items-center justify-between bg-white/5 rounded-lg px-4 py-3">
+                    <div>
+                      <p className="text-white text-sm font-semibold">{dist}</p>
+                      <p className="text-gray-500 text-xs">{new Date(s.recordedAt).toLocaleDateString("ko-KR", { month: "short", day: "numeric" })}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-emerald-400 text-xs font-medium">최고 {(s.maxSpeedKmh ?? 0).toFixed(1)}km/h</p>
+                      <p className="text-gray-500 text-xs">{mins}분 {secs}초</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <p className="text-gray-600 text-sm text-center py-2">아직 GPS 트래킹 기록이 없습니다</p>
+        )}
+      </div>
+
       {/* 소속 */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
         <div className="flex items-center justify-between">
@@ -547,7 +627,7 @@ export default function MyPage() {
             + 새 팀
           </button>
         </div>
-        {myClubs.length > 0 ? myClubs.map((c: any) => (
+        {myClubs.map((c: any) => (
           <div key={c.clubId} className="bg-white/5 rounded-lg px-4 py-3 flex items-center justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
@@ -565,7 +645,24 @@ export default function MyPage() {
               <Pencil size={14} />
             </button>
           </div>
-        )) : (
+        ))}
+        {manageTeams.map((t) => (
+          <div key={t.id} className="bg-white/5 rounded-lg px-4 py-3 flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                {t.logoUrl && <img src={t.logoUrl} alt={t.name} className="w-6 h-6 rounded-full object-cover" />}
+                <span className="text-white text-sm font-semibold">{t.name}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">팀</span>
+                {t.sportType && <span className="text-[10px] px-1.5 py-0.5 rounded bg-fuchsia-500/15 text-fuchsia-400">{sportTypeLabel[t.sportType] ?? t.sportType}</span>}
+              </div>
+              {t.region && <p className="text-xs text-gray-500">{t.region}</p>}
+            </div>
+            <Link href="/team" className="text-gray-500 hover:text-white transition-colors">
+              <Pencil size={14} />
+            </Link>
+          </div>
+        ))}
+        {myClubs.length === 0 && manageTeams.length === 0 && (
           <p className="text-xs text-gray-500">소속팀이 없습니다</p>
         )}
       </div>

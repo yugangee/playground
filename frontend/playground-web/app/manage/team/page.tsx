@@ -115,7 +115,7 @@ export default function TeamPage() {
 }
 
 function CreateTeamForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
-  const [form, setForm] = useState({ name: '', region: '', description: '', ageGroup: 'mixed', isPublic: true })
+  const [form, setForm] = useState({ name: '', region: '', description: '', ageGroup: 'mixed', sportType: 'soccer', isPublic: true })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -157,6 +157,25 @@ function CreateTeamForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
         </Field>
         <Field label="팀 소개">
           <textarea value={form.description} onChange={e => set('description', e.target.value)} className={inp} rows={3} placeholder="팀 소개를 입력하세요" />
+        </Field>
+        <Field label="종목">
+          <select value={form.sportType} onChange={e => set('sportType', e.target.value)} className={inp}>
+            <optgroup label="⚽ 축구형 (대전형)">
+              <option value="soccer">⚽ 축구</option>
+              <option value="futsal">⚽ 풋살</option>
+            </optgroup>
+            <optgroup label="🏀 기타 대전형">
+              <option value="basketball">🏀 농구</option>
+              <option value="baseball">⚾ 야구</option>
+              <option value="volleyball">🏐 배구</option>
+              <option value="ice_hockey">🏒 아이스하키</option>
+            </optgroup>
+            <optgroup label="🏃 동아리형">
+              <option value="running">🏃 러닝크루</option>
+              <option value="snowboard">🏂 스노보드</option>
+              <option value="badminton">🏸 배드민턴</option>
+            </optgroup>
+          </select>
         </Field>
         <Field label="연령대">
           <select value={form.ageGroup} onChange={e => set('ageGroup', e.target.value)} className={inp}>

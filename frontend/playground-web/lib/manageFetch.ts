@@ -1,21 +1,60 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL!
+import { tryRefreshTokens, clearTokens } from "./tokenRefresh";
+
+const BASE = process.env.NEXT_PUBLIC_MANAGE_API_URL || process.env.NEXT_PUBLIC_API_URL;
 
 function getToken(): string | null {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem('accessToken')
+  if (typeof window === "undefined") return null;
+  // Manage API uses CognitoUserPoolsAuthorizer (REST), which only propagates
+  // claims (claims.sub) for ID tokens, not Access tokens.
+  return localStorage.getItem("idToken") || localStorage.getItem("accessToken");
+}
+
+async function doFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  if (!BASE) throw new Error("API URL이 설정되지 않았습니다. 환경변수를 확인하세요.");
+  const token = getToken();
+  return fetch(`${BASE}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers as Record<string, string> ?? {}),
+    },
+  });
 }
 
 export async function manageFetch(path: string, options: RequestInit = {}) {
-  const token = getToken()
-  const res = await fetch(`${BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  })
-  if (!res.ok) throw new Error(await res.text())
-  if (res.status === 204) return null
-  return res.json()
+  let res = await doFetch(path, options);
+
+  // 401 처리: 토큰이 있었으면 갱신 시도, 없었으면 단순 에러
+  if (res.status === 401) {
+    const hadToken = getToken() !== null;
+    if (hadToken) {
+      const refreshed = await tryRefreshTokens();
+      if (refreshed) {
+        res = await doFetch(path, options);
+      } else {
+        clearTokens();
+        if (typeof window !== "undefined") window.location.href = "/login";
+        throw new Error("세션이 만료되었습니다. 다시 로그인해 주세요.");
+      }
+    } else {
+      throw new Error("로그인이 필요합니다.");
+    }
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    let message = text;
+    try {
+      const json = JSON.parse(text);
+      message = json.message || json.error || text;
+    } catch {
+      if (text.includes('<html') || text.includes('<!DOCTYPE')) {
+        message = `서버 오류 (${res.status})`;
+      }
+    }
+    throw new Error(message);
+  }
+  if (res.status === 204) return null;
+  return res.json();
 }

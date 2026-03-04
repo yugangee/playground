@@ -212,7 +212,7 @@ export default function ReportPage() {
             {/* 레이더 차트 */}
             <div className="h-[260px] bg-white/5 border border-white/10 rounded-xl p-4">
               <p className="text-xs font-semibold text-gray-300 mb-2">스탯 레이더</p>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="99%" height="100%">
                 <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
                   <PolarGrid stroke="#475569" />
                   <PolarAngleAxis dataKey="subject" tick={{ fill: "#94a3b8", fontSize: 11 }} />
