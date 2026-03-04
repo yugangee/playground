@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { regionData } from "./regions";
 
@@ -10,7 +10,16 @@ const API = process.env.NEXT_PUBLIC_API_URL;
 const allSports = ["축구", "풋살", "농구", "야구", "배구", "배드민턴", "아이스하키", "스노보드", "러닝크루", "기타"];
 
 export default function SignupPage() {
-  const [form, setForm] = useState({ name: "", gender: "", birth: "", id: "", password: "", passwordConfirm: "", regionSido: "", regionSigungu: "" });
+  const searchParams = useSearchParams();
+  const kakaoId = searchParams.get("kakaoId") || "";
+
+  const [form, setForm] = useState({
+    name: searchParams.get("name") || "",
+    gender: "", birth: "",
+    id: searchParams.get("email") || "",
+    password: "", passwordConfirm: "",
+    regionSido: "", regionSigungu: ""
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -88,7 +97,7 @@ export default function SignupPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: form.id,
-          password: form.password,
+          password: kakaoId ? `Kakao#${kakaoId}` : form.password,
           name: form.name,
           gender: form.gender === "남성" ? "male" : "female",
           birthdate: form.birth,
@@ -99,6 +108,7 @@ export default function SignupPage() {
           teamId: teamId,
           teamIds: teamId ? [teamId] : [],
           position: position,
+          kakaoId: kakaoId || undefined,
         }),
       });
       const data = await res.json();

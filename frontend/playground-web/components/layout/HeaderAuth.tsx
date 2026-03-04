@@ -37,13 +37,7 @@ export default function HeaderAuth() {
           <Link href="/login" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
             로그인
           </Link>
-          <Link
-            href="/signup"
-            className="text-sm font-medium px-4 py-1.5 rounded-full text-white transition-opacity hover:opacity-90"
-            style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
-          >
-            회원가입
-          </Link>
+
         </>
       )}
       <Link href="/" className="text-gray-500 hover:text-white transition-colors" title="홈">

@@ -71,6 +71,7 @@ async function signup(body) {
       teamId: teamId || (teamIds && teamIds.length > 0 ? teamIds[0] : null),
       teamIds: teamIds || (teamId ? [teamId] : []),
       position: body.position || "",
+      kakaoId: body.kakaoId || null,
       avatar: "",
       number: 0,
       role: "",
@@ -764,13 +765,82 @@ async function aiChat(body) {
   return res(200, { reply: data.choices[0].message.content });
 }
 
-export const handler = async (event) => {
+async function kakaoAuth(body) {
+  const { code, redirectUri } = body;
+  if (!code) return res(400, { message: "code가 필요합니다" });
+
+  // 1. 카카오 토큰 교환
+  const tokenRes = await fetch("https://kauth.kakao.com/oauth/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: process.env.KAKAO_CLIENT_ID || "4e2be53c83f944188cd4008ea2adcc1c",
+      redirect_uri: redirectUri,
+      code,
+    }),
+  });
+  const tokenData = await tokenRes.json();
+  if (!tokenData.access_token) return res(400, { message: "카카오 토큰 발급 실패" });
+
+  // 2. 카카오 사용자 정보 조회
+  const userRes = await fetch("https://kapi.kakao.com/v2/user/me", {
+    headers: { Authorization: `Bearer ${tokenData.access_token}` },
+  });
+  const kakaoUser = await userRes.json();
+  const kakaoId = String(kakaoUser.id);
+  const kakaoEmail = kakaoUser.kakao_account?.email || `kakao_${kakaoId}@playground.app`;
+  const kakaoName = kakaoUser.kakao_account?.profile?.nickname || "카카오유저";
+
+  // 3. DynamoDB에서 기존 회원 확인 (kakaoId로)
+  const existing = await ddb.send(new ScanCommand({
+    TableName: USERS_TABLE,
+    FilterExpression: "kakaoId = :k",
+    ExpressionAttributeValues: { ":k": kakaoId },
+    Limit: 1,
+  }));
+
+  if (existing.Items && existing.Items.length > 0) {
+    // 기존 회원 → Cognito 로그인
+    const user = existing.Items[0];
+    const email = user.email;
+    try {
+      const authResult = await cognito.send(new InitiateAuthCommand({
+        AuthFlow: "USER_PASSWORD_AUTH",
+        ClientId: CLIENT_ID,
+        AuthParameters: { USERNAME: email, PASSWORD: `Kakao#${kakaoId}` },
+      }));
+      const auth = authResult.AuthenticationResult;
+      return res(200, {
+        accessToken: auth.AccessToken,
+        idToken: auth.IdToken,
+        refreshToken: auth.RefreshToken,
+        isNewUser: false,
+      });
+    } catch (e) {
+      return res(500, { message: "로그인 처리 실패: " + e.message });
+    }
+  }
+
+  // 4. 신규 회원 → 임시 정보 반환 (프론트에서 회원가입 페이지로 이동)
+  return res(200, {
+    isNewUser: true,
+    kakaoId,
+    email: kakaoEmail,
+    name: kakaoName,
+  });
+}
+
+
   if (event.httpMethod === "OPTIONS") return res(200, {});
 
   const path = event.path;
   const method = event.httpMethod;
 
   try {
+    if (method === "POST" && path === "/auth/kakao") {
+      return await kakaoAuth(JSON.parse(event.body));
+    }
     if (method === "POST" && path === "/auth/signup") {
       return await signup(JSON.parse(event.body));
     }
