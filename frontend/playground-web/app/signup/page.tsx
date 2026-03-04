@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { regionData } from "./regions";
@@ -9,7 +9,7 @@ const API = process.env.NEXT_PUBLIC_API_URL;
 
 const allSports = ["축구", "풋살", "농구", "야구", "배구", "배드민턴", "아이스하키", "스노보드", "러닝크루", "기타"];
 
-export default function SignupPage() {
+function SignupInner() {
   const searchParams = useSearchParams();
   const kakaoId = searchParams.get("kakaoId") || "";
 
@@ -44,7 +44,6 @@ export default function SignupPage() {
 
   const getSigunguItems = (sido: string) => sido ? ["전체", ...(regionData[sido] || [])] : [];
 
-  // 종목 선택 시 해당 클럽 목록 로드
   useEffect(() => {
     if (!teamSport) { setTeamClubs([]); return; }
     fetch(`${API}/clubs?sport=${encodeURIComponent(teamSport)}`)
@@ -157,7 +156,6 @@ export default function SignupPage() {
           <p className="text-green-400 text-xs">비밀번호가 일치합니다</p>
         )}
 
-        {/* 거주지 */}
         <div>
           <p className="text-xs text-gray-500 mb-2">거주지</p>
           <div className="flex gap-2">
@@ -166,9 +164,6 @@ export default function SignupPage() {
           </div>
         </div>
 
-        {/* 활동 가능 지역, 관심 스포츠는 가입 후 마이페이지에서 설정 */}
-
-        {/* 팀 선택 */}
         <div>
           <p className="text-xs text-gray-500 mb-2">소속 팀 (선택)</p>
           <div className="flex flex-wrap gap-2 mb-2">
@@ -200,7 +195,6 @@ export default function SignupPage() {
           )}
         </div>
 
-        {/* 포지션 선택 */}
         {teamId && (() => {
           const selectedClub = teamClubs.find((c: any) => c.clubId === teamId);
           const sport = selectedClub?.sport || teamSport;
@@ -253,5 +247,13 @@ export default function SignupPage() {
         <Link href="/" className="hover:text-gray-400 transition-colors">← 메인으로 돌아가기</Link>
       </p>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center items-center min-h-screen"><div className="w-6 h-6 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" /></div>}>
+      <SignupInner />
+    </Suspense>
   );
 }
