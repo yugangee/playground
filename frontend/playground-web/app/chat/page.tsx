@@ -302,8 +302,8 @@ export default function ChatPage() {
                         </div>
                       </div>
 
-                      {/* 이모지 리액션 추가 버튼 (항상 표시) */}
-                      <div className={`flex gap-1 mt-1 ${m.from === "me" ? "flex-row-reverse" : ""}`}>
+                      {/* 이모지 리액션 추가 버튼 (hover 시 표시) */}
+                      <div className={`flex gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${m.from === "me" ? "flex-row-reverse" : ""}`}>
                         {EMOJI_LIST.slice(0, 5).map(emoji => (
                           <button key={emoji} onClick={() => addReaction(i, emoji)}
                             className="text-sm hover:scale-125 transition-transform leading-none">
@@ -318,8 +318,8 @@ export default function ChatPage() {
                           {Object.entries(msgReactions).filter(([, users]) => users.length > 0).map(([emoji, users]) => (
                             <button key={emoji} onClick={() => addReaction(i, emoji)}
                               className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs border transition-colors ${users.includes(user?.email ?? "")
-                                  ? "bg-fuchsia-500/20 border-fuchsia-500/40 text-fuchsia-300"
-                                  : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                                ? "bg-fuchsia-500/20 border-fuchsia-500/40 text-fuchsia-300"
+                                : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
                                 }`}>
                               {emoji} <span className="text-[10px]">{users.length}</span>
                             </button>
