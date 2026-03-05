@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { CalendarDays, TrendingUp, Users, Shield, UserPlus, X, Copy, Check, Send, MessageCircle, Crown, Pencil, Swords, Plus, CheckCircle } from "lucide-react";
+import { CalendarDays, TrendingUp, Users, Shield, UserPlus, X, Copy, Check, Send, MessageCircle, Crown, Pencil, Swords, Plus, CheckCircle, Wallet, TrendingDown, Bot, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useTeam } from "@/context/TeamContext";
@@ -72,8 +72,8 @@ export default function TeamPage() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [memberEditing, setMemberEditing] = useState(false);
-  const [editingMember, setEditingMember] = useState<{ userId: string; position: string } | null>(null);
-  const [editForm, setEditForm] = useState({ position: "" });
+  const [editingMember, setEditingMember] = useState<{ userId: string; position: string; roles?: string[] } | null>(null);
+  const [editForm, setEditForm] = useState({ position: "", roles: [] as string[] });
 
   const [attendance, setAttendance] = useState<Record<string, boolean | null>>({});
 
@@ -211,9 +211,9 @@ export default function TeamPage() {
     try {
       await manageFetch(`/team/${currentTeam.id}/members/${editingMember.userId}`, {
         method: "PATCH",
-        body: JSON.stringify({ position: editForm.position }),
+        body: JSON.stringify({ position: editForm.position, roles: editForm.roles }),
       });
-      setMembers(prev => prev.map(m => m.userId === editingMember.userId ? { ...m, position: editForm.position } : m));
+      setMembers(prev => prev.map(m => m.userId === editingMember.userId ? { ...m, position: editForm.position, roles: editForm.roles } : m));
       setEditingMember(null);
     } catch { alert("멤버 수정에 실패했습니다"); }
   }
@@ -246,6 +246,14 @@ export default function TeamPage() {
   function copy() {
     navigator.clipboard.writeText(inviteUrl).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {});
   }
+
+  // 권한 체크
+  const currentMember = members.find(m => m.userId === user?.username);
+  const currentUserRoles = currentMember?.roles || (currentMember?.role ? [currentMember.role] : ['member']);
+  const isManager = currentUserRoles.includes('manager');
+  const isTreasurer = currentUserRoles.includes('treasurer');
+  const hasFullEditPermission = isLeader || isManager; // 주장 또는 관리자
+  const hasTreasurerPermission = isTreasurer; // 총무
 
   // 채팅 목업 (경기 제안 UI용)
   const [pending, setPending] = useState<number[]>([]);
@@ -281,12 +289,12 @@ export default function TeamPage() {
       styles: ["공격적", "빠른 패스"], image: null,
     };
     const demoMembers = [
-      { userId: "demo1", name: "김민수", position: "GK", role: "member" },
-      { userId: "demo2", name: "이서준", position: "DF", role: "member" },
-      { userId: "demo3", name: "박지훈", position: "DF", role: "member" },
-      { userId: "demo4", name: "최도윤", position: "MF", role: "member" },
-      { userId: "demo5", name: "강시우", position: "MF", role: "member" },
-      { userId: "demo6", name: "윤하준", position: "FW", role: "leader" },
+      { userId: "demo1", name: "김민수", position: "GK", roles: ["member"] },
+      { userId: "demo2", name: "이서준", position: "DF", roles: ["manager"] },
+      { userId: "demo3", name: "박지훈", position: "DF", roles: ["member"] },
+      { userId: "demo4", name: "최도윤", position: "MF", roles: ["treasurer"] },
+      { userId: "demo5", name: "강시우", position: "MF", roles: ["member"] },
+      { userId: "demo6", name: "윤하준", position: "FW", roles: ["leader", "manager"] },
     ];
     return <TeamPageContent club={demoClub} members={demoMembers} isDemo={true} />;
   }
@@ -338,7 +346,7 @@ export default function TeamPage() {
       setMemberEditing={setMemberEditing}
       editingMember={editingMember}
       setEditingMember={(m: any) => {
-        if (m) setEditingMember({ userId: m.userId, position: m.position || '' });
+        if (m) setEditingMember({ userId: m.userId, position: m.position || '', roles: m.roles || (m.role ? [m.role] : ['member']) });
         else setEditingMember(null);
       }}
       editForm={editForm}
@@ -374,6 +382,10 @@ export default function TeamPage() {
       isCompetitive={isCompetitive}
       isCasual={isCasual}
       isLeaderUser={isLeader}
+      isManagerUser={isManager}
+      isTreasurerUser={isTreasurer}
+      hasFullEditPermission={hasFullEditPermission}
+      hasTreasurerPermission={hasTreasurerPermission}
       currentUser={user}
       authClubId={authClubId}
       scoreModal={scoreModal}
@@ -393,6 +405,9 @@ export default function TeamPage() {
       router={router}
       loadingMembers={loadingMembers}
       deleteMemberAPI={deleteMemberAPI}
+      currentTeam={currentTeam}
+      teams={teams}
+      onTeamChange={setCurrentTeam}
     />
   </>);
 }
@@ -414,7 +429,9 @@ function TeamPageContent({
   proposedMatches = [], confirmedMatches = [], scheduledMatches = [],
   acceptMatchAPI, declineMatchAPI, submitScoreAPI, addGoalsAPI,
   clubNameMap = {}, isCompetitive = false, isCasual = false,
-  isLeaderUser = false, currentUser = null, authClubId = null,
+  isLeaderUser = false, isManagerUser = false, isTreasurerUser = false,
+  hasFullEditPermission = false, hasTreasurerPermission = false,
+  currentUser = null, authClubId = null,
   scoreModal = null, setScoreModal = () => {},
   scoreForm = { ourScore: "", theirScore: "" }, setScoreForm = () => {},
   goalModal = null, setGoalModal = () => {},
@@ -423,13 +440,16 @@ function TeamPageContent({
   createActivityAPI, joinActivityAPI, completeActivityAPI,
   router = null, loadingMembers = false,
   deleteMemberAPI = () => {},
+  currentTeam = null,
+  teams = [],
+  onTeamChange = null,
 }: any) {
   if (!club) {
     return (
       <div className="max-w-4xl mx-auto pt-20 text-center space-y-4">
         <Shield size={40} className="text-gray-600 mx-auto" />
         <p className="text-gray-400 text-sm">소속된 팀이 없습니다</p>
-        <Link href="/manage/team" className="inline-block px-6 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+        <Link href="/manage/team" className="inline-block px-6 py-2 rounded-xl text-sm font-semibold border" style={{ background: "rgba(255,255,255,0.08)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.15)" }}>
           팀 만들기
         </Link>
       </div>
@@ -444,17 +464,34 @@ function TeamPageContent({
     <div>
       {isDemo && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center mb-6">
-          <Users size={24} className="text-fuchsia-400 mx-auto mb-3" />
+          <Users size={24} className="mx-auto mb-3" style={{ color: 'var(--text-primary)' }} />
           <p className="text-white font-semibold mb-2">로그인하고 내 팀을 관리하세요</p>
           <p className="text-gray-400 text-sm mb-4">현재 샘플 데이터로 표시하고 있습니다</p>
-          <Link href="/login" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+          <Link href="/login" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 border" style={{ background: "rgba(255,255,255,0.08)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.15)" }}>
             로그인
           </Link>
         </div>
       )}
       <div>
       <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-white">팀 관리</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-white">팀 관리</h1>
+        {!isDemo && teams && teams.length > 1 && (
+          <select
+            value={currentTeam?.id || ''}
+            onChange={e => { 
+              const t = teams.find((team: any) => team.id === e.target.value); 
+              if (t && onTeamChange) onTeamChange(t); 
+            }}
+            className="px-3 py-1.5 rounded-lg text-sm outline-none"
+            style={{ background: "var(--input-bg)", border: "1px solid var(--input-border)", color: "var(--text-primary)" }}
+          >
+            {teams.map((t: any) => (
+              <option key={t.id} value={t.id} style={{ background: "var(--dropdown-bg)", color: "var(--text-primary)" }}>{t.name}</option>
+            ))}
+          </select>
+        )}
+      </div>
 
       {/* 우리 팀 정보 */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
@@ -462,7 +499,7 @@ function TeamPageContent({
           <div className="flex items-center gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <Shield size={18} className="text-fuchsia-400" />
+                <Shield size={18} style={{ color: 'var(--text-primary)' }} />
                 <h2 className="text-lg font-bold text-white">{club.name}</h2>
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
@@ -474,8 +511,8 @@ function TeamPageContent({
           {!isDemo && (
             <button
               onClick={() => onInviteClick()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-colors"
-              style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border"
+              style={{ background: "rgba(255,255,255,0.08)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.15)" }}
             >
               <UserPlus size={13} />선수 초대
             </button>
@@ -490,7 +527,7 @@ function TeamPageContent({
             { label: "멤버", value: `${club.members || members.length}명` },
           ].map(({ label, value }) => (
             <div key={label} className="bg-white/5 rounded-lg p-3 text-center">
-              <p className="text-fuchsia-400 font-bold text-sm">{value}</p>
+              <p style={{ color: 'var(--text-primary)' }} className="font-bold text-sm">{value}</p>
               <p className="text-gray-500 text-xs mt-1">{label}</p>
             </div>
           ))}
@@ -505,10 +542,10 @@ function TeamPageContent({
               {loadingMembers && <span className="ml-1 text-xs text-gray-600">로딩중...</span>}
             </span>
           </div>
-          {!isDemo && isLeaderUser && (
+          {!isDemo && hasFullEditPermission && (
             <button
               onClick={() => { setMemberEditing(!memberEditing); }}
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-fuchsia-400 transition-colors"
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-white transition-colors"
             >
               <Pencil size={12} />
               {memberEditing ? "완료" : "수정"}
@@ -517,41 +554,61 @@ function TeamPageContent({
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
           {members.map((m: any, i: number) => {
-            const isLeaderMember = m.role === 'leader';
+            const memberRoles = m.roles || (m.role ? [m.role] : []);
+            const isLeaderMember = memberRoles.includes('leader');
             const displayName = m.name || (m.userId ? m.userId.slice(0, 8) + '…' : m.email || '-');
+            const roleLabels = memberRoles
+              .filter((r: string) => r !== 'member')
+              .map((r: string) => r === 'leader' ? '주장' : r === 'manager' ? '관리자' : r === 'treasurer' ? '총무' : '')
+              .filter(Boolean);
             return (
               <div key={m.userId || m.email || i}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isLeaderMember ? "bg-fuchsia-500/10 border border-fuchsia-500/30" : "bg-white/5"}`}
+                className={`flex flex-col gap-1 rounded-lg px-3 py-2 ${isLeaderMember ? "bg-white/10 border border-white/20" : "bg-white/5"}`}
               >
-                {isLeaderMember && <Crown size={12} className="text-yellow-400 shrink-0" />}
-                <span className="text-white text-sm font-medium flex-1 truncate">{displayName}</span>
-                {m.position && (
-                  <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${positionColor[m.position] || "bg-white/10 text-gray-400"}`}>{m.position}</span>
-                )}
-                {!isDemo && !memberEditing && currentUser?.username !== m.userId && m.userId && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); router?.push(`/chat?to=${m.userId}&name=${encodeURIComponent(displayName)}`); }}
-                    className="text-gray-500 hover:text-fuchsia-400 transition-colors shrink-0"
-                  >
-                    <MessageCircle size={12} />
-                  </button>
-                )}
-                {memberEditing && !isDemo && isLeaderUser && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setEditingMember(m); setEditForm({ position: m.position || "" }); }}
-                    className="text-gray-500 hover:text-fuchsia-400 transition-colors shrink-0"
-                  >
-                    <Pencil size={11} />
-                  </button>
-                )}
-                {memberEditing && !isDemo && isLeaderUser && !isLeaderMember && currentUser?.username !== m.userId && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); deleteMemberAPI(m.userId); }}
-                    className="text-gray-600 hover:text-red-400 transition-colors shrink-0"
-                  >
-                    <X size={11} />
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {isLeaderMember && <Crown size={12} className="text-yellow-400 shrink-0" />}
+                  <span className="text-white text-sm font-medium flex-1 truncate">{displayName}</span>
+                  {m.position && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${positionColor[m.position] || "bg-white/10 text-gray-400"}`}>{m.position}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {roleLabels.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {roleLabels.map((label: string, idx: number) => (
+                        <span key={idx} className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: "rgba(255,255,255,0.1)", color: "var(--text-primary)" }}>
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-1 ml-auto">
+                    {!isDemo && !memberEditing && currentUser?.username !== m.userId && m.userId && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); router?.push(`/chat?to=${m.userId}&name=${encodeURIComponent(displayName)}`); }}
+                        className="text-gray-500 hover:text-white transition-colors shrink-0"
+                      >
+                        <MessageCircle size={12} />
+                      </button>
+                    )}
+                    {memberEditing && !isDemo && hasFullEditPermission && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditingMember(m); setEditForm({ position: m.position || "", roles: m.roles || (m.role ? [m.role] : ['member']) }); }}
+                        className="text-gray-500 hover:text-white transition-colors shrink-0"
+                      >
+                        <Pencil size={11} />
+                      </button>
+                    )}
+                    {memberEditing && !isDemo && hasFullEditPermission && !isLeaderMember && currentUser?.username !== m.userId && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteMemberAPI(m.userId); }}
+                        className="text-gray-600 hover:text-red-400 transition-colors shrink-0"
+                      >
+                        <X size={11} />
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             );
           })}
@@ -565,43 +622,107 @@ function TeamPageContent({
         {/* 경기 일정 */}
         <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
           <div className="flex items-center gap-2">
-            <CalendarDays size={16} className="text-fuchsia-400" />
+            <CalendarDays size={16} style={{ color: 'var(--text-primary)' }} />
             <h2 className="text-sm font-semibold text-gray-300">다음 경기 일정</h2>
           </div>
-          {(scheduledMatches ?? []).filter((m: any) => m.status === "scheduled").map((m: any) => {
-            const isHome = m.homeClubId === authClubId;
-            const opponentName = clubNameMap?.[isHome ? m.awayClubId : m.homeClubId] || "상대팀";
-            return (
-              <div key={m.matchId} className="border border-white/10 rounded-lg p-4 space-y-3">
-                <div>
-                  <p className="text-white font-medium text-sm">vs {opponentName}</p>
-                  <p className="text-gray-500 text-xs mt-0.5">{m.date || m.createdAt?.slice(0, 10)} · {m.venue || "장소 미정"}</p>
+          
+          {/* 예정된 경기 (Mock 데이터 또는 실제 데이터) */}
+          {(scheduledMatches ?? []).filter((m: any) => m.status === "scheduled").length === 0 && !isDemo ? (
+            <div className="space-y-3">
+              {[
+                { 
+                  date: "2024-03-22", 
+                  time: "14:00", 
+                  opponent: "강남 FC", 
+                  venue: "강남구민체육센터",
+                  attending: ["김민수", "이준호", "박지성", "최태욱"],
+                  notAttending: ["정우성"]
+                },
+                { 
+                  date: "2024-03-29", 
+                  time: "16:00", 
+                  opponent: "서초 유나이티드", 
+                  venue: "서초구민운동장",
+                  attending: ["김민수", "이준호", "박지성"],
+                  notAttending: ["최태욱", "정우성"]
+                },
+              ].map((match, i) => (
+                <div key={i} className="border border-white/10 rounded-lg p-4 space-y-3">
+                  <div>
+                    <p className="text-white font-medium text-sm">vs {match.opponent}</p>
+                    <p className="text-gray-500 text-xs mt-0.5">{match.date} {match.time} · {match.venue}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setAttendance((prev: Record<string, boolean | null>) => ({ ...prev, [`mock-${i}`]: true }))}
+                      className="flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors"
+                      style={attendance[`mock-${i}`] === true ? { background: "rgba(255,255,255,0.1)", border: "2px solid rgba(255,255,255,0.2)", color: "var(--text-primary)" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
+                      참석
+                    </button>
+                    <button onClick={() => setAttendance((prev: Record<string, boolean | null>) => ({ ...prev, [`mock-${i}`]: false }))}
+                      className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${attendance[`mock-${i}`] === false ? "bg-red-500 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}>
+                      불참
+                    </button>
+                  </div>
+                  <div className="space-y-2 pt-2 border-t border-white/10">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-green-400 font-semibold">참석 ({match.attending.length})</span>
+                      <div className="flex flex-wrap gap-1">
+                        {match.attending.map((name, j) => (
+                          <span key={j} className="text-xs px-2 py-0.5 rounded bg-green-500/10 text-green-400">{name}</span>
+                        ))}
+                      </div>
+                    </div>
+                    {match.notAttending.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-red-400 font-semibold">불참 ({match.notAttending.length})</span>
+                        <div className="flex flex-wrap gap-1">
+                          {match.notAttending.map((name, j) => (
+                            <span key={j} className="text-xs px-2 py-0.5 rounded bg-red-500/10 text-red-400">{name}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => setAttendance((prev: Record<string, boolean | null>) => ({ ...prev, [m.matchId]: true }))}
-                    className="flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors"
-                    style={attendance[m.matchId] === true ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
-                    참석
-                  </button>
-                  <button onClick={() => setAttendance((prev: Record<string, boolean | null>) => ({ ...prev, [m.matchId]: false }))}
-                    className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${attendance[m.matchId] === false ? "bg-red-500 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}>
-                    불참
-                  </button>
+              ))}
+            </div>
+          ) : (
+            (scheduledMatches ?? []).filter((m: any) => m.status === "scheduled").map((m: any) => {
+              const isHome = m.homeClubId === authClubId;
+              const opponentName = clubNameMap?.[isHome ? m.awayClubId : m.homeClubId] || "상대팀";
+              return (
+                <div key={m.matchId} className="border border-white/10 rounded-lg p-4 space-y-3">
+                  <div>
+                    <p className="text-white font-medium text-sm">vs {opponentName}</p>
+                    <p className="text-gray-500 text-xs mt-0.5">{m.date || m.createdAt?.slice(0, 10)} · {m.venue || "장소 미정"}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setAttendance((prev: Record<string, boolean | null>) => ({ ...prev, [m.matchId]: true }))}
+                      className="flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors"
+                      style={attendance[m.matchId] === true ? { background: "rgba(255,255,255,0.1)", border: "2px solid rgba(255,255,255,0.2)", color: "var(--text-primary)" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
+                      참석
+                    </button>
+                    <button onClick={() => setAttendance((prev: Record<string, boolean | null>) => ({ ...prev, [m.matchId]: false }))}
+                      className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${attendance[m.matchId] === false ? "bg-red-500 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}>
+                      불참
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
+          
           {proposedMatches && proposedMatches.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs text-gray-500 pt-1">경기 제안 받음</p>
               {proposedMatches.map((m: any) => (
-                <div key={m.matchId} className="border border-fuchsia-500/20 bg-fuchsia-500/5 rounded-lg p-4 space-y-3">
+                <div key={m.matchId} className="border border-white/20 bg-white/5 rounded-lg p-4 space-y-3">
                   <div>
                     <p className="text-white font-medium text-sm">{clubNameMap?.[m.homeClubId] || m.homeClubId}</p>
                     <p className="text-gray-500 text-xs mt-0.5">{m.sport} · {m.createdAt?.slice(0, 10)}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => acceptMatchAPI?.(m.matchId)} className="flex-1 py-1.5 rounded-md text-xs font-semibold text-white flex items-center justify-center gap-1" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>수락</button>
+                    <button onClick={() => acceptMatchAPI?.(m.matchId)} className="flex-1 py-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1" style={{ background: "rgba(255,255,255,0.1)", border: "2px solid rgba(255,255,255,0.2)", color: "var(--text-primary)" }}>수락</button>
                     <button onClick={() => declineMatchAPI?.(m.matchId)} className="flex-1 py-1.5 rounded-md text-xs font-semibold bg-white/5 text-gray-400 hover:text-white transition-colors">거절</button>
                   </div>
                 </div>
@@ -625,7 +746,7 @@ function TeamPageContent({
                     </div>
                     {isLeaderUser && !alreadySubmitted && (
                       <button onClick={() => { setScoreModal(m); setScoreForm({ ourScore: "", theirScore: "" }); }}
-                        className="w-full py-1.5 rounded-md text-xs font-semibold text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+                        className="w-full py-1.5 rounded-md text-xs font-semibold" style={{ background: "rgba(255,255,255,0.1)", border: "2px solid rgba(255,255,255,0.2)", color: "var(--text-primary)" }}>
                         결과 입력
                       </button>
                     )}
@@ -642,48 +763,96 @@ function TeamPageContent({
         {/* 팀 스탯 */}
         <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-5">
           <div className="flex items-center gap-2">
-            <TrendingUp size={16} className="text-fuchsia-400" />
+            <TrendingUp size={16} style={{ color: 'var(--text-primary)' }} />
             <h2 className="text-sm font-semibold text-gray-300">팀 스탯</h2>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-white/5 rounded-lg p-3 text-center">
-              <p className="font-bold text-fuchsia-400 text-sm">{finalRecord}</p>
+              <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{finalRecord}</p>
               <p className="text-gray-500 text-xs mt-1">전적</p>
             </div>
             <div className="bg-white/5 rounded-lg p-3 text-center">
-              <p className="font-bold text-fuchsia-400 text-lg">{club.winRate ?? winRate ?? 0}%</p>
+              <p className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>{club.winRate ?? winRate ?? 0}%</p>
               <p className="text-gray-500 text-xs mt-1">승률</p>
             </div>
             <div className="bg-white/5 rounded-lg p-3 text-center">
-              <p className="font-bold text-fuchsia-400 text-lg">{club.members || members.length}</p>
+              <p className="font-bold text-lg" style={{ color: 'var(--text-primary)' }}>{club.members || members.length}</p>
               <p className="text-gray-500 text-xs mt-1">멤버</p>
             </div>
           </div>
           <div>
             <p className="text-xs text-gray-500 mb-2">최근 5경기</p>
-            <div className="flex gap-2">
-              {(confirmedMatches ?? []).slice(0, 5).map((m: any, i: number) => {
-                const isHome = m.homeClubId === authClubId;
-                const myScore = isHome ? m.homeScore : m.awayScore;
-                const theirScore = isHome ? m.awayScore : m.homeScore;
-                const result = myScore > theirScore ? "W" : myScore < theirScore ? "L" : "D";
-                const cls = result === "W" ? "text-white" : result === "L" ? "bg-red-500 text-white" : "bg-white/20 text-white";
-                const style = result === "W" ? { background: "linear-gradient(to right, #c026d3, #7c3aed)" } : {};
-                return (
-                  <span key={m.matchId ?? i} className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${cls}`} style={style}>{result}</span>
-                );
-              })}
-              {(confirmedMatches ?? []).length === 0 && <p className="text-gray-600 text-xs">경기 기록 없음</p>}
-            </div>
+            {(confirmedMatches ?? []).length === 0 ? (
+              <div className="space-y-2">
+                {/* Mock 데이터 */}
+                {[
+                  { date: "2024-03-15", opponent: "강남 FC", ourScore: 3, theirScore: 2, scorers: ["김민수 2골", "이준호 1골"] },
+                  { date: "2024-03-08", opponent: "서초 유나이티드", ourScore: 1, theirScore: 1, scorers: ["박지성 1골"] },
+                  { date: "2024-03-01", opponent: "송파 FC", ourScore: 2, theirScore: 3, scorers: ["최태욱 1골", "정우성 1골"] },
+                  { date: "2024-02-23", opponent: "마포 FC", ourScore: 4, theirScore: 1, scorers: ["김민수 2골", "이준호 1골", "박지성 1골"] },
+                  { date: "2024-02-16", opponent: "용산 유나이티드", ourScore: 2, theirScore: 2, scorers: ["최태욱 1골", "정우성 1골"] },
+                ].map((match, i) => {
+                  const result = match.ourScore > match.theirScore ? "승" : match.ourScore < match.theirScore ? "패" : "무";
+                  const resultColor = result === "승" ? "text-green-400" : result === "패" ? "text-red-400" : "text-gray-400";
+                  const resultBg = result === "승" ? "bg-green-500/10" : result === "패" ? "bg-red-500/10" : "bg-white/5";
+                  return (
+                    <div key={i} className={`border border-white/10 rounded-lg p-3 ${resultBg}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="text-white font-medium text-sm">vs {match.opponent}</p>
+                          <p className="text-gray-500 text-xs">{match.date}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-white font-bold">{match.ourScore} - {match.theirScore}</p>
+                          <p className={`text-xs font-semibold ${resultColor}`}>{result}</p>
+                        </div>
+                      </div>
+                      {match.scorers.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {match.scorers.map((scorer, j) => (
+                            <span key={j} className="text-xs px-2 py-0.5 rounded bg-white/10 text-gray-300">⚽ {scorer}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                {confirmedMatches.slice(0, 5).map((m: any, i: number) => {
+                  const isHome = m.homeClubId === authClubId;
+                  const myScore = isHome ? m.homeScore : m.awayScore;
+                  const theirScore = isHome ? m.awayScore : m.homeScore;
+                  const result = myScore > theirScore ? "W" : myScore < theirScore ? "L" : "D";
+                  const cls = result === "W" ? "" : result === "L" ? "bg-red-500 text-white" : "bg-white/20 text-white";
+                  const style = result === "W" ? { background: "rgba(74,222,128,0.15)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.3)" } : {};
+                  return (
+                    <span key={m.matchId ?? i} className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${cls}`} style={style}>{result}</span>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* 팀 재정 관리 */}
+      {!isDemo && (
+        <FinanceSection 
+          currentTeam={currentTeam} 
+          members={members} 
+          isLeaderUser={isLeaderUser}
+          hasFullEditPermission={hasFullEditPermission}
+          hasTreasurerPermission={hasTreasurerPermission}
+        />
+      )}
 
       {/* 최근 경기 기록 (경쟁형) */}
       {isCompetitive && confirmedMatches && confirmedMatches.length > 0 && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
           <div className="flex items-center gap-2">
-            <Swords size={16} className="text-fuchsia-400" />
+            <Swords size={16} style={{ color: 'var(--text-primary)' }} />
             <h2 className="text-sm font-semibold text-gray-300">최근 경기 기록</h2>
           </div>
           {confirmedMatches.slice(0, 10).map((m: any) => {
@@ -709,13 +878,13 @@ function TeamPageContent({
                 {myGoals.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {myGoals.map((g: any, i: number) => (
-                      <span key={i} className="text-xs px-2 py-0.5 rounded bg-fuchsia-500/10 text-fuchsia-400">⚽{g.scorer?.split("@")[0]} ×{g.count}</span>
+                      <span key={i} className="text-xs px-2 py-0.5 rounded bg-white/10 text-white">⚽{g.scorer?.split("@")[0]} ×{g.count}</span>
                     ))}
                   </div>
                 )}
                 {isLeaderUser && (
                   <button onClick={() => { setGoalModal(m); setGoalSelections({}); }}
-                    className="text-xs text-fuchsia-400 hover:text-fuchsia-300 transition-colors flex items-center gap-1">
+                    className="text-xs hover:opacity-70 transition-colors flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
                     <Plus size={12} /> 골 기록 추가
                   </button>
                 )}
@@ -729,16 +898,16 @@ function TeamPageContent({
       {isCasual && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
           <div className="flex items-center gap-2">
-            <CalendarDays size={16} className="text-fuchsia-400" />
+            <CalendarDays size={16} style={{ color: 'var(--text-primary)' }} />
             <h2 className="text-sm font-semibold text-gray-300">활동 일정</h2>
           </div>
           <div className="border border-white/10 rounded-lg p-4 space-y-3">
             <p className="text-xs text-gray-400">새 활동 제안</p>
             <input type="datetime-local" value={activityForm?.date || ""} onChange={e => setActivityForm?.((p: any) => ({ ...p, date: e.target.value }))}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-fuchsia-500/50" style={{ colorScheme: "dark" }} />
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-white/30" style={{ colorScheme: "dark" }} />
             <input placeholder="장소" value={activityForm?.venue || ""} onChange={e => setActivityForm?.((p: any) => ({ ...p, venue: e.target.value }))}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-fuchsia-500/50 placeholder:text-gray-600" />
-            <button onClick={() => createActivityAPI?.()} className="w-full py-1.5 rounded-md text-xs font-semibold text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-white/30 placeholder:text-gray-600" />
+            <button onClick={() => createActivityAPI?.()} className="w-full py-1.5 rounded-md text-xs font-semibold" style={{ background: "rgba(255,255,255,0.1)", border: "2px solid rgba(255,255,255,0.2)", color: "var(--text-primary)" }}>
               활동 제안
             </button>
           </div>
@@ -749,11 +918,11 @@ function TeamPageContent({
                   <p className="text-white font-medium text-sm">{a.venue || "장소 미정"}</p>
                   <p className="text-gray-500 text-xs mt-0.5">{a.date?.replace("T", " ")}</p>
                 </div>
-                <span className="text-xs text-fuchsia-400">{(a.participants || []).length}명 참가</span>
+                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{(a.participants || []).length}명 참가</span>
               </div>
               <div className="flex gap-2">
                 {!(a.participants || []).includes(currentUser?.email) && (
-                  <button onClick={() => joinActivityAPI?.(a.activityId)} className="flex-1 py-1.5 rounded-md text-xs font-semibold text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>참가</button>
+                  <button onClick={() => joinActivityAPI?.(a.activityId)} className="flex-1 py-1.5 rounded-md text-xs font-semibold" style={{ background: "rgba(255,255,255,0.1)", border: "2px solid rgba(255,255,255,0.2)", color: "var(--text-primary)" }}>참가</button>
                 )}
                 {a.createdBy === currentUser?.email && (
                   <button onClick={() => completeActivityAPI?.(a.activityId)} className="flex-1 py-1.5 rounded-md text-xs font-semibold bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors flex items-center justify-center gap-1">
@@ -789,15 +958,15 @@ function TeamPageContent({
               <div className="space-y-1">
                 <label className="text-xs text-gray-400">우리팀 스코어</label>
                 <input type="number" min="0" value={scoreForm?.ourScore || ""} onChange={e => setScoreForm?.((p: any) => ({ ...p, ourScore: e.target.value }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-fuchsia-500/50" />
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-white/30" />
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-gray-400">상대팀 스코어</label>
                 <input type="number" min="0" value={scoreForm?.theirScore || ""} onChange={e => setScoreForm?.((p: any) => ({ ...p, theirScore: e.target.value }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-fuchsia-500/50" />
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-white/30" />
               </div>
             </div>
-            <button onClick={() => submitScoreAPI?.()} className="w-full py-2 rounded-lg font-semibold text-sm text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>입력</button>
+            <button onClick={() => submitScoreAPI?.()} className="w-full py-2 rounded-lg font-semibold text-sm" style={{ background: "rgba(255,255,255,0.1)", border: "2px solid rgba(255,255,255,0.2)", color: "var(--text-primary)" }}>입력</button>
           </div>
         </div>
       )}
@@ -821,13 +990,13 @@ function TeamPageContent({
                         className="w-6 h-6 rounded bg-white/10 text-gray-400 flex items-center justify-center text-xs">-</button>
                       <span className="text-white text-sm w-4 text-center">{goalSelections?.[m.userId || m.email] || 0}</span>
                       <button onClick={() => setGoalSelections?.((p: any) => ({ ...p, [m.userId || m.email]: (p[m.userId || m.email] || 0) + 1 }))}
-                        className="w-6 h-6 rounded bg-fuchsia-500/20 text-fuchsia-400 flex items-center justify-center text-xs">+</button>
+                        className="w-6 h-6 rounded bg-white/20 text-white flex items-center justify-center text-xs">+</button>
                     </div>
                   </div>
                 );
               })}
             </div>
-            <button onClick={() => addGoalsAPI?.()} className="w-full py-2 rounded-lg font-semibold text-sm text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>저장</button>
+            <button onClick={() => addGoalsAPI?.()} className="w-full py-2 rounded-lg font-semibold text-sm" style={{ background: "rgba(255,255,255,0.1)", border: "2px solid rgba(255,255,255,0.2)", color: "var(--text-primary)" }}>저장</button>
           </div>
         </div>
       )}
@@ -852,10 +1021,37 @@ function TeamPageContent({
                   ))}
                 </div>
               </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-400">역할 (다중 선택 가능)</label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: "member", label: "멤버" },
+                    { value: "manager", label: "관리자" },
+                    { value: "treasurer", label: "총무" },
+                    { value: "leader", label: "주장" },
+                  ].map(role => {
+                    const isSelected = editForm.roles.includes(role.value);
+                    return (
+                      <button 
+                        key={role.value} 
+                        type="button" 
+                        onClick={() => setEditForm((p: any) => {
+                          const newRoles = isSelected 
+                            ? p.roles.filter((r: string) => r !== role.value)
+                            : [...p.roles, role.value];
+                          return { ...p, roles: newRoles.length > 0 ? newRoles : ['member'] };
+                        })}
+                        className={`flex-1 text-xs px-2 py-1.5 rounded font-semibold transition-colors ${isSelected ? "bg-white/20 text-white border border-white/30" : "bg-white/5 text-gray-500"}`}>
+                        {role.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
             <button onClick={saveEditMember}
-              className="w-full py-2 rounded-lg font-semibold text-sm text-white"
-              style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>저장</button>
+              className="w-full py-2 rounded-lg font-semibold text-sm"
+              style={{ background: "rgba(255,255,255,0.1)", border: "2px solid rgba(255,255,255,0.2)", color: "var(--text-primary)" }}>저장</button>
           </div>
         </div>
       )}
@@ -871,19 +1067,19 @@ function TeamPageContent({
             <p className="text-xs text-gray-400">아래 링크를 공유하면 팀에 합류할 수 있어요</p>
             {inviteLoading ? (
               <div className="flex justify-center py-3">
-                <div className="w-5 h-5 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               </div>
             ) : inviteUrl ? (
               <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
                 <span className="text-gray-300 text-xs flex-1 truncate">{inviteUrl}</span>
                 <button onClick={copy} className="shrink-0 text-gray-400 hover:text-white transition-colors">
-                  {copied ? <Check size={14} className="text-fuchsia-400" /> : <Copy size={14} />}
+                  {copied ? <Check size={14} className="text-white" /> : <Copy size={14} />}
                 </button>
               </div>
             ) : (
               <p className="text-xs text-red-400 text-center">초대 링크 생성에 실패했습니다</p>
             )}
-            {copied && <p className="text-xs text-fuchsia-400 text-center">링크가 복사되었어요</p>}
+            {copied && <p className="text-xs text-white text-center">링크가 복사되었어요</p>}
           </div>
         </div>
       )}
@@ -899,8 +1095,8 @@ function TeamPageContent({
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
               {(msgs[chatTeam.id] ?? []).map((m: ChatMsg, i: number) => (
                 <div key={i} className={`flex ${m.from === "me" ? "justify-end" : "justify-start"}`}>
-                  <span className={`text-xs px-3 py-2 rounded-2xl max-w-[75%] ${m.from === "me" ? "text-white" : "bg-white/10 text-gray-200"}`}
-                    style={m.from === "me" ? { background: "linear-gradient(to right, #c026d3, #7c3aed)" } : {}}>
+                  <span className={`text-xs px-3 py-2 rounded-2xl max-w-[75%] ${m.from === "me" ? "" : "bg-white/10 text-gray-200"}`}
+                    style={m.from === "me" ? { background: "rgba(255,255,255,0.1)", color: "var(--text-primary)", border: "1px solid rgba(255,255,255,0.2)" } : {}}>
                     {m.text}
                   </span>
                 </div>
@@ -910,8 +1106,8 @@ function TeamPageContent({
             <div className="flex gap-2 px-4 py-3 border-t border-white/10">
               <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && sendMsg()}
                 placeholder="메시지 입력..."
-                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-fuchsia-500/50" />
-              <button onClick={sendMsg} className="px-3 py-2 rounded-lg text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-white/30" />
+              <button onClick={sendMsg} className="px-3 py-2 rounded-lg border" style={{ background: "rgba(255,255,255,0.1)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.2)" }}>
                 <Send size={13} />
               </button>
             </div>
@@ -920,6 +1116,375 @@ function TeamPageContent({
       )}
     </div>
     </div>
+    </div>
+  );
+}
+
+
+// ─── Finance Section ─────────────────────────────────────────────────────────
+
+const FEE = 30000;
+
+const categoryColors: Record<string, string> = {
+  "구장 대여": "bg-blue-500/20 text-blue-400",
+  "유니폼": "bg-white/20 text-white",
+  "간식": "bg-yellow-500/20 text-yellow-400",
+  "기타": "bg-white/10 text-gray-400",
+};
+
+interface FinanceMember { userId: string; role: string; joinedAt: string }
+interface Due { id: string; memberId: string; amount: number; paid: boolean; paidAt?: string; createdAt: string }
+interface Transaction { id: string; category: string; amount: number; description?: string; type?: string; date?: string; createdAt: string }
+
+function FinanceSection({ currentTeam, members, isLeaderUser, hasFullEditPermission, hasTreasurerPermission }: { 
+  currentTeam: any; 
+  members: any[]; 
+  isLeaderUser: boolean;
+  hasFullEditPermission: boolean;
+  hasTreasurerPermission: boolean;
+}) {
+  const [duesList, setDuesList] = useState<Due[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selMonth, setSelMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState({ category: "", amount: "", memo: "" });
+
+  const loadDues = async (tid: string) => {
+    const data = await manageFetch(`/finance/dues?teamId=${tid}`).catch(() => []);
+    setDuesList(data ?? []);
+  };
+
+  useEffect(() => {
+    if (!currentTeam) return;
+    setLoading(true);
+    Promise.all([
+      manageFetch(`/finance/dues?teamId=${currentTeam.id}`).catch(() => []),
+      manageFetch(`/finance/transactions?teamId=${currentTeam.id}`).catch(() => []),
+    ]).then(([teamDues, teamTxns]) => {
+      setDuesList(teamDues ?? []);
+      setTransactions(teamTxns ?? []);
+    }).finally(() => setLoading(false));
+  }, [currentTeam?.id]);
+
+  const expenses = transactions
+    .filter((t) => !t.type || t.type === "expense")
+    .map((t) => ({
+      id: t.id,
+      month: (t.date || t.createdAt).slice(0, 7),
+      category: t.category || "기타",
+      amount: t.amount,
+      memo: t.description || "",
+    }));
+
+  const months = (() => {
+    const txMonths = expenses.map((e) => e.month);
+    const all = new Set([...txMonths, new Date().toISOString().slice(0, 7)]);
+    return Array.from(all).sort().slice(-3);
+  })();
+
+  const paidList = members.map((m) => {
+    const memberDues = duesList.filter((d) => d.memberId === m.userId);
+    const unpaidDue = memberDues.find((d) => !d.paid);
+    const paid = memberDues.some((d) => d.paid);
+    return { userId: m.userId, paid, dueId: unpaidDue?.id ?? null };
+  });
+
+  const totalCollected = paidList.filter((m) => m.paid).length * FEE;
+  const totalSpent = expenses.reduce((s, e) => s + e.amount, 0);
+  const remaining = totalCollected - totalSpent;
+  const monthExpenses = expenses.filter((e) => e.month === selMonth);
+  const monthTotal = monthExpenses.reduce((s, e) => s + e.amount, 0);
+
+  const monthTotals = months.map((m) => ({
+    month: m,
+    total: expenses.filter((e) => e.month === m).reduce((s, e) => s + e.amount, 0),
+  }));
+  const avgMonthly = months.length
+    ? Math.round(monthTotals.reduce((s, m) => s + m.total, 0) / months.length)
+    : 0;
+  const recommendedFee = members.length ? Math.ceil(avgMonthly / members.length / 1000) * 1000 : 0;
+  const categoryTotals: Record<string, number> = {};
+  expenses.forEach((e) => { categoryTotals[e.category] = (categoryTotals[e.category] ?? 0) + e.amount; });
+  const topCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];
+  const unpaidMembers = paidList.filter((m) => !m.paid).map((m) => m.userId);
+  const aiComment =
+    remaining < 0
+      ? `⚠️ 잔액이 부족해요! ${Math.abs(remaining).toLocaleString()}원 초과 지출 상태예요.`
+      : remaining < 50000
+      ? `💡 잔액이 ${remaining.toLocaleString()}원으로 적어요. 다음 달 회비 수금을 서두르세요.`
+      : `✅ 현재 잔액 ${remaining.toLocaleString()}원으로 안정적이에요. 미납 ${unpaidMembers.length}명 독촉을 권장해요.`;
+
+  const togglePaid = async (member: { userId: string; paid: boolean; dueId: string | null }) => {
+    if (!currentTeam || member.paid) return;
+    try {
+      if (member.dueId) {
+        await manageFetch(`/finance/dues/${member.dueId}/pay`, { method: "PATCH" });
+      } else {
+        const due: Due = await manageFetch("/finance/dues", {
+          method: "POST",
+          body: JSON.stringify({ teamId: currentTeam.id, memberId: member.userId, amount: FEE }),
+        });
+        await manageFetch(`/finance/dues/${due.id}/pay`, { method: "PATCH" });
+      }
+      await loadDues(currentTeam.id);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "처리 실패");
+    }
+  };
+
+  const deleteExpense = async (id: string) => {
+    if (!currentTeam || !confirm('이 지출 항목을 삭제하시겠습니까?')) return;
+    try {
+      await manageFetch(`/finance/transactions/${id}`, { method: 'DELETE' });
+      setTransactions((p) => p.filter((t) => t.id !== id));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '삭제 실패');
+    }
+  };
+
+  const deleteDue = async (dueId: string) => {
+    if (!currentTeam || !confirm('이 회비 기록을 삭제하시겠습니까?')) return;
+    try {
+      await manageFetch(`/finance/dues/${dueId}`, { method: 'DELETE' });
+      setDuesList((p) => p.filter((d) => d.id !== dueId));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '삭제 실패');
+    }
+  };
+
+  const addExpense = async () => {
+    if (!draft.category || !draft.amount || !currentTeam) return;
+    try {
+      const newTxn: Transaction = await manageFetch("/finance/transactions", {
+        method: "POST",
+        body: JSON.stringify({
+          teamId: currentTeam.id,
+          category: draft.category,
+          amount: Number(draft.amount),
+          description: draft.memo,
+          type: "expense",
+          date: `${selMonth}-01`,
+        }),
+      });
+      setTransactions((p) => [...p, newTxn]);
+      setDraft({ category: "", amount: "", memo: "" });
+      setAdding(false);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "지출 추가 실패");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+        <div className="flex justify-center items-center py-10">
+          <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  // 재정 관리 편집 권한: 주장, 관리자, 총무
+  const canEditFinance = hasFullEditPermission || hasTreasurerPermission;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold text-white">팀 재정 관리</h2>
+        {canEditFinance && (
+          <span className="text-xs text-gray-500">편집 권한 있음</span>
+        )}
+      </div>
+
+      {/* AI 분석 */}
+      <div className="bg-white/5 border border-white/20 rounded-xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Bot size={15} style={{ color: 'var(--text-primary)' }} />
+          <span className="text-sm font-semibold text-gray-300">AI 분석</span>
+          <span className="text-xs text-gray-500 ml-auto">{aiComment}</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="bg-white/5 rounded-xl p-4 space-y-1">
+            <p className="text-xs text-gray-500">월 적정 회비 추정</p>
+            <p className="text-white text-xl font-bold">{recommendedFee.toLocaleString()}원</p>
+            <p className="text-gray-500 text-xs">월 평균 지출 {avgMonthly.toLocaleString()}원 ÷ {members.length}명</p>
+            <div className="mt-2 space-y-1">
+              {monthTotals.map(({ month, total }) => {
+                const maxTotal = Math.max(...monthTotals.map((m) => m.total), 1);
+                return (
+                  <div key={month} className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-8">{month.slice(5)}월</span>
+                    <div className="flex-1 h-1.5 bg-white/10 rounded-full">
+                      <div className="h-1.5 rounded-full bg-white/60" style={{ width: `${Math.round((total / maxTotal) * 100)}%` }} />
+                    </div>
+                    <span className="text-xs text-gray-400 w-16 text-right">{total.toLocaleString()}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="bg-white/5 rounded-xl p-4 space-y-1">
+            <p className="text-xs text-gray-500">가장 많은 지출</p>
+            <p className="text-white text-xl font-bold">{topCategory?.[0] ?? "없음"}</p>
+            <p className="text-gray-500 text-xs">전체 {topCategory?.[1].toLocaleString() ?? 0}원 지출</p>
+            <div className="mt-2 space-y-1">
+              {Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]).map(([cat, amt]) => (
+                <div key={cat} className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 w-14 truncate">{cat}</span>
+                  <div className="flex-1 h-1.5 bg-white/10 rounded-full">
+                    <div className="h-1.5 rounded-full bg-white/60" style={{ width: `${topCategory ? Math.round((amt / topCategory[1]) * 100) : 0}%` }} />
+                  </div>
+                  <span className="text-xs text-gray-400 w-16 text-right">{amt.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white/5 rounded-xl p-4 space-y-1">
+            <p className="text-xs text-gray-500">미납 멤버</p>
+            <p className="text-white text-xl font-bold">{unpaidMembers.length}명</p>
+            <p className="text-gray-500 text-xs">미수금 {(unpaidMembers.length * FEE).toLocaleString()}원</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {unpaidMembers.length === 0
+                ? <span className="text-xs text-green-400">전원 납부 완료 ✅</span>
+                : unpaidMembers.map((uid) => (
+                  <span key={uid} className="text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 font-mono">{uid.slice(0, 8)}…</span>
+                ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 요약 카드 */}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { label: "총 수금액", value: totalCollected, color: "text-white" },
+          { label: "총 지출액", value: totalSpent, color: "text-red-400" },
+          { label: "현재 잔액", value: remaining, color: remaining >= 0 ? "text-green-400" : "text-red-400" },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+            <p className={`text-xl font-bold ${color}`}>{value.toLocaleString()}원</p>
+            <p className="text-gray-500 text-xs mt-1">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* 회비 납부 현황 */}
+        <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Wallet size={15} style={{ color: 'var(--text-primary)' }} />
+            <span className="text-sm font-semibold text-gray-300">회비 납부 현황</span>
+            <span className="ml-auto text-xs text-gray-500">{FEE.toLocaleString()}원/인</span>
+          </div>
+          {paidList.length === 0 ? (
+            <p className="text-xs text-gray-600 text-center py-4">팀 멤버가 없습니다</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {paidList.map((m) => (
+                <button
+                  key={m.userId}
+                  onClick={() => togglePaid(m)}
+                  disabled={m.paid}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg transition-all disabled:cursor-default"
+                  style={{
+                    background: m.paid ? "rgba(255,255,255,0.1)" : "transparent",
+                    border: `2px solid ${m.paid ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)"}`,
+                  }}
+                >
+                  <span className={`text-sm font-medium ${m.paid ? "text-white" : "text-gray-400"}`}>
+                    {m.userId.slice(0, 10)}…
+                  </span>
+                  <span className={`text-xs font-semibold ${m.paid ? "text-white" : "text-gray-600"}`}>
+                    {m.paid ? "납부" : "미납"}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 월별 지출 */}
+        <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <TrendingDown size={15} style={{ color: 'var(--text-primary)' }} />
+            <span className="text-sm font-semibold text-gray-300">월별 지출</span>
+            <button onClick={() => setAdding(true)} className="ml-auto text-gray-500 hover:text-white transition-colors">
+              <Plus size={15} />
+            </button>
+          </div>
+
+          <div className="flex gap-2">
+            {months.map((m) => (
+              <button
+                key={m}
+                onClick={() => setSelMonth(m)}
+                className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                style={
+                  selMonth === m
+                    ? { background: "rgba(255,255,255,0.15)", color: "var(--text-primary)", border: "1px solid rgba(255,255,255,0.2)" }
+                    : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }
+                }
+              >
+                {m.slice(5)}월
+              </button>
+            ))}
+          </div>
+
+          <div className="space-y-2">
+            {monthExpenses.length === 0 ? (
+              <p className="text-xs text-gray-600 text-center py-4">이 달의 지출 내역이 없습니다</p>
+            ) : (
+              monthExpenses.map((e) => (
+                <div key={e.id} className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs px-2 py-0.5 rounded font-semibold ${categoryColors[e.category] ?? categoryColors["기타"]}`}>{e.category}</span>
+                    <span className="text-gray-400 text-xs">{e.memo}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-white text-sm font-semibold">{e.amount.toLocaleString()}원</span>
+                    {isLeaderUser && (
+                      <button onClick={() => deleteExpense(e.id)} className="text-gray-600 hover:text-red-400 transition-colors">
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+            <div className="flex justify-between pt-1 border-t border-white/10">
+              <span className="text-xs text-gray-500">합계</span>
+              <span className="text-sm font-bold text-red-400">{monthTotal.toLocaleString()}원</span>
+            </div>
+          </div>
+
+          {adding && (
+            <div className="space-y-2 border-t border-white/10 pt-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-400">지출 추가</span>
+                <button onClick={() => setAdding(false)} className="text-gray-500 hover:text-white"><X size={13} /></button>
+              </div>
+              {[
+                { ph: "카테고리 (예: 구장 대여)", key: "category" },
+                { ph: "금액", key: "amount", type: "number" },
+                { ph: "메모", key: "memo" },
+              ].map(({ ph, key, type }) => (
+                <input
+                  key={key}
+                  type={type ?? "text"}
+                  placeholder={ph}
+                  value={draft[key as keyof typeof draft]}
+                  onChange={(e) => setDraft((p) => ({ ...p, [key]: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:border-white/30 placeholder:text-gray-600"
+                />
+              ))}
+              <button onClick={addExpense} className="w-full py-1.5 rounded-lg text-xs font-semibold border" style={{ background: "rgba(255,255,255,0.1)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.2)" }}>추가</button>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

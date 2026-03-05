@@ -1,21 +1,17 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Sidebar from "@/components/layout/Sidebar";
-import Link from "next/link";
-import { Home, UserCircle } from "lucide-react";
 import { ChatProvider } from "@/context/ChatContext";
 import { ClubProvider } from "@/context/ClubContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { TeamProvider } from "@/context/TeamContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import ScrollToTop from "@/components/ScrollToTop";
-import HeaderAuth from "@/components/layout/HeaderAuth";
 import AIChatbot from "@/components/AIChatbot";
 import PWAInstallBanner from "@/components/PWAInstallBanner"
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import PushNotificationSetup from "@/components/PushNotificationSetup";
-import TodayBanner from "@/components/layout/TodayBannerNew";
+import LayoutContent from "@/components/layout/LayoutContent";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -63,17 +59,7 @@ export default function RootLayout({
             <TeamProvider>
               <ChatProvider>
                 <ClubProvider>
-                  <div className="flex">
-                    <Sidebar />
-                    <div className="flex-1 flex flex-col">
-                      <HeaderAuth />
-                      <TodayBanner />
-                      <main className="flex-1 px-8 pt-8 pb-8">
-                        <ScrollToTop />
-                        {children}
-                      </main>
-                    </div>
-                  </div>
+                  <LayoutContent>{children}</LayoutContent>
                 </ClubProvider>
               </ChatProvider>
             </TeamProvider>

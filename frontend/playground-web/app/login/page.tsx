@@ -54,8 +54,8 @@ export default function LoginPage() {
   return (
     <div className="max-w-sm mx-auto pt-16 space-y-8">
       <div className="text-center space-y-1">
-        <h1 className="text-2xl font-black text-white">로그인</h1>
-        <p className="text-gray-500 text-sm">PLAYGROUND에 오신 걸 환영해요</p>
+        <h1 className="text-2xl font-black" style={{ color: "var(--text-primary)" }}>로그인</h1>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>PLAYGROUND에 오신 걸 환영해요</p>
       </div>
 
       <div className="space-y-3">
@@ -80,17 +80,17 @@ export default function LoginPage() {
         <button
           onClick={handleLogin}
           disabled={loading}
-          className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
+          className="w-full py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-90 disabled:opacity-50"
+          style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}
         >
           {loading ? "로그인 중..." : "로그인"}
         </button>
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="flex-1 h-px bg-white/10" />
-        <span className="text-gray-600 text-xs">또는</span>
-        <div className="flex-1 h-px bg-white/10" />
+        <div className="flex-1 h-px" style={{ background: "var(--card-border)" }} />
+        <span className="text-xs" style={{ color: "var(--text-muted)" }}>또는</span>
+        <div className="flex-1 h-px" style={{ background: "var(--card-border)" }} />
       </div>
 
       <div className="space-y-3">
@@ -125,14 +125,15 @@ export default function LoginPage() {
 
         <Link
           href="/signup"
-          className="block w-full py-3 rounded-xl font-semibold text-sm text-gray-300 text-center border border-white/10 hover:border-white/30 transition-colors"
+          className="block w-full py-3 rounded-xl font-semibold text-sm text-center transition-colors"
+          style={{ color: "var(--text-secondary)", background: "var(--card-bg)", border: "1px solid var(--card-border)" }}
         >
           이메일로 시작하기
         </Link>
       </div>
 
-      <p className="text-center text-xs text-gray-600">
-        <Link href="/" className="hover:text-gray-400 transition-colors">← 메인으로 돌아가기</Link>
+      <p className="text-center text-xs" style={{ color: "var(--text-muted)" }}>
+        <Link href="/" className="hover:opacity-70 transition-opacity">← 메인으로 돌아가기</Link>
       </p>
     </div>
   );
