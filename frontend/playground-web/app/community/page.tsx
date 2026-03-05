@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { MapPin, Play, Clock, Eye, Heart, ChevronRight } from "lucide-react";
@@ -58,7 +58,7 @@ const mockLocalPosts = [
   { id: 3, title: "서초구 주말 농구 정모", author: "농구러버", location: "서초구", comments: 18, time: "1시간 전" },
 ];
 
-export default function CommunityPage() {
+function CommunityContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const tabFromUrl = searchParams.get("tab");
@@ -380,5 +380,13 @@ export default function CommunityPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CommunityPage() {
+  return (
+    <Suspense fallback={<div className="max-w-7xl mx-auto"><h1 className="text-3xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>커뮤니티</h1></div>}>
+      <CommunityContent />
+    </Suspense>
   );
 }
