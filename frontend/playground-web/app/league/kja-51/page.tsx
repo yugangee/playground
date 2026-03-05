@@ -118,8 +118,8 @@ function ScoreModal({
             style={{ background: 'var(--card-bg)', color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
             취소
           </button>
-          <button onClick={handleSave} className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white"
-            style={{ background: 'linear-gradient(to right, #c026d3, #7c3aed)' }}>
+          <button onClick={handleSave} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+            style={{ background: 'rgba(192,38,211,0.1)', border: '2px solid rgba(192,38,211,0.3)', color: '#c026d3' }}>
             저장
           </button>
         </div>

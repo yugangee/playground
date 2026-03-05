@@ -232,14 +232,14 @@ function SignupInner() {
         <button
           onClick={handleSignup}
           disabled={loading}
-          className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
+          className="w-full py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-90 disabled:opacity-50 border"
+          style={{ background: "#000000", color: "#ffffff", borderColor: "rgba(255,255,255,0.3)" }}
         >
           {loading ? "가입 중..." : "가입하기"}
         </button>
         <p className="text-center text-xs text-gray-600">
           이미 계정이 있으신가요?{" "}
-          <Link href="/login" className="text-fuchsia-400 hover:text-fuchsia-300 transition-colors">로그인</Link>
+          <Link href="/login" className="text-white hover:text-gray-300 transition-colors">로그인</Link>
         </p>
       </div>
 

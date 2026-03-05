@@ -74,6 +74,17 @@ export default function ClubsPage() {
   const { toasts, show } = useToast();
   const PER_PAGE = 8;
 
+  // URL 파라미터에서 sport 필터 읽기
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const sportParam = params.get('sport');
+      if (sportParam) {
+        setFilterSport(sportParam);
+      }
+    }
+  }, []);
+
   // 유저가 이미 가입한 클럽인지 확인
   const isAlreadyMember = (clubId: string) => {
     if (!user) return false;
@@ -177,8 +188,8 @@ export default function ClubsPage() {
 
   const chipStyle = (active: boolean) =>
     active
-      ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
-      : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" };
+      ? { background: "var(--card-bg)", color: "var(--text-primary)", border: "1px solid var(--card-border)" }
+      : { background: "transparent", color: "var(--text-muted)", border: "1px solid transparent" };
 
   const modalInputStyle: React.CSSProperties = {
     background: "var(--input-bg)",
@@ -257,10 +268,9 @@ export default function ClubsPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">클럽 탐색</h1>
-          <p className="text-gray-400 text-sm mt-1">주변 클럽을 찾고 경기를 제안해보세요</p>
+          <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>클럽 탐색</h1>
         </div>
-        <button onClick={() => { if (!user) { show("로그인이 필요합니다", "error"); return; } setCreating(true); }} className="w-9 h-9 rounded-full flex items-center justify-center text-white transition-colors" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+        <button onClick={() => { if (!user) { show("로그인이 필요합니다", "error"); return; } setCreating(true); }} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)", color: "var(--text-primary)" }}>
           <Plus size={18} />
         </button>
       </div>
@@ -313,8 +323,8 @@ export default function ClubsPage() {
               <button key={g} onClick={() => setSigungu(g)}
                 className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
                 style={sigungu === g
-                  ? { background: "rgba(192,38,211,0.15)", color: "#e879f9", border: "1px solid rgba(192,38,211,0.3)" }
-                  : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }
+                  ? { background: "var(--card-bg)", color: "var(--text-primary)", border: "1px solid var(--card-border)" }
+                  : { background: "transparent", color: "var(--text-muted)", border: "1px solid transparent" }
                 }
               >{g}</button>
             ))}
@@ -327,7 +337,7 @@ export default function ClubsPage() {
         {[{ key: "latest", label: "최신등록순" }, { key: "winRate", label: "승률순" }, { key: "recruiting", label: "모집중" }].map(({ key, label }) => (
           <button key={key} onClick={() => setSortBy(key)}
             className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-            style={sortBy === key ? { background: "rgba(192,38,211,0.15)", color: "#e879f9", border: "1px solid rgba(192,38,211,0.3)" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }}
+            style={sortBy === key ? { background: "var(--card-bg)", color: "var(--text-primary)", border: "1px solid var(--card-border)" } : { background: "transparent", color: "var(--text-muted)", border: "1px solid transparent" }}
           >{label}</button>
         ))}
       </div>
@@ -336,24 +346,24 @@ export default function ClubsPage() {
       {aiMatches.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
-            <Swords size={15} className="text-fuchsia-400" />
-            <span className="text-sm font-semibold text-white">AI가 찾은 오늘의 라이벌</span>
+            <Swords size={15} style={{ color: "var(--text-muted)" }} />
+            <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>AI가 찾은 오늘의 라이벌</span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {aiMatches.map((r) => (
-              <div key={r.clubId} className="border border-white/10 rounded-xl p-4 space-y-3 relative flex flex-col overflow-hidden">
+              <div key={r.clubId} className="rounded-xl p-4 space-y-3 relative flex flex-col overflow-hidden" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
                 {r.image && <Image src={r.image} alt={r.name} fill className="object-cover opacity-20 scale-[1.2]" />}
-                <button onClick={() => setDismissed((p) => [...p, r.clubId])} className="absolute top-3 right-3 z-10 text-gray-400 hover:text-white transition-colors">
+                <button onClick={() => setDismissed((p) => [...p, r.clubId])} className="absolute top-3 right-3 z-10 transition-colors" style={{ color: "var(--text-muted)" }}>
                   <X size={14} />
                 </button>
                 <div className="relative z-10">
-                  <p className="text-white font-semibold text-sm">{r.name}</p>
-                  <p className="text-gray-400 text-xs mt-0.5">{r.areas?.[0]?.sido} {r.areas?.[0]?.sigungu}</p>
+                  <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{r.name}</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{r.areas?.[0]?.sido} {r.areas?.[0]?.sigungu}</p>
                 </div>
                 <div className="relative z-10 mt-auto space-y-3">
                   <div className="flex gap-3 text-xs">
-                    <span className="text-gray-500">{r.record}</span>
-                    <span className="text-fuchsia-400 font-medium">승률 {r.winRate}%</span>
+                    <span style={{ color: "var(--text-muted)" }}>{r.record}</span>
+                    <span style={{ color: "var(--text-primary)" }}>승률 {r.winRate}%</span>
                   </div>
                   <button
                     onClick={async () => {
@@ -373,8 +383,8 @@ export default function ClubsPage() {
                     disabled={proposed.includes(r.clubId)}
                     className="w-full py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
                     style={proposed.includes(r.clubId)
-                      ? { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }
-                      : { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
+                      ? { background: "transparent", color: "var(--text-muted)", border: "1px solid var(--card-border)" }
+                      : { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }
                     }
                   >
                     <Send size={12} />
@@ -390,30 +400,32 @@ export default function ClubsPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {paginated.map((c) => (
           <div key={c.clubId} onClick={() => setSelected(c)}
-            className="relative border border-white/10 rounded-xl overflow-hidden flex flex-col hover:border-fuchsia-500/40 transition-colors group text-left cursor-pointer"
-            style={{ minHeight: "calc((100vh - 280px) / 2)" }}
+            className="relative rounded-xl overflow-hidden flex flex-col transition-colors group text-left cursor-pointer"
+            style={{ minHeight: "calc((100vh - 280px) / 2)", background: "var(--card-bg)", border: "1px solid var(--card-border)" }}
           >
             {c.image && <Image src={c.image} alt={c.name} fill className="object-cover opacity-20 group-hover:opacity-30 transition-opacity" />}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
             <div className="relative z-10 p-4 flex flex-col h-full">
               <div>
-                <p className="text-white font-semibold text-sm">{c.name}</p>
+                <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{c.name}</p>
                 <div className="flex items-center gap-1.5 mt-1">
-                  {(c as any).isManageTeam && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">팀</span>}
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-fuchsia-500/15 text-fuchsia-400">{c.sport}</span>
+                  {(c as any).isManageTeam && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(0,0,0,0.7)", color: "#ffffff" }}>팀</span>}
+                  <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(0,0,0,0.7)", color: "#ffffff" }}>{c.sport}</span>
                   {(c as any).teamRating && <RatingBadge tier={(c as any).teamRating.tier} type="team" size="sm" />}
-                  <MapPin size={10} className="text-gray-400" />
-                  <p className="text-gray-400 text-xs">{c.areas?.[0]?.sido} {c.areas?.[0]?.sigungu}</p>
+                  <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(0,0,0,0.7)", color: "#ffffff" }}>
+                    <MapPin size={10} />
+                    {c.areas?.[0]?.sido} {c.areas?.[0]?.sigungu}
+                  </span>
                 </div>
               </div>
               <div className="mt-auto space-y-2">
-                <div className="flex items-center gap-1 text-xs text-gray-400">
+                <div className="flex items-center gap-1 text-xs" style={{ color: "#ffffff" }}>
                   <Trophy size={10} />
                   <span>{c.record}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-gray-400">멤버 {c.members}명</span>
-                  <span className="text-fuchsia-400 font-medium">승률 {c.winRate}%</span>
+                  <span style={{ color: "#ffffff" }}>멤버 {c.members}명</span>
+                  <span style={{ color: "#ffffff" }}>승률 {c.winRate}%</span>
                 </div>
                 {c.recruiting && (
                   <button
@@ -421,8 +433,8 @@ export default function ClubsPage() {
                     disabled={isAlreadyMember(c.clubId) || joining === c.clubId}
                     className="w-full py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors mt-1"
                     style={isAlreadyMember(c.clubId)
-                      ? { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }
-                      : { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
+                      ? { background: "transparent", color: "var(--text-muted)", border: "1px solid var(--card-border)" }
+                      : { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }
                     }
                   >
                     <Users size={12} />
@@ -441,8 +453,8 @@ export default function ClubsPage() {
             <button key={p} onClick={() => setPage(p)}
               className="w-8 h-8 rounded-lg text-xs font-semibold transition-colors"
               style={page === p
-                ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
-                : { background: "rgba(255,255,255,0.05)", color: "#9ca3af" }
+                ? { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }
+                : { background: "var(--card-bg)", color: "var(--text-muted)" }
               }
             >{p}</button>
           ))}
@@ -619,8 +631,8 @@ export default function ClubsPage() {
                 setClubAreas([{ sido: "", sigungu: "" }, { sido: "", sigungu: "" }, { sido: "", sigungu: "" }]);
               }}
               disabled={!newClub.name.trim()}
-              className="w-full py-2.5 rounded-lg font-semibold text-sm text-white disabled:opacity-40"
-              style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
+              className="w-full py-2.5 rounded-lg font-semibold text-sm disabled:opacity-40"
+              style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}
             >클럽 생성</button>
           </div>
         </div>
@@ -629,27 +641,29 @@ export default function ClubsPage() {
       {/* 모달 */}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "var(--modal-overlay)" }}
+          style={{ background: "rgba(0,0,0,0.5)" }}
           onClick={() => setSelected(null)}
         >
-          <div className="border rounded-xl p-6 w-full max-w-md space-y-4"
-            style={{ background: "var(--sidebar-bg)", borderColor: "var(--card-border)" }}
+          <div className="rounded-xl p-6 w-full max-w-md space-y-4"
+            style={{ background: "#ffffff", border: "1px solid #e5e5e5" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-xl font-bold text-white">{selected.name}</h2>
+                <h2 className="text-xl font-bold" style={{ color: "#000000" }}>{selected.name}</h2>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-xs px-2 py-0.5 rounded bg-fuchsia-500/15 text-fuchsia-400">{selected.sport}</span>
-                  <MapPin size={12} className="text-gray-500" />
-                  <p className="text-gray-400 text-sm">{selected.areas?.[0]?.sido} {selected.areas?.[0]?.sigungu}</p>
+                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "#000000", color: "#ffffff" }}>{selected.sport}</span>
+                  <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded" style={{ background: "#f5f5f5", color: "#000000" }}>
+                    <MapPin size={10} />
+                    {selected.areas?.[0]?.sido} {selected.areas?.[0]?.sigungu}
+                  </span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 {selected.styles?.map((s) => (
-                  <span key={s} className="text-xs px-2 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-400">{s}</span>
+                  <span key={s} className="text-xs px-2 py-1 rounded-full" style={{ background: "#f5f5f5", color: "#000000" }}>{s}</span>
                 ))}
-                <button onClick={() => setSelected(null)} className="text-gray-500 hover:text-white transition-colors">
+                <button onClick={() => setSelected(null)} className="transition-colors" style={{ color: "#000000" }}>
                   <X size={18} />
                 </button>
               </div>
@@ -661,22 +675,22 @@ export default function ClubsPage() {
                 { icon: Users, label: "멤버", value: `${selected.members}명` },
                 { icon: Trophy, label: "승률", value: `${selected.winRate}%` },
               ].map(({ icon: Icon, label, value }) => (
-                <div key={label} className="bg-white/5 rounded-lg p-3">
+                <div key={label} className="rounded-lg p-3" style={{ background: "#f5f5f5" }}>
                   <div className="flex items-center gap-2 mb-1">
-                    <Icon size={12} className="text-fuchsia-400" />
-                    <span className="text-xs text-gray-500">{label}</span>
+                    <Icon size={12} style={{ color: "#666666" }} />
+                    <span className="text-xs" style={{ color: "#666666" }}>{label}</span>
                   </div>
-                  <p className="text-white font-semibold text-sm">{value}</p>
+                  <p className="font-semibold text-sm" style={{ color: "#000000" }}>{value}</p>
                 </div>
               ))}
             </div>
 
-            <div className="bg-white/5 rounded-lg p-3">
-              <p className="text-xs text-gray-500 mb-2">활동 가능지역</p>
+            <div className="rounded-lg p-3" style={{ background: "#f5f5f5" }}>
+              <p className="text-xs mb-2" style={{ color: "#666666" }}>활동 가능지역</p>
               <div className="flex gap-2 flex-wrap">
                 {selected.areas?.map((area, i) => (
-                  <span key={i} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-white/5 text-gray-300 border border-white/10">
-                    <MapPin size={10} className="text-fuchsia-400" />
+                  <span key={i} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full" style={{ background: "#ffffff", color: "#000000", border: "1px solid #e5e5e5" }}>
+                    <MapPin size={10} />
                     {area.sido} {area.sigungu}
                   </span>
                 ))}
@@ -688,10 +702,10 @@ export default function ClubsPage() {
               <button
                 onClick={() => handleJoinClub(selected)}
                 disabled={isAlreadyMember(selected.clubId) || joining === selected.clubId}
-                className="w-full py-2.5 rounded-lg font-semibold text-sm text-white disabled:opacity-50"
+                className="w-full py-2.5 rounded-lg font-semibold text-sm disabled:opacity-50"
                 style={isAlreadyMember(selected.clubId)
-                  ? { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }
-                  : { background: "linear-gradient(to right, #c026d3, #7c3aed)" }
+                  ? { background: "#f5f5f5", color: "#666666" }
+                  : { background: "#000000", color: "#ffffff" }
                 }
               >
                 {isAlreadyMember(selected.clubId) ? "이미 가입한 클럽입니다" : joining === selected.clubId ? "가입 중..." : "가입하기"}
@@ -715,10 +729,10 @@ export default function ClubsPage() {
                   setSelected(null);
                 } catch { show("경기 제안 실패", "error"); }
               }}
-              className="w-full py-2.5 rounded-lg font-semibold text-sm text-white transition-opacity hover:opacity-90"
-              style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
+              className="w-full py-2.5 rounded-lg font-semibold text-sm transition-opacity hover:opacity-90"
+              style={{ background: "#000000", color: "#ffffff" }}
             >
-              경기 제안하기 ⚔️
+              경기 제안하기
             </button>
           </div>
         </div>

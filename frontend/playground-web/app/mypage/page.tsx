@@ -1,10 +1,11 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
-import { MapPin, Shield, Trophy, Crosshair, Pencil, X, User, Mail, Calendar, Activity, Globe, Camera } from "lucide-react";
+import { MapPin, Shield, Trophy, Crosshair, Pencil, X, User, Mail, Calendar, Activity, Globe, Camera, Sun, Moon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useTeam } from "@/context/TeamContext";
+import { useTheme } from "@/context/ThemeContext";
 import { regionData } from "@/app/signup/regions";
 import RatingBadge from "@/components/RatingBadge";
 import { manageFetch } from "@/lib/manageFetch";
@@ -21,6 +22,7 @@ const allSports = ["축구", "풋살", "농구", "야구", "배구", "배드민�
 export default function MyPage() {
   const { user, loading, refresh } = useAuth();
   const { teams: manageTeams } = useTeam();
+  const { theme, toggle } = useTheme();
   const [club, setClub] = useState<any>(null);
   const [myClubs, setMyClubs] = useState<any[]>([]);
   const [editing, setEditing] = useState(false);
@@ -395,7 +397,7 @@ export default function MyPage() {
     return (
       <div className="max-w-lg mx-auto pt-20 text-center space-y-4">
         <p className="text-gray-400 text-sm">로그인이 필요합니다</p>
-        <Link href="/login" className="inline-block px-6 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+        <Link href="/login" className="inline-block px-6 py-2 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>
           로그인
         </Link>
       </div>
@@ -412,10 +414,10 @@ export default function MyPage() {
           <Image src={club.image} alt="emblem" fill className="object-cover opacity-10 scale-125" />
         )}
         <div className="relative z-10 flex flex-col items-center gap-3">
-          <div className="relative w-24 h-24 rounded-full overflow-hidden shrink-0 border-2 border-fuchsia-500/40 bg-white/5 flex items-center justify-center cursor-pointer group"
+          <div className="relative w-24 h-24 rounded-full overflow-hidden shrink-0 border-2 border-white/30 bg-white/5 flex items-center justify-center cursor-pointer group"
             onClick={() => fileInputRef.current?.click()}>
             {avatarUploading ? (
-              <div className="animate-spin w-6 h-6 border-2 border-fuchsia-400 border-t-transparent rounded-full" />
+              <div className="animate-spin w-6 h-6 border-2 border-white border-t-transparent rounded-full" />
             ) : user.avatar ? (
               <Image src={user.avatar} alt={user.name} fill className="object-cover" />
             ) : (
@@ -429,11 +431,11 @@ export default function MyPage() {
           <div className="text-center space-y-1">
             <p className="text-white text-2xl font-bold">{user.name}</p>
             {user.position && (
-              <span className="text-xs px-2 py-0.5 rounded bg-fuchsia-500/15 text-fuchsia-400 font-semibold">{user.position}</span>
+              <span className="text-xs px-2 py-0.5 rounded bg-white/15 text-white font-semibold">{user.position}</span>
             )}
             {club ? (
-              <Link href="/team" className="flex items-center justify-center gap-1 text-xs text-gray-400 mt-1 hover:text-fuchsia-400 transition-colors">
-                <Shield size={11} className="text-fuchsia-400" />
+              <Link href="/team" className="flex items-center justify-center gap-1 text-xs text-gray-400 mt-1 hover:text-white transition-colors">
+                <Shield size={11} style={{ color: 'var(--text-primary)' }} />
                 {club.name}
               </Link>
             ) : (
@@ -458,7 +460,7 @@ export default function MyPage() {
       <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <User size={14} className="text-fuchsia-400" />
+            <User size={14} style={{ color: 'var(--text-primary)' }} />
             <span className="text-sm font-semibold text-gray-300">개인 정보</span>
           </div>
           <button onClick={openProfileEdit} className="text-gray-500 hover:text-white transition-colors">
@@ -480,11 +482,45 @@ export default function MyPage() {
         </div>
       </div>
 
+      {/* 테마 설정 */}
+      <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          {theme === "dark" ? (
+            <Moon size={14} style={{ color: 'var(--text-primary)' }} />
+          ) : (
+            <Sun size={14} style={{ color: 'var(--text-primary)' }} />
+          )}
+          <span className="text-sm font-semibold text-gray-300">테마 설정</span>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => theme !== "light" && toggle()}
+            className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            style={theme === "light"
+              ? { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }
+              : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }}
+          >
+            <Sun size={14} />
+            라이트
+          </button>
+          <button
+            onClick={() => theme !== "dark" && toggle()}
+            className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            style={theme === "dark"
+              ? { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }
+              : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }}
+          >
+            <Moon size={14} />
+            다크
+          </button>
+        </div>
+      </div>
+
       {/* 활동 가능 지역 */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
-            <Globe size={14} className="text-fuchsia-400" />
+            <Globe size={14} style={{ color: 'var(--text-primary)' }} />
             <span className="text-sm font-semibold text-gray-300">활동 가능 지역</span>
           </div>
           <button onClick={openAreaEdit} className="text-gray-500 hover:text-white transition-colors"><Pencil size={14} /></button>
@@ -506,7 +542,7 @@ export default function MyPage() {
       <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
-            <Activity size={14} className="text-fuchsia-400" />
+            <Activity size={14} style={{ color: 'var(--text-primary)' }} />
             <span className="text-sm font-semibold text-gray-300">관심 스포츠</span>
           </div>
           <button onClick={openSportsEdit} className="text-gray-500 hover:text-white transition-colors"><Pencil size={14} /></button>
@@ -514,7 +550,7 @@ export default function MyPage() {
         {user.sports && user.sports.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {user.sports.map((s: string) => (
-              <span key={s} className="text-xs px-3 py-1.5 rounded-full font-medium text-fuchsia-300" style={{ background: "linear-gradient(to right, rgba(192,38,211,0.15), rgba(124,58,237,0.15))" }}>
+              <span key={s} className="text-xs px-3 py-1.5 rounded-full font-medium text-white" style={{ background: "rgba(255,255,255,0.1)" }}>
                 {s}
               </span>
             ))}
@@ -528,7 +564,7 @@ export default function MyPage() {
       {(user as any).ratings && Object.keys((user as any).ratings).length > 0 && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
           <div className="flex items-center gap-2 mb-1">
-            <Trophy size={14} className="text-fuchsia-400" />
+            <Trophy size={14} style={{ color: 'var(--text-primary)' }} />
             <span className="text-sm font-semibold text-gray-300">개인 등급</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -548,7 +584,7 @@ export default function MyPage() {
       {/* 활동 기록 */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-5">
         <div className="flex items-center gap-2 mb-3">
-          <Trophy size={14} className="text-fuchsia-400" />
+          <Trophy size={14} style={{ color: 'var(--text-primary)' }} />
           <span className="text-sm font-semibold text-gray-300">활동 기록</span>
         </div>
         <p className="text-white text-sm">
@@ -620,10 +656,10 @@ export default function MyPage() {
       <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Shield size={14} className="text-fuchsia-400" />
+            <Shield size={14} style={{ color: 'var(--text-primary)' }} />
             <span className="text-sm font-semibold text-gray-300">소속</span>
           </div>
-          <button onClick={startNewTeamJoin} className="text-xs px-2.5 py-1 rounded-full text-fuchsia-400 hover:bg-fuchsia-500/10 transition-colors" style={{ border: "1px solid rgba(192,38,211,0.3)" }}>
+          <button onClick={startNewTeamJoin} className="text-xs px-2.5 py-1 rounded-full text-white hover:bg-white/10 transition-colors" style={{ border: "1px solid rgba(255,255,255,0.2)" }}>
             + 새 팀
           </button>
         </div>
@@ -633,7 +669,7 @@ export default function MyPage() {
               <div className="flex items-center gap-2">
                 {c.image && <img src={c.image} alt={c.name} className="w-6 h-6 rounded-full object-cover" />}
                 <span className="text-white text-sm font-semibold">{c.name}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-fuchsia-500/15 text-fuchsia-400">{c.sport}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/15 text-white">{c.sport}</span>
               </div>
               <div className="flex gap-4 text-xs text-gray-400">
                 <span>포지션: {user.position || "-"}</span>
@@ -653,7 +689,7 @@ export default function MyPage() {
                 {t.logoUrl && <img src={t.logoUrl} alt={t.name} className="w-6 h-6 rounded-full object-cover" />}
                 <span className="text-white text-sm font-semibold">{t.name}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">팀</span>
-                {t.sportType && <span className="text-[10px] px-1.5 py-0.5 rounded bg-fuchsia-500/15 text-fuchsia-400">{sportTypeLabel[t.sportType] ?? t.sportType}</span>}
+                {t.sportType && <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/15 text-white">{sportTypeLabel[t.sportType] ?? t.sportType}</span>}
               </div>
               {t.region && <p className="text-xs text-gray-500">{t.region}</p>}
             </div>
@@ -691,7 +727,7 @@ export default function MyPage() {
                   {c.image && <img src={c.image} alt={c.name} className="w-8 h-8 rounded-full object-cover" />}
                   <div>
                     <span className="text-white text-sm font-semibold">{c.name}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-fuchsia-500/15 text-fuchsia-400 ml-2">{c.sport}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/15 text-white ml-2">{c.sport}</span>
                   </div>
                 </div>
               ) : null;
@@ -707,7 +743,7 @@ export default function MyPage() {
                     onClick={() => setTeamDraft(p => ({ ...p, sport: s, teamId: null, position: "" }))}
                     className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
                     style={teamDraft.sport === s
-                      ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
+                      ? { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }
                       : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }}>
                     {s}
                   </button>
@@ -726,7 +762,7 @@ export default function MyPage() {
                       onClick={() => setTeamDraft(p => ({ ...p, teamId: c.clubId }))}
                       className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors"
                       style={teamDraft.teamId === c.clubId
-                        ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white", borderRadius: "12px" }
+                        ? { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)", borderRadius: "12px" }
                         : { background: "var(--chip-inactive-bg)", border: "1px solid var(--chip-inactive-border)" }}>
                       <span className="text-sm font-medium">{c.name}</span>
                       <span className="text-xs opacity-60">{c.areas?.[0]?.sido} {c.areas?.[0]?.sigungu}</span>
@@ -762,7 +798,7 @@ export default function MyPage() {
                         onClick={() => setTeamDraft(prev => ({ ...prev, position: p }))}
                         className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
                         style={teamDraft.position === p
-                          ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
+                          ? { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }
                           : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }}>
                         {p}
                       </button>
@@ -773,8 +809,8 @@ export default function MyPage() {
             })()}
 
             <button onClick={saveTeam} disabled={teamSaving}
-              className="w-full py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+              className="w-full py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>
               {teamSaving ? "저장 중..." : "저장"}
             </button>
 
@@ -807,7 +843,7 @@ export default function MyPage() {
               <label className="text-xs text-gray-400">이름</label>
               <input type="text" value={profileDraft.name}
                 onChange={e => setProfileDraft(p => ({ ...p, name: e.target.value }))}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-fuchsia-500/50" />
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-white/30" />
             </div>
 
             {/* 성별 */}
@@ -818,7 +854,7 @@ export default function MyPage() {
                   <button key={val} type="button" onClick={() => setProfileDraft(p => ({ ...p, gender: val }))}
                     className="flex-1 py-2 rounded-lg text-sm font-medium transition-colors"
                     style={profileDraft.gender === val
-                      ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
+                      ? { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }
                       : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }}>
                     {label}
                   </button>
@@ -831,7 +867,7 @@ export default function MyPage() {
               <label className="text-xs text-gray-400">생년월일</label>
               <input type="date" value={profileDraft.birthdate}
                 onChange={e => setProfileDraft(p => ({ ...p, birthdate: e.target.value }))}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-fuchsia-500/50"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-white/30"
                 style={{ colorScheme: "dark" }} />
             </div>
 
@@ -846,7 +882,7 @@ export default function MyPage() {
 
             <button onClick={saveProfile} disabled={profileSaving}
               className="w-full py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }}>
+              style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>
               {profileSaving ? "저장 중..." : "저장"}
             </button>
           </div>
@@ -882,7 +918,7 @@ export default function MyPage() {
             </div>
             <button onClick={saveAreas} disabled={areaSaving}
               className="w-full py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }}>
+              style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>
               {areaSaving ? "저장 중..." : "저장"}
             </button>
           </div>
@@ -903,7 +939,7 @@ export default function MyPage() {
                   onClick={() => setSportsDraft(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s])}
                   className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
                   style={sportsDraft.includes(s)
-                    ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
+                    ? { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }
                     : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" }}>
                   {s}
                 </button>
@@ -911,7 +947,7 @@ export default function MyPage() {
             </div>
             <button onClick={saveSports} disabled={sportsSaving}
               className="w-full py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }}>
+              style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>
               {sportsSaving ? "저장 중..." : "저장"}
             </button>
           </div>
@@ -921,7 +957,7 @@ export default function MyPage() {
       {/* 최근 골 기록 */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <Crosshair size={14} className="text-fuchsia-400" />
+          <Crosshair size={14} style={{ color: 'var(--text-primary)' }} />
           <span className="text-sm font-semibold text-gray-300">최근 골 기록</span>
         </div>
         {recentGoals.length > 0 ? (
@@ -930,7 +966,7 @@ export default function MyPage() {
               <span className="text-gray-500 text-xs w-24">{g.date}</span>
               <span className="text-white text-sm flex-1">{g.opponent}</span>
               <span className="text-gray-400 text-xs w-12 text-center">{g.minute}&apos;</span>
-              <span className="text-fuchsia-400 text-sm font-bold w-12 text-right">{g.score}</span>
+              <span className="text-white text-sm font-bold w-12 text-right">{g.score}</span>
             </div>
           ))
         ) : (
