@@ -220,16 +220,11 @@ def generate_response(state: ChatState) -> ChatState:
     if state["analysis_data"]:
         system_parts.append(f"\n[경기 분석 데이터]\n{state['analysis_data']}\n이 데이터를 참고하여 경기에 대한 질문에 답변해.")
 
-<<<<<<< HEAD
-    if state["context"] and state["context"] != "rag":
-        system_parts.append(f"\n[Context]\n{state['context']}")
-=======
     if state.get("web_search_results"):
         system_parts.append(f"\n[웹 검색 결과]\n{state['web_search_results']}\n최신 정보를 바탕으로 답변하고, 출처 링크를 포함해.")
 
     if state["context"] and state["context"] not in ["rag", "web"]:
         system_parts.append(f"\n[참고 자료]\n{state['context']}\n이 자료를 바탕으로 답변해.")
->>>>>>> 3a56648fe97aabd89a299735a258b59d57fcf981
 
     msgs = [SystemMessage(content="\n".join(system_parts))]
     for m in state["messages"]:

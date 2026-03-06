@@ -157,8 +157,8 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
     # 진행 단계 업데이트 헬퍼
     def update_stage(stage_text, stage_progress):
         if job_id and job_id in jobs:
-            jobs[job_id]["progress"] = stage_progress
-            jobs[job_id]["stage"] = stage_text
+            jobs[job_id]["progress_percent"] = stage_progress
+            jobs[job_id]["progress_stage"] = stage_text
 
     update_stage("영상 전처리 중...", 5)
 
@@ -171,15 +171,7 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
         video_frames = [cv2.resize(f, (new_w, new_h)) for f in video_frames]
         print(f"[RESIZE] {w}x{h} → {new_w}x{new_h} ({len(video_frames)} frames)")
 
-<<<<<<< HEAD
     update_stage("선수/볼 추적 중...", 10)
-=======
-    # 1단계: 선수 추적 (0-30%)
-    if job_id and job_id in jobs:
-        jobs[job_id]["progress_stage"] = "선수 추적중"
-        jobs[job_id]["progress_percent"] = 5
-    
->>>>>>> 3a56648fe97aabd89a299735a258b59d57fcf981
     tracker = Tracker('models/best.pt')
     tracks = tracker.get_object_tracks(video_frames, read_from_stub=False, stub_path=None)
     tracker.add_positions_to_tracks(tracks)
@@ -187,15 +179,7 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
     if job_id and job_id in jobs:
         jobs[job_id]["progress_percent"] = 30
 
-<<<<<<< HEAD
     update_stage("카메라 움직임 분석 중...", 30)
-=======
-    # 2단계: 카메라 움직임 분석 (30-40%)
-    if job_id and job_id in jobs:
-        jobs[job_id]["progress_stage"] = "카메라 움직임 분석중"
-        jobs[job_id]["progress_percent"] = 30
-    
->>>>>>> 3a56648fe97aabd89a299735a258b59d57fcf981
     camera_movement_estimator = CameraMovementEstimator(video_frames[0])
     camera_movement_per_frame = camera_movement_estimator.get_camera_movement(
         video_frames, read_from_stub=False, stub_path=None
@@ -205,15 +189,7 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
     if job_id and job_id in jobs:
         jobs[job_id]["progress_percent"] = 40
 
-<<<<<<< HEAD
     update_stage("좌표 변환 중...", 40)
-=======
-    # 3단계: 좌표 변환 및 속도 계산 (40-50%)
-    if job_id and job_id in jobs:
-        jobs[job_id]["progress_stage"] = "좌표 변환중"
-        jobs[job_id]["progress_percent"] = 40
-    
->>>>>>> 3a56648fe97aabd89a299735a258b59d57fcf981
     view_transformer = ViewTransformer()
     view_transformer.add_transformed_position_to_tracks(tracks)
 
@@ -267,22 +243,14 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
     total_frames = len(tracks['players'])
 
     for frame_num, player_track in enumerate(tracks['players']):
-<<<<<<< HEAD
         # 진행률 업데이트 (50~90% 범위, 10프레임마다)
         if job_id and job_id in jobs and frame_num % 10 == 0:
             frame_progress = 50 + ((frame_num + 1) / total_frames * 40)
-            jobs[job_id]["progress"] = round(frame_progress, 1)
-            jobs[job_id]["stage"] = "이벤트 분석 중..."
-            jobs[job_id]["live_subtitles"] = subtitle_data.copy()
-            jobs[job_id]["live_events"] = events_list.copy()
-
-=======
-        # 프레임별 진행률 업데이트 (55% → 85%)
-        if job_id and job_id in jobs and total_player_frames > 0:
+            jobs[job_id]["progress_percent"] = round(frame_progress, 1)
+            jobs[job_id]["progress_stage"] = "이벤트 분석 중..."
             jobs[job_id]["current_frame"] = frame_num
-            frame_progress = int(55 + (frame_num / total_player_frames) * 30)
-            jobs[job_id]["progress_percent"] = frame_progress
->>>>>>> 3a56648fe97aabd89a299735a258b59d57fcf981
+            jobs[job_id]["partial_subtitles"] = subtitle_data.copy()
+            jobs[job_id]["live_events"] = events_list.copy()
         ball_bbox = tracks['ball'][frame_num][1]['bbox']
         ball_speed = tracks['ball'][frame_num].get('speed', 0)
         assigned_player = player_assigner.assign_ball_to_player(player_track, ball_bbox)
@@ -332,7 +300,6 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
         else:
             speed = 0
 
-<<<<<<< HEAD
         if frame_num % 72 == 0:
             # 최근 이벤트 수집 (이 구간 동안 발생한 이벤트)
             recent_events = [e for e in events_list if e["frame"] > max(0, frame_num - 72) and e["frame"] <= frame_num]
@@ -364,25 +331,6 @@ def analyze_video(input_path: str, output_path: str, job_id: str = None):
 
             subtitle_text = generate_commentary(query, vector_store_path)
             subtitle_data.append({"frame": frame_num, "time": frame_to_time(frame_num), "text": subtitle_text})
-=======
-        if frame_num % 120 == 0:
-            seconds = frame_num / 24  # 24fps 기준
-            query = (
-                f"{seconds:.0f}초 시점에서, "
-                f"플레이어 {assigned_player}은(는) 속도 {speed:.2f}로 이동 중이며, "
-                f"볼의 속도는 {ball_speed:.2f}입니다. "
-                f"현재 볼 소유 팀은 {current_team_with_ball}이고, "
-                f"볼의 위치는 {ball_bbox}입니다. "
-                f"이 상황에 대해 해설해주세요."
-            )
-
-            subtitle_text = generate_commentary(query, vector_store_path)
-            subtitle_data.append(subtitle_text)
-            
-            # 실시간으로 jobs에 추가
-            if job_id and job_id in jobs:
-                jobs[job_id]["partial_subtitles"] = subtitle_data.copy()
->>>>>>> 3a56648fe97aabd89a299735a258b59d57fcf981
 
         previous_player_with_ball = assigned_player
         previous_team_with_ball = current_team_with_ball
@@ -548,22 +496,15 @@ async def get_job_status(job_id: str):
         }
     else:
         # 분석 중에도 현재까지 생성된 subtitles와 진행률 반환
-        partial_subtitles = job.get("partial_subtitles", [])
         progress_info = {
             "status": job["status"],
-<<<<<<< HEAD
-            "message": job.get("stage", "분석 진행 중..."),
-            "progress": job.get("progress", 0),
-            "live_subtitles": job.get("live_subtitles", []),
-            "live_events": job.get("live_events", []),
-=======
-            "message": "분석 진행 중...",
-            "partial_subtitles": partial_subtitles,
+            "message": job.get("progress_stage", "분석 진행 중..."),
             "progress_percent": job.get("progress_percent", 0),
             "progress_stage": job.get("progress_stage", "대기중"),
             "current_frame": job.get("current_frame", 0),
             "total_frames": job.get("total_frames", 0),
->>>>>>> 3a56648fe97aabd89a299735a258b59d57fcf981
+            "partial_subtitles": job.get("partial_subtitles", []),
+            "live_events": job.get("live_events", []),
         }
         return progress_info
 
