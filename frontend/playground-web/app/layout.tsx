@@ -60,12 +60,12 @@ export default function RootLayout({
               <ChatProvider>
                 <ClubProvider>
                   <LayoutContent>{children}</LayoutContent>
+                  <AIChatbot />
                 </ClubProvider>
               </ChatProvider>
             </TeamProvider>
           </AuthProvider>
         </ThemeProvider>
-        <AIChatbot />
         <PWAInstallBanner />
         <PushNotificationSetup />
         <ServiceWorkerRegistration />

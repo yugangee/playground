@@ -154,7 +154,7 @@ function TournamentCarousel() {
   return (
     <div>
       <div
-        className="relative rounded-2xl overflow-hidden aspect-[21/9] cursor-pointer"
+        className="relative rounded-2xl overflow-hidden aspect-[16/9] sm:aspect-[21/9] cursor-pointer"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
@@ -180,8 +180,10 @@ function TournamentCarousel() {
             </span>
             <span className="text-xs text-gray-500">{item.date}</span>
           </div>
-          <p className="text-gray-900 font-bold text-lg leading-snug">{item.title}</p>
-          <span className="text-xs text-gray-600">{item.teams}</span>
+          <p className="text-sm leading-snug">
+            <span className="text-gray-900 font-bold">{item.title}</span>
+            <span className="text-gray-500"> · {item.teams}</span>
+          </p>
         </div>
 
         {/* 인디케이터 도트 */}
@@ -354,18 +356,18 @@ function LoggedInHome({ name, recentTeams: initialRecent, topMatchTeams: initial
 
       {/* 이번주 경기 - 가로 스크롤 */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-4">
             <div className="flex items-center gap-2">
               <Trophy size={16} style={{ color: "var(--text-muted)" }} />
-              <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>이번주 경기</h2>
+              <h2 className="text-sm font-semibold whitespace-nowrap" style={{ color: "var(--text-primary)" }}>이번주 경기</h2>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1 sm:gap-2">
               {["전체", "서울", "경기", "인천"].map((r) => (
                 <button
                   key={r}
                   onClick={() => setRegion(r)}
-                  className="px-3 py-1 rounded-lg text-xs font-medium transition-colors"
+                  className="px-2 sm:px-3 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap"
                   style={region === r 
                     ? { background: "var(--card-bg)", color: "var(--text-primary)", border: "1px solid var(--card-border)" } 
                     : { color: "var(--text-muted)" }}
@@ -375,7 +377,7 @@ function LoggedInHome({ name, recentTeams: initialRecent, topMatchTeams: initial
               ))}
             </div>
           </div>
-          <button className="w-8 h-8 rounded-full flex items-center justify-center transition-colors" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+          <button className="hidden sm:flex w-8 h-8 rounded-full items-center justify-center transition-colors" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
             <ArrowRight size={16} style={{ color: "var(--text-primary)" }} />
           </button>
         </div>
@@ -412,18 +414,20 @@ function LoggedInHome({ name, recentTeams: initialRecent, topMatchTeams: initial
       {/* 1:1 그리드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* 왼쪽: 종목별 클럽 랭킹 */}
-        <div className="rounded-xl p-6" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Trophy size={16} style={{ color: "var(--text-muted)" }} />
-              <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>이번달 종목별 클럽 랭킹</h2>
+        <div className="rounded-xl p-4 sm:p-6" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+          <div className="flex items-start justify-between mb-4 gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Trophy size={16} style={{ color: "var(--text-muted)" }} className="shrink-0" />
+              <h2 className="text-sm font-semibold whitespace-nowrap" style={{ color: "var(--text-primary)" }}>
+                이번달 종목별 랭킹
+              </h2>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1 shrink-0">
               {["축구", "농구", "야구"].map((s) => (
                 <button
                   key={s}
                   onClick={() => setRankingSport(s)}
-                  className="px-2 py-1 rounded text-xs font-medium transition-colors"
+                  className="px-2 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap"
                   style={rankingSport === s 
                     ? { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" } 
                     : { color: "var(--text-muted)" }}
@@ -506,18 +510,20 @@ function LoggedInHome({ name, recentTeams: initialRecent, topMatchTeams: initial
         </div>
 
         {/* 오른쪽: 지역별 클럽 랭킹 */}
-        <div className="rounded-xl p-6" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Trophy size={16} style={{ color: "var(--text-muted)" }} />
-              <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>이번달 지역별 클럽 랭킹</h2>
+        <div className="rounded-xl p-4 sm:p-6" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+          <div className="flex items-start justify-between mb-4 gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Trophy size={16} style={{ color: "var(--text-muted)" }} className="shrink-0" />
+              <h2 className="text-sm font-semibold whitespace-nowrap" style={{ color: "var(--text-primary)" }}>
+                이번달 지역별 랭킹
+              </h2>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1 shrink-0">
               {["서울", "경기", "인천"].map((r) => (
                 <button
                   key={r}
                   onClick={() => setRankingRegion(r)}
-                  className="px-2 py-1 rounded text-xs font-medium transition-colors"
+                  className="px-2 py-1 rounded text-xs font-medium transition-colors whitespace-nowrap"
                   style={rankingRegion === r 
                     ? { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" } 
                     : { color: "var(--text-muted)" }}
@@ -774,9 +780,9 @@ function LandingHome({ recentTeams, topMatchTeams }: { recentTeams: any[]; topMa
         <div className="absolute inset-0 bg-black/35" />
 
         {/* 메인 콘텐츠 */}
-        <div className="relative z-10 flex flex-col items-center text-center px-4 max-w-3xl mx-auto space-y-6">
+        <div className="relative z-10 flex flex-col items-center text-center px-4 max-w-3xl mx-auto space-y-4 sm:space-y-6">
           {/* 메인 헤드라인 */}
-          <h2 className="text-4xl md:text-5xl font-black leading-tight" style={{ textShadow: "0 4px 20px rgba(0,0,0,0.8)" }}>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black leading-tight" style={{ textShadow: "0 4px 20px rgba(0,0,0,0.8)" }}>
             <span style={{ color: "#ffffff" }}>클럽 매칭, 팀 관리,</span><br />
             <span className="bg-gradient-to-r from-fuchsia-400 to-violet-400 bg-clip-text text-transparent">
               AI 분석
@@ -785,22 +791,22 @@ function LandingHome({ recentTeams, topMatchTeams }: { recentTeams: any[]; topMa
           </h2>
 
           {/* 서브 텍스트 */}
-          <p className="text-lg md:text-xl text-gray-200 drop-shadow-lg">
-            <span className="text-fuchsia-400 font-bold">₩1,000</span>으로 시작하세요. 멤버십은 언제든지 해지 가능합니다.
+          <p className="text-base sm:text-lg md:text-xl text-gray-200 drop-shadow-lg">
+            <span className="text-fuchsia-400 font-bold">₩1,000</span>으로 시작하세요.<br className="sm:hidden" />멤버십은 언제든지 해지 가능합니다.
           </p>
 
           {/* 추가 안내 */}
-          <p className="text-sm drop-shadow" style={{ color: "white" }}>
-            지금 바로 시작할 준비가 되셨나요? 회원가입 후 플레이그라운드를 경험하세요.
+          <p className="text-sm sm:text-base drop-shadow" style={{ color: "white" }}>
+            지금 바로 시작할 준비가 되셨나요?<br className="sm:hidden" />회원가입 후 플레이그라운드를 경험하세요.
           </p>
 
           {/* 회원가입 버튼 */}
           <Link
             href="/signup"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-base font-bold transition-all hover:scale-105 border"
+            className="inline-flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 rounded-lg text-base sm:text-lg font-bold transition-all hover:scale-105 border"
             style={{ background: "#000000", color: "#ffffff", borderColor: "rgba(255,255,255,0.3)" }}
           >
-            회원가입 <ArrowRight size={18} />
+            회원가입 <ArrowRight size={18} className="sm:w-[20px] sm:h-[20px]" />
           </Link>
         </div>
       </div>
@@ -903,104 +909,94 @@ function LandingHome({ recentTeams, topMatchTeams }: { recentTeams: any[]; topMa
       </div>
 
       {/* More Reasons to Join - 넷플릭스 스타일 */}
-      <div className="relative py-20 px-8 pb-32 overflow-hidden">
-        {/* 배경 이미지 with blur */}
-        <div 
-          className="absolute inset-0 opacity-100"
-          style={{
-            backgroundImage: "url('/article_1.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            filter: "blur(10px) brightness(50%)"
-          }}
-        />
-        
-        <div className="relative max-w-7xl mx-auto">
+      <div className="relative py-16 sm:py-24 px-6 sm:px-12 pb-40 overflow-hidden" style={{ background: "linear-gradient(180deg, #000000 0%, #1a0a2e 50%, #0f0f0f 100%)" }}>
+        <div className="relative max-w-6xl mx-auto">
           {/* 메인 타이틀 */}
-          <div className="text-center mb-16">
-            <h2 className="font-black mb-4" style={{ fontFamily: "'Pretendard', sans-serif", fontSize: "3rem", color: "#ffffff" }}>
-              PLAYGROUND와 함께 더 즐겁게
+          <div className="text-left sm:text-center mb-8 sm:mb-16">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-bold mb-2" style={{ color: "#ffffff" }}>
+              가입해야 하는 또 다른 이유
             </h2>
-            <p className="text-lg" style={{ fontFamily: "'Pretendard', sans-serif", color: "#ffffff" }}>
-              아마추어 스포츠 팀을 위한 스마트한 매칭과 관리 솔루션
-            </p>
           </div>
 
-          {/* 4개 카드 그리드 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* 카드 리스트 - 모바일: 세로, 데스크탑: 가로 */}
+          <div className="flex flex-col lg:grid lg:grid-cols-4 gap-4 sm:gap-6">
             {/* 카드 1 */}
             <div 
-              className="group rounded-2xl p-6 border border-cyan-500/30 transition-all duration-300 hover:scale-105 hover:border-cyan-400/60 hover:shadow-lg hover:shadow-cyan-500/20 cursor-pointer"
+              className="rounded-xl p-5 sm:p-6 relative overflow-hidden"
               style={{ 
-                backgroundColor: "rgba(15, 23, 42, 0.95)",
-                backdropFilter: "blur(10px)"
+                background: "linear-gradient(135deg, rgba(139, 69, 19, 0.4) 0%, rgba(75, 0, 130, 0.3) 100%)",
               }}
             >
-              <h3 className="text-2xl font-bold mb-3" style={{ fontFamily: "'Pretendard', sans-serif", color: "#22d3ee" }}>
-                올인원 팀 관리
-              </h3>
-              <p className="text-sm leading-relaxed mb-6" style={{ fontFamily: "'Pretendard', sans-serif", lineHeight: "1.6", color: "#ffffff" }}>
-                단톡방에 흩어진 팀원 명단과 회비, 경기 결과를 한곳에 모아 관리하세요. 번거로운 팀 운영 업무를 자동화하여 팀장님의 관리 효율을 극대화합니다.
-              </p>
-              <div className="flex justify-center mt-auto">
-                <div className="text-6xl">📋</div>
+              <div className="flex justify-between items-start">
+                <div className="flex-1 pr-4">
+                  <h3 className="text-lg sm:text-xl font-bold mb-2" style={{ color: "#ffffff" }}>
+                    올인원 팀 관리
+                  </h3>
+                  <p className="text-xs sm:text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>
+                    단톡방에 흩어진 팀원 명단과 회비, 경기 결과를 한곳에 모아 관리하세요.
+                  </p>
+                </div>
+                <div className="text-4xl sm:text-5xl">📋</div>
               </div>
             </div>
 
             {/* 카드 2 */}
             <div 
-              className="group rounded-2xl p-6 border border-cyan-500/30 transition-all duration-300 hover:scale-105 hover:border-cyan-400/60 hover:shadow-lg hover:shadow-cyan-500/20 cursor-pointer"
+              className="rounded-xl p-5 sm:p-6 relative overflow-hidden"
               style={{ 
-                backgroundColor: "rgba(15, 23, 42, 0.95)",
-                backdropFilter: "blur(10px)"
+                background: "linear-gradient(135deg, rgba(255, 20, 147, 0.3) 0%, rgba(138, 43, 226, 0.3) 100%)",
               }}
             >
-              <h3 className="text-2xl font-bold mb-3" style={{ fontFamily: "'Pretendard', sans-serif", color: "#22d3ee" }}>
-                스마트 팀 매칭
-              </h3>
-              <p className="text-sm leading-relaxed mb-6" style={{ fontFamily: "'Pretendard', sans-serif", lineHeight: "1.6", color: "#ffffff" }}>
-                내 위치와 실력 데이터에 딱 맞는 최적의 팀을 추천받고 바로 합류하세요. 커뮤니티를 헤맬 필요 없이 클릭 한 번으로 간편하게 가입 신청이 가능합니다.
-              </p>
-              <div className="flex justify-center mt-auto">
-                <div className="text-6xl">👥</div>
+              <div className="flex justify-between items-start">
+                <div className="flex-1 pr-4">
+                  <h3 className="text-lg sm:text-xl font-bold mb-2" style={{ color: "#ffffff" }}>
+                    스마트 팀 매칭
+                  </h3>
+                  <p className="text-xs sm:text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>
+                    내 위치와 실력 데이터에 딱 맞는 최적의 팀을 추천받고 바로 합류하세요.
+                  </p>
+                </div>
+                <div className="text-4xl sm:text-5xl">👥</div>
               </div>
             </div>
 
             {/* 카드 3 */}
             <div 
-              className="group rounded-2xl p-6 border border-cyan-500/30 transition-all duration-300 hover:scale-105 hover:border-cyan-400/60 hover:shadow-lg hover:shadow-cyan-500/20 cursor-pointer"
+              className="rounded-xl p-5 sm:p-6 relative overflow-hidden"
               style={{ 
-                backgroundColor: "rgba(15, 23, 42, 0.95)",
-                backdropFilter: "blur(10px)"
+                background: "linear-gradient(135deg, rgba(0, 100, 0, 0.3) 0%, rgba(0, 128, 128, 0.3) 100%)",
               }}
             >
-              <h3 className="text-2xl font-bold mb-3" style={{ fontFamily: "'Pretendard', sans-serif", color: "#22d3ee" }}>
-                한눈에 보는 일정
-              </h3>
-              <p className="text-sm leading-relaxed mb-6" style={{ fontFamily: "'Pretendard', sans-serif", lineHeight: "1.6", color: "#ffffff" }}>
-                캘린더 연동으로 모든 경기 일정을 체크하고 멤버들의 참석 여부를 확인하세요. 실시간 투표 기능으로 인원 파악을 끝내고 노쇼 없는 완벽한 시즌을 만듭니다.
-              </p>
-              <div className="flex justify-center mt-auto">
-                <div className="text-6xl">📅</div>
+              <div className="flex justify-between items-start">
+                <div className="flex-1 pr-4">
+                  <h3 className="text-lg sm:text-xl font-bold mb-2" style={{ color: "#ffffff" }}>
+                    한눈에 보는 일정
+                  </h3>
+                  <p className="text-xs sm:text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>
+                    캘린더 연동으로 모든 경기 일정을 체크하고 멤버들의 참석 여부를 확인하세요.
+                  </p>
+                </div>
+                <div className="text-4xl sm:text-5xl">📅</div>
               </div>
             </div>
 
             {/* 카드 4 */}
             <div 
-              className="group rounded-2xl p-6 border border-cyan-500/30 transition-all duration-300 hover:scale-105 hover:border-cyan-400/60 hover:shadow-lg hover:shadow-cyan-500/20 cursor-pointer"
+              className="rounded-xl p-5 sm:p-6 relative overflow-hidden"
               style={{ 
-                backgroundColor: "rgba(15, 23, 42, 0.95)",
-                backdropFilter: "blur(10px)"
+                background: "linear-gradient(135deg, rgba(25, 25, 112, 0.4) 0%, rgba(72, 61, 139, 0.3) 100%)",
               }}
             >
-              <h3 className="text-2xl font-bold mb-3" style={{ fontFamily: "'Pretendard', sans-serif", color: "#22d3ee" }}>
-                다양한 종목의 스포츠
-              </h3>
-              <p className="text-sm leading-relaxed mb-6" style={{ fontFamily: "'Pretendard', sans-serif", lineHeight: "1.6", color: "#ffffff" }}>
-                종목과 실력에 상관없이 운동을 사랑하는 플레이어라면 누구나 환영합니다. 입문자부터 베테랑까지 함께 소통하며 즐기는 거대한 커뮤니티를 만나보세요.
-              </p>
-              <div className="flex justify-center mt-auto">
-                <div className="text-6xl">⚙️</div>
+              <div className="flex justify-between items-start">
+                <div className="flex-1 pr-4">
+                  <h3 className="text-lg sm:text-xl font-bold mb-2" style={{ color: "#ffffff" }}>
+                    다양한 종목의 스포츠
+                  </h3>
+                  <p className="text-xs sm:text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>
+                    종목과 실력에 상관없이 운동을 사랑하는 플레이어라면 누구나 환영합니다.
+                  </p>
+                </div>
+                <div className="text-4xl sm:text-5xl">⚙️</div>
               </div>
             </div>
           </div>
@@ -1008,21 +1004,20 @@ function LandingHome({ recentTeams, topMatchTeams }: { recentTeams: any[]; topMa
       </div>
 
       {/* 하단 띠 배너 - 고정 */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 py-4 px-8 border-t" style={{ background: "rgba(0,0,0,0.95)", backdropFilter: "blur(10px)", borderColor: "rgba(255,255,255,0.1)" }}>
-        <div className="max-w-5xl mx-auto flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">⚽</span>
-            <div>
-              <p className="font-semibold text-sm" style={{ color: "#ffffff" }}>
-                월 <span style={{ color: "#ffffff" }}>₩1,000</span>으로 만날 수 있는 플레이그라운드
-              </p>
-              <p className="text-xs" style={{ color: "#737373" }}>가장 경제적인 아마추어 스포츠 플랫폼을 이용해 보세요.</p>
-            </div>
+      <div className="fixed bottom-0 left-0 right-0 z-50 py-5 px-4" style={{ background: "linear-gradient(0deg, rgba(0,0,0,0.98) 0%, rgba(0,0,0,0.95) 70%, rgba(0,0,0,0) 100%)" }}>
+        <div className="max-w-sm mx-auto flex flex-col items-center text-center gap-3">
+          <div>
+            <p className="font-bold text-base sm:text-lg" style={{ color: "#ffffff" }}>
+              <span style={{ color: "#ffffff" }}>₩1,000</span>으로 만날 수 있는 플레이그라운드.
+            </p>
+            <p className="text-xs sm:text-sm mt-1" style={{ color: "rgba(255,255,255,0.6)" }}>
+              가장 경제적인 아마추어 스포츠 플랫폼을 이용해 보세요.
+            </p>
           </div>
           <Link
             href="/payment"
-            className="px-5 py-2 rounded text-sm font-semibold transition-colors hover:opacity-80"
-            style={{ background: "#ffffff", color: "#000000" }}
+            className="px-6 py-2.5 rounded-md text-sm font-semibold transition-colors hover:bg-white/10 border"
+            style={{ color: "rgba(255,255,255,0.9)", borderColor: "rgba(255,255,255,0.4)" }}
           >
             자세히 알아보기
           </Link>
