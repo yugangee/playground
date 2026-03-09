@@ -540,10 +540,17 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
         <div className="space-y-4">
           {isLeader && league.status === 'recruiting' && (
             <div className="flex gap-2">
-              <input value={inviteTeamId} onChange={e => setInviteTeamId(e.target.value)}
-                className={`${inp} max-w-xs`} placeholder="팀 ID 입력" />
-              <button onClick={invite}
-                className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
+              <select value={inviteTeamId} onChange={e => setInviteTeamId(e.target.value)}
+                className={`${inp} max-w-xs`}>
+                <option value="">팀을 선택하세요</option>
+                {Object.entries(teamNameMap)
+                  .filter(([id]) => !teams.some(t => t.teamId === id))
+                  .map(([id, name]) => (
+                    <option key={id} value={id}>{name}</option>
+                  ))}
+              </select>
+              <button onClick={invite} disabled={!inviteTeamId}
+                className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed">
                 초대
               </button>
             </div>
@@ -591,7 +598,7 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
       )}
 
       {tab === 'matches' && (
-        <MatchesSection leagueId={league.id} matches={matches} onRefresh={loadMatches} isLeader={isLeader} leagueStatus={league.status} />
+        <MatchesSection leagueId={league.id} matches={matches} onRefresh={loadMatches} isLeader={isLeader} leagueStatus={league.status} teamName={tn} leagueTeams={teams} />
       )}
 
       {tab === 'standings' && (
@@ -636,9 +643,11 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
   )
 }
 
-function MatchesSection({ leagueId, matches, onRefresh, isLeader, leagueStatus }: {
+function MatchesSection({ leagueId, matches, onRefresh, isLeader, leagueStatus, teamName, leagueTeams }: {
   leagueId: string; matches: LeagueMatch[]; onRefresh: () => void; isLeader: boolean; leagueStatus: string
+  teamName: (id: string) => string; leagueTeams: LeagueTeam[]
 }) {
+  const tn = teamName
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ homeTeamId: '', awayTeamId: '', scheduledAt: '', venue: '', round: '' })
   const [scores, setScores] = useState<Record<string, { home: string; away: string }>>({})
@@ -693,8 +702,18 @@ function MatchesSection({ leagueId, matches, onRefresh, isLeader, leagueStatus }
             <form onSubmit={submit} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
               <h3 className="mb-4 text-sm font-semibold text-slate-700">경기 추가</h3>
               <div className="grid grid-cols-2 gap-4">
-                <div><label className={lbl}>홈팀 ID</label><input value={form.homeTeamId} onChange={e => setForm(f => ({ ...f, homeTeamId: e.target.value }))} required className={inp} /></div>
-                <div><label className={lbl}>원정팀 ID</label><input value={form.awayTeamId} onChange={e => setForm(f => ({ ...f, awayTeamId: e.target.value }))} required className={inp} /></div>
+                <div><label className={lbl}>홈팀</label>
+                  <select value={form.homeTeamId} onChange={e => setForm(f => ({ ...f, homeTeamId: e.target.value }))} required className={inp}>
+                    <option value="">선택</option>
+                    {leagueTeams.map(t => <option key={t.teamId} value={t.teamId}>{tn(t.teamId)}</option>)}
+                  </select>
+                </div>
+                <div><label className={lbl}>원정팀</label>
+                  <select value={form.awayTeamId} onChange={e => setForm(f => ({ ...f, awayTeamId: e.target.value }))} required className={inp}>
+                    <option value="">선택</option>
+                    {leagueTeams.filter(t => t.teamId !== form.homeTeamId).map(t => <option key={t.teamId} value={t.teamId}>{tn(t.teamId)}</option>)}
+                  </select>
+                </div>
                 <div><label className={lbl}>일시</label><input type="datetime-local" value={form.scheduledAt} onChange={e => setForm(f => ({ ...f, scheduledAt: e.target.value }))} required className={inp} /></div>
                 <div><label className={lbl}>구장</label><input value={form.venue} onChange={e => setForm(f => ({ ...f, venue: e.target.value }))} required className={inp} /></div>
                 <div><label className={lbl}>라운드</label><input value={form.round} onChange={e => setForm(f => ({ ...f, round: e.target.value }))} className={inp} placeholder="8강, 준결승..." /></div>

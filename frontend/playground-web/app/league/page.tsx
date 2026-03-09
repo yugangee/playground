@@ -3,6 +3,7 @@
 import { Trophy, MapPin, Calendar } from "lucide-react";
 import { useState, useEffect } from "react";
 import { manageFetch } from "@/lib/manageFetch";
+import { useTeam } from "@/context/TeamContext";
 import Link from "next/link";
 import type { League } from "@/types/manage";
 
@@ -29,11 +30,25 @@ const chipStyle = (active: boolean) =>
     : { background: "transparent", color: "var(--text-muted)", border: "1px solid transparent" };
 
 export default function LeaguePage() {
+  const { currentTeam } = useTeam();
   const [leagues, setLeagues] = useState<League[]>([]);
   const [loading, setLoading] = useState(true);
+  const [joining, setJoining] = useState<string | null>(null);
+  const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
   const [filterType, setFilterType] = useState("전체");
   const [filterStatus, setFilterStatus] = useState("전체");
   const [filterRegion, setFilterRegion] = useState("전체");
+
+  const joinLeague = async (leagueId: string) => {
+    if (!currentTeam) { alert("먼저 팀을 만들거나 팀에 가입하세요"); return; }
+    setJoining(leagueId);
+    try {
+      await manageFetch(`/league/${leagueId}/teams`, { method: "POST", body: JSON.stringify({ teamId: currentTeam.id }) });
+      setJoinedIds(prev => new Set(prev).add(leagueId));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "참가 신청 실패");
+    } finally { setJoining(null); }
+  };
 
   useEffect(() => {
     manageFetch("/league")
@@ -145,9 +160,19 @@ export default function LeaguePage() {
               )}
 
               {l.status === "recruiting" && (
-                <Link href="/manage/league" className="block w-full py-2 rounded-lg text-xs font-semibold text-center" style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>
-                  참가 신청하기 →
-                </Link>
+                joinedIds.has(l.id) ? (
+                  <div className="w-full py-2 rounded-lg text-xs font-semibold text-center" style={{ background: "rgba(16,185,129,0.1)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}>
+                    참가 완료
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => joinLeague(l.id)}
+                    disabled={joining === l.id}
+                    className="block w-full py-2 rounded-lg text-xs font-semibold text-center transition-opacity disabled:opacity-50"
+                    style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>
+                    {joining === l.id ? "신청 중..." : "참가 신청하기"}
+                  </button>
+                )
               )}
               {l.status === "ongoing" && (
                 <Link href="/manage/league" className="block w-full py-2 rounded-lg text-xs text-center" style={{ background: "var(--card-bg)", color: "var(--text-muted)", border: "1px solid var(--card-border)" }}>
