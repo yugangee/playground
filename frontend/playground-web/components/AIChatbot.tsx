@@ -3,38 +3,38 @@ import { useState, useRef, useEffect } from "react";
 import { MessageCircle, X, Send } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { ensureEC2Running } from "@/lib/ensureEC2";
+import { useAuth } from "@/context/AuthContext";
 
 const API_URL = process.env.NEXT_PUBLIC_CHATBOT_API_URL || "https://7ymq2ssv3e.execute-api.us-east-1.amazonaws.com";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
 export default function AIChatbot() {
+  const { user, loading: authLoading } = useAuth();
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([
     { role: "assistant", content: "안녕하세요! 축구 관련 궁금한 점이 있으면 물어보세요 ⚽" },
   ]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
-  const [isComposing, setIsComposing] = useState(false);
-
   async function send() {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || sending) return;
     const message = input.trim();
-    setInput(""); // 먼저 초기화
+    setInput("");
     const userMsg: Msg = { role: "user", content: message };
     const newMsgs = [...msgs, userMsg];
     setMsgs(newMsgs);
-    setLoading(true);
+    setSending(true);
     try {
-      // EC2 서버 확인 및 시작
       const ec2Ready = await ensureEC2Running();
       if (!ec2Ready) {
         setMsgs(prev => [...prev, { role: "assistant", content: "서버가 시작 중이에요. 잠시 후 다시 시도해주세요 ⚽" }]);
-        setLoading(false);
+        setSending(false);
         return;
       }
       const res = await fetch(`${API_URL}/api/chat`, {
@@ -47,20 +47,23 @@ export default function AIChatbot() {
       setMsgs(prev => [...prev, { role: "assistant", content: data.reply }]);
     } catch {
       setMsgs(prev => [...prev, { role: "assistant", content: "죄송합니다, 오류가 발생했어요. 다시 시도해주세요." }]);
-    } finally { setLoading(false); }
+    } finally { setSending(false); }
   }
+
+  // 로그인하지 않은 경우 렌더링하지 않음
+  if (authLoading || !user) return null;
 
   return (
     <>
       {!open && (
         <button onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-black text-white shadow-lg flex items-center justify-center hover:scale-105 transition-transform border border-white/20">
-          <MessageCircle size={24} />
+          className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 w-12 h-12 md:w-14 md:h-14 rounded-full bg-black text-white shadow-lg flex items-center justify-center hover:scale-105 transition-transform border border-white/20">
+          <MessageCircle size={20} className="md:w-6 md:h-6" />
         </button>
       )}
 
       {open && (
-        <div className="fixed bottom-6 right-6 z-50 w-[380px] h-[520px] rounded-2xl shadow-2xl border border-gray-300 dark:border-white/20 bg-white dark:bg-[#111] flex flex-col overflow-hidden">
+        <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 w-[calc(100vw-32px)] md:w-[380px] max-w-[380px] h-[60vh] md:h-[520px] rounded-2xl shadow-2xl border border-gray-300 dark:border-white/20 bg-white dark:bg-[#111] flex flex-col overflow-hidden">
           {/* 헤더 */}
           <div className="flex items-center justify-between px-4 py-3 bg-black text-white">
             <div className="flex items-center gap-2">
@@ -84,7 +87,7 @@ export default function AIChatbot() {
                 </div>
               </div>
             ))}
-            {loading && (
+            {sending && (
               <div className="flex justify-start">
                 <div className="px-4 py-2 rounded-2xl rounded-bl-sm" style={{ backgroundColor: "var(--chat-bubble-bg)" }}>
                   <div className="flex gap-1">
@@ -113,7 +116,7 @@ export default function AIChatbot() {
                 placeholder="메시지를 입력하세요..."
                 className="flex-1 bg-gray-100 dark:bg-white/10 border border-gray-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm outline-none focus:border-black dark:focus:border-white/40 transition-colors"
                 style={{ color: "var(--text-primary)" }} />
-              <button onClick={send} disabled={loading || !input.trim()}
+              <button onClick={send} disabled={sending || !input.trim()}
                 className="px-3 py-2 rounded-xl bg-black text-white disabled:opacity-40 transition-opacity hover:bg-gray-800">
                 <Send size={16} />
               </button>
