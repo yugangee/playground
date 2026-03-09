@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { manageFetch } from '@/lib/manageFetch'
-import { useTeam } from '@/context/TeamContext'
+import { useAuth } from '@/context/AuthContext'
 import type { Team, TeamMember, PlayerStats, Uniform, Equipment, Recruitment } from '@/types/manage'
 
 type PlayerStat = PlayerStats
@@ -17,7 +17,7 @@ export default function TeamPage() {
   const [selected, setSelected] = useState<Team | null>(null)
   const [members, setMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
-  const { isLeader } = useTeam()
+  const { user } = useAuth()
 
   const loadTeams = async () => {
     try {
@@ -44,7 +44,7 @@ export default function TeamPage() {
   )
 
   if (view === 'create') return <CreateTeamForm onSuccess={() => { loadTeams(); setView('list') }} onCancel={() => setView('list')} />
-  if (view === 'detail' && selected) return <TeamDetail team={selected} members={members} onBack={() => setView('list')} onMembersChange={setMembers} isLeader={isLeader} />
+  if (view === 'detail' && selected) return <TeamDetail team={selected} members={members} onBack={() => setView('list')} onMembersChange={setMembers} isLeader={selected.leaderId === user?.username} />
 
   return (
     <div>

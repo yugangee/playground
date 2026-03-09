@@ -334,10 +334,26 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
   const [inviteTeamId, setInviteTeamId] = useState('')
   const [generating, setGenerating] = useState(false)
 
+  const [teamNameMap, setTeamNameMap] = useState<Record<string, string>>({})
+
   const loadTeams = async () => { try { setTeams(await manageFetch(`/league/${league.id}/teams`)) } catch {} }
   const loadMatches = async () => { try { setMatches(await manageFetch(`/league/${league.id}/matches`)) } catch {} }
 
   useEffect(() => { loadTeams(); loadMatches() }, [league.id])
+
+  // 팀 이름 해석
+  useEffect(() => {
+    Promise.all([
+      manageFetch('/team').catch(() => []),
+      manageFetch('/discover/teams').catch(() => []),
+    ]).then(([myTeams, discoverTeams]: [any[], any[]]) => {
+      const map: Record<string, string> = {}
+      ;[...myTeams, ...discoverTeams].forEach((t: any) => { if (t.id && t.name) map[t.id] = t.name })
+      setTeamNameMap(map)
+    })
+  }, [])
+
+  const tn = (id: string) => teamNameMap[id] || id.slice(0, 8) + '…'
 
   const invite = async () => {
     if (!inviteTeamId.trim()) return
@@ -548,10 +564,10 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
                       <td className="px-5 py-3.5 font-medium text-slate-900">
                         {t.teamId === currentTeamId ? (
                           <span className="inline-flex items-center gap-1.5">
-                            {t.teamId}
+                            {tn(t.teamId)}
                             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">우리팀</span>
                           </span>
-                        ) : t.teamId}
+                        ) : tn(t.teamId)}
                       </td>
                       <td className="px-5 py-3.5 text-slate-500">{new Date(t.joinedAt).toLocaleDateString('ko-KR')}</td>
                       {isLeader && league.status === 'recruiting' && (
@@ -601,8 +617,8 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
                     </td>
                     <td className="px-4 py-3.5 font-medium text-slate-900">
                       {s.teamId === currentTeamId
-                        ? <span className="text-emerald-700 font-semibold">{s.teamId} ★</span>
-                        : s.teamId}
+                        ? <span className="text-emerald-700 font-semibold">{tn(s.teamId)} ★</span>
+                        : tn(s.teamId)}
                     </td>
                     <td className="px-4 py-3.5 text-center font-semibold text-emerald-600">{s.w}</td>
                     <td className="px-4 py-3.5 text-center text-slate-500">{s.d}</td>
@@ -705,14 +721,14 @@ function MatchesSection({ leagueId, matches, onRefresh, isLeader, leagueStatus }
               <div className="space-y-3">
                 {matches.filter(m => m.round === round).map(m => (
                   <MatchCard key={m.id} match={m} isLeader={isLeader} leagueStatus={leagueStatus}
-                    scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} onDelete={() => deleteMatch(m.id)} />
+                    scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} onDelete={() => deleteMatch(m.id)} teamName={tn} />
                 ))}
               </div>
             </div>
           ))}
           {ungrouped.length > 0 && ungrouped.map(m => (
             <MatchCard key={m.id} match={m} isLeader={isLeader} leagueStatus={leagueStatus}
-              scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} onDelete={() => deleteMatch(m.id)} />
+              scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} onDelete={() => deleteMatch(m.id)} teamName={tn} />
           ))}
         </div>
       )}
@@ -720,7 +736,7 @@ function MatchesSection({ leagueId, matches, onRefresh, isLeader, leagueStatus }
   )
 }
 
-function MatchCard({ match: m, isLeader, leagueStatus, scores, setScores, onSave, onDelete }: {
+function MatchCard({ match: m, isLeader, leagueStatus, scores, setScores, onSave, onDelete, teamName }: {
   match: LeagueMatch
   isLeader: boolean
   leagueStatus: string
@@ -728,16 +744,18 @@ function MatchCard({ match: m, isLeader, leagueStatus, scores, setScores, onSave
   setScores: React.Dispatch<React.SetStateAction<Record<string, { home: string; away: string }>>>
   onSave: () => void
   onDelete: () => void
+  teamName?: (id: string) => string
 }) {
+  const tn = teamName || ((id: string) => id)
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4 text-sm font-semibold">
-          <span className="text-slate-900">{m.homeTeamId}</span>
+          <span className="text-slate-900">{tn(m.homeTeamId)}</span>
           {m.status === 'completed'
             ? <span className="rounded-xl bg-slate-900 px-4 py-2 text-lg font-bold text-white tabular-nums">{m.homeScore} : {m.awayScore}</span>
             : <span className="text-slate-300">vs</span>}
-          <span className="text-slate-900">{m.awayTeamId}</span>
+          <span className="text-slate-900">{tn(m.awayTeamId)}</span>
         </div>
         <div className="flex items-center gap-2">
           <StatusBadge status={m.status} />

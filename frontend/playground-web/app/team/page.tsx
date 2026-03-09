@@ -94,6 +94,24 @@ export default function TeamPage() {
       .finally(() => setLoadingMembers(false));
   }, [currentTeam?.id]);
 
+  // 멤버 이름 매핑 (Auth API의 /users에서 가져옴)
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (members.length === 0) return;
+    fetch(`${AUTH_API}/users`)
+      .then(r => r.json())
+      .then(data => {
+        const users = data.users || [];
+        const nameMap: Record<string, string> = {};
+        users.forEach((u: any) => {
+          if (u.username) nameMap[u.username] = u.name;
+          if (u.sub) nameMap[u.sub] = u.name;
+        });
+        setMemberNames(nameMap);
+      })
+      .catch(() => {});
+  }, [members.length]);
+
   // Auth API — 매치·활동 (G-1b: 레이팅 시스템 의존성으로 Auth API 유지)
   const [matches, setMatches] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
@@ -249,7 +267,7 @@ export default function TeamPage() {
 
   // 권한 체크
   const currentMember = members.find(m => m.userId === user?.username);
-  const currentUserRoles = currentMember?.roles || (currentMember?.role ? [currentMember.role] : ['member']);
+  const currentUserRoles = currentMember?.role ? [currentMember.role] : ['member'];
   const isManager = currentUserRoles.includes('manager');
   const isTreasurer = currentUserRoles.includes('treasurer');
   const hasFullEditPermission = isLeader || isManager; // 주장 또는 관리자
@@ -346,7 +364,7 @@ export default function TeamPage() {
       setMemberEditing={setMemberEditing}
       editingMember={editingMember}
       setEditingMember={(m: any) => {
-        if (m) setEditingMember({ userId: m.userId, position: m.position || '', roles: m.roles || (m.role ? [m.role] : ['member']) });
+        if (m) setEditingMember({ userId: m.userId, position: m.position || '', roles: m.role ? [m.role] : ['member'] });
         else setEditingMember(null);
       }}
       editForm={editForm}
@@ -554,9 +572,9 @@ function TeamPageContent({
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
           {members.map((m: any, i: number) => {
-            const memberRoles = m.roles || (m.role ? [m.role] : []);
+            const memberRoles = m.role ? [m.role] : [];
             const isLeaderMember = memberRoles.includes('leader');
-            const displayName = m.name || (m.userId ? m.userId.slice(0, 8) + '…' : m.email || '-');
+            const displayName = memberNames[m.userId] || m.name || (m.userId ? m.userId.slice(0, 8) + '…' : m.email || '-');
             const roleLabels = memberRoles
               .filter((r: string) => r !== 'member')
               .map((r: string) => r === 'leader' ? '주장' : r === 'manager' ? '관리자' : r === 'treasurer' ? '총무' : '')
@@ -593,7 +611,7 @@ function TeamPageContent({
                     )}
                     {memberEditing && !isDemo && hasFullEditPermission && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); setEditingMember(m); setEditForm({ position: m.position || "", roles: m.roles || (m.role ? [m.role] : ['member']) }); }}
+                        onClick={(e) => { e.stopPropagation(); setEditingMember(m); setEditForm({ position: m.position || "", roles: m.role ? [m.role] : ['member'] }); }}
                         className="text-gray-500 hover:text-white transition-colors shrink-0"
                       >
                         <Pencil size={11} />
@@ -626,66 +644,8 @@ function TeamPageContent({
             <h2 className="text-sm font-semibold text-gray-300">다음 경기 일정</h2>
           </div>
           
-          {/* 예정된 경기 (Mock 데이터 또는 실제 데이터) */}
-          {(scheduledMatches ?? []).filter((m: any) => m.status === "scheduled").length === 0 && !isDemo ? (
-            <div className="space-y-3">
-              {[
-                { 
-                  date: "2024-03-22", 
-                  time: "14:00", 
-                  opponent: "강남 FC", 
-                  venue: "강남구민체육센터",
-                  attending: ["김민수", "이준호", "박지성", "최태욱"],
-                  notAttending: ["정우성"]
-                },
-                { 
-                  date: "2024-03-29", 
-                  time: "16:00", 
-                  opponent: "서초 유나이티드", 
-                  venue: "서초구민운동장",
-                  attending: ["김민수", "이준호", "박지성"],
-                  notAttending: ["최태욱", "정우성"]
-                },
-              ].map((match, i) => (
-                <div key={i} className="border border-white/10 rounded-lg p-4 space-y-3">
-                  <div>
-                    <p className="text-white font-medium text-sm">vs {match.opponent}</p>
-                    <p className="text-gray-500 text-xs mt-0.5">{match.date} {match.time} · {match.venue}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => setAttendance((prev: Record<string, boolean | null>) => ({ ...prev, [`mock-${i}`]: true }))}
-                      className="flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors"
-                      style={attendance[`mock-${i}`] === true ? { background: "rgba(255,255,255,0.1)", border: "2px solid rgba(255,255,255,0.2)", color: "var(--text-primary)" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
-                      참석
-                    </button>
-                    <button onClick={() => setAttendance((prev: Record<string, boolean | null>) => ({ ...prev, [`mock-${i}`]: false }))}
-                      className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${attendance[`mock-${i}`] === false ? "bg-red-500 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}>
-                      불참
-                    </button>
-                  </div>
-                  <div className="space-y-2 pt-2 border-t border-white/10">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-green-400 font-semibold">참석 ({match.attending.length})</span>
-                      <div className="flex flex-wrap gap-1">
-                        {match.attending.map((name, j) => (
-                          <span key={j} className="text-xs px-2 py-0.5 rounded bg-green-500/10 text-green-400">{name}</span>
-                        ))}
-                      </div>
-                    </div>
-                    {match.notAttending.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-red-400 font-semibold">불참 ({match.notAttending.length})</span>
-                        <div className="flex flex-wrap gap-1">
-                          {match.notAttending.map((name, j) => (
-                            <span key={j} className="text-xs px-2 py-0.5 rounded bg-red-500/10 text-red-400">{name}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+          {(scheduledMatches ?? []).filter((m: any) => m.status === "scheduled").length === 0 ? (
+            <p className="text-xs text-gray-600 text-center py-4">예정된 경기가 없습니다</p>
           ) : (
             (scheduledMatches ?? []).filter((m: any) => m.status === "scheduled").map((m: any) => {
               const isHome = m.homeClubId === authClubId;
@@ -697,12 +657,12 @@ function TeamPageContent({
                     <p className="text-gray-500 text-xs mt-0.5">{m.date || m.createdAt?.slice(0, 10)} · {m.venue || "장소 미정"}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => setAttendance((prev: Record<string, boolean | null>) => ({ ...prev, [m.matchId]: true }))}
+                    <button onClick={async () => { try { await manageFetch(`/schedule/matches/${m.matchId}/attendance`, { method: 'PUT', body: JSON.stringify({ status: 'attending' }) }); setAttendance(prev => ({ ...prev, [m.matchId]: true })); } catch {} }}
                       className="flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors"
                       style={attendance[m.matchId] === true ? { background: "rgba(255,255,255,0.1)", border: "2px solid rgba(255,255,255,0.2)", color: "var(--text-primary)" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
                       참석
                     </button>
-                    <button onClick={() => setAttendance((prev: Record<string, boolean | null>) => ({ ...prev, [m.matchId]: false }))}
+                    <button onClick={async () => { try { await manageFetch(`/schedule/matches/${m.matchId}/attendance`, { method: 'PUT', body: JSON.stringify({ status: 'absent' }) }); setAttendance(prev => ({ ...prev, [m.matchId]: false })); } catch {} }}
                       className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${attendance[m.matchId] === false ? "bg-red-500 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}>
                       불참
                     </button>
@@ -783,41 +743,7 @@ function TeamPageContent({
           <div>
             <p className="text-xs text-gray-500 mb-2">최근 5경기</p>
             {(confirmedMatches ?? []).length === 0 ? (
-              <div className="space-y-2">
-                {/* Mock 데이터 */}
-                {[
-                  { date: "2024-03-15", opponent: "강남 FC", ourScore: 3, theirScore: 2, scorers: ["김민수 2골", "이준호 1골"] },
-                  { date: "2024-03-08", opponent: "서초 유나이티드", ourScore: 1, theirScore: 1, scorers: ["박지성 1골"] },
-                  { date: "2024-03-01", opponent: "송파 FC", ourScore: 2, theirScore: 3, scorers: ["최태욱 1골", "정우성 1골"] },
-                  { date: "2024-02-23", opponent: "마포 FC", ourScore: 4, theirScore: 1, scorers: ["김민수 2골", "이준호 1골", "박지성 1골"] },
-                  { date: "2024-02-16", opponent: "용산 유나이티드", ourScore: 2, theirScore: 2, scorers: ["최태욱 1골", "정우성 1골"] },
-                ].map((match, i) => {
-                  const result = match.ourScore > match.theirScore ? "승" : match.ourScore < match.theirScore ? "패" : "무";
-                  const resultColor = result === "승" ? "text-green-400" : result === "패" ? "text-red-400" : "text-gray-400";
-                  const resultBg = result === "승" ? "bg-green-500/10" : result === "패" ? "bg-red-500/10" : "bg-white/5";
-                  return (
-                    <div key={i} className={`border border-white/10 rounded-lg p-3 ${resultBg}`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <p className="text-white font-medium text-sm">vs {match.opponent}</p>
-                          <p className="text-gray-500 text-xs">{match.date}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-white font-bold">{match.ourScore} - {match.theirScore}</p>
-                          <p className={`text-xs font-semibold ${resultColor}`}>{result}</p>
-                        </div>
-                      </div>
-                      {match.scorers.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {match.scorers.map((scorer, j) => (
-                            <span key={j} className="text-xs px-2 py-0.5 rounded bg-white/10 text-gray-300">⚽ {scorer}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <p className="text-xs text-gray-600 text-center py-2">완료된 경기가 없습니다</p>
             ) : (
               <div className="flex gap-2">
                 {confirmedMatches.slice(0, 5).map((m: any, i: number) => {
@@ -981,7 +907,7 @@ function TeamPageContent({
             </div>
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {members.map((m: any) => {
-                const displayName = m.name || (m.userId ? m.userId.slice(0, 8) + '…' : m.email || '-');
+                const displayName = memberNames[m.userId] || m.name || (m.userId ? m.userId.slice(0, 8) + '…' : m.email || '-');
                 return (
                   <div key={m.userId || m.email} className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
                     <span className="text-white text-sm">{displayName}</span>

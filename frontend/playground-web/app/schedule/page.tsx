@@ -292,63 +292,30 @@ export default function SchedulePage() {
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>다가오는 일정</h2>
-          <button className="p-1.5 rounded-lg transition-colors hover:opacity-70" style={{ color: 'var(--text-muted)' }}>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
-            </svg>
-          </button>
         </div>
-        
+
         {(() => {
-          // Mock 데이터 + 실제 데이터 합치기
-          const mockSchedules = [
-            {
-              id: 'mock-1',
-              teamName: currentTeam?.name || 'FC 플레이그라운드',
-              isTraining: true,
-              title: '훈련',
-              venue: '잠실종합운동장',
-              scheduledAt: '2025-09-22T10:00:00',
-              status: 'accepted',
-            },
-            {
-              id: 'mock-2',
-              teamName: currentTeam?.name || 'FC 플레이그라운드',
-              isTraining: false,
-              title: 'vs 강남 유나이티드',
-              venue: '탄천종합운동장',
-              scheduledAt: '2025-09-23T14:00:00',
-              status: 'accepted',
-            },
-            {
-              id: 'mock-3',
-              teamName: currentTeam?.name || 'FC 플레이그라운드',
-              isTraining: false,
-              title: 'vs 서초 FC',
-              venue: '고척스카이돔',
-              scheduledAt: '2025-10-12T16:00:00',
-              status: 'pending',
-            },
-            {
-              id: 'mock-4',
-              teamName: currentTeam?.name || 'FC 플레이그라운드',
-              isTraining: true,
-              title: '훈련',
-              venue: '월드컵경기장',
-              scheduledAt: '2025-11-05T09:00:00',
-              status: 'accepted',
-            },
-          ]
-          
-          // 월별 그룹핑
-          const grouped = mockSchedules.reduce((acc, s) => {
+          const allUpcoming = [
+            ...upcoming.map(m => ({ ...m, isTraining: false })),
+            ...upcomingTrainings.map(m => ({ ...m, isTraining: true })),
+          ].sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
+
+          if (allUpcoming.length === 0) {
+            return (
+              <p className="text-center text-sm py-8" style={{ color: 'var(--text-muted)' }}>
+                예정된 일정이 없습니다
+              </p>
+            )
+          }
+
+          const grouped = allUpcoming.reduce((acc, s) => {
             const date = new Date(s.scheduledAt)
             const key = `${date.getFullYear()}년 ${date.getMonth() + 1}월`
             if (!acc[key]) acc[key] = []
             acc[key].push(s)
             return acc
-          }, {} as Record<string, typeof mockSchedules>)
-          
+          }, {} as Record<string, typeof allUpcoming>)
+
           return (
             <div className="space-y-6">
               {Object.entries(grouped).map(([month, monthSchedules]) => (
@@ -361,11 +328,12 @@ export default function SchedulePage() {
                       const weekday = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()]
                       const categoryColor = s.isTraining ? '#10b981' : '#3b82f6'
                       const categoryLabel = s.isTraining ? '훈련' : '경기'
-                      
+                      const title = s.isTraining ? '훈련' : `vs ${s.awayTeamId === teamId ? s.homeTeamId : s.awayTeamId}`
+
                       return (
                         <div key={s.id} className="rounded-xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
                           <div className="flex items-start justify-between mb-2">
-                            <p className="text-xs font-medium" style={{ color: categoryColor }}>{s.teamName}</p>
+                            <p className="text-xs font-medium" style={{ color: categoryColor }}>{currentTeam?.name}</p>
                             {s.status === 'pending' && (
                               <span className="w-2 h-2 rounded-full" style={{ background: '#f59e0b' }} />
                             )}
@@ -376,12 +344,12 @@ export default function SchedulePage() {
                               <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{weekday}</p>
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{s.title}</p>
+                              <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{title}</p>
                               <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                                ⏰ {date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} · {s.venue}
+                                {date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} · {s.venue}
                               </p>
                               <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                                <span style={{ color: categoryColor }}>●</span> {categoryLabel}
+                                <span style={{ color: categoryColor }}>{'\u25CF'}</span> {categoryLabel}
                                 {s.status === 'pending' && <span> · 대기중</span>}
                               </p>
                             </div>
@@ -643,7 +611,7 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
       const all: Attendance[] = await manageFetch(`/schedule/matches/${m.id}/attendance`)
       setAttendances(all)
       if (user) {
-        const mine = all.find(a => a.userId === user.userId)
+        const mine = all.find(a => a.userId === user.username)
         if (mine) setMyStatus(mine.status)
       }
     } catch {}
@@ -1671,15 +1639,14 @@ function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
   const [finalizing, setFinalizing] = useState(false)
   const [finalized, setFinalized] = useState(false)
   const { user } = useAuth()
-  const { currentTeam } = useTeam()
-  const isLeader = !!user && !!currentTeam && currentTeam.members?.find(m => m.userId === user.userId)?.role === 'leader'
+  const { currentTeam, isLeader } = useTeam()
 
   useEffect(() => {
     manageFetch(`/schedule/polls/${poll.id}/votes`)
       .then((data: { optionIndex: number; userId: string }[]) => {
         setVotes(data)
         if (user) {
-          const mine = data.find(v => v.userId === user.userId)
+          const mine = data.find(v => v.userId === user.username)
           if (mine) setMyVote(mine.optionIndex)
         }
       })

@@ -43,7 +43,7 @@ type DbClub = {
   createdAt: string;
 };
 
-const sidoList = ["전체", "서울", "경기", "인천"];
+const sidoList = ["전체", ...Object.keys(regionData)];
 
 export default function ClubsPage() {
   const { setMyClub } = useClub();
@@ -150,7 +150,7 @@ export default function ClubsPage() {
         image: t.logoUrl ?? '',
         record: '-',
         winRate: 0,
-        recruiting: false,
+        recruiting: t.hasOpenRecruitment ?? false,
         createdAt: t.createdAt ?? '',
         isManageTeam: true,
       }))
@@ -588,6 +588,7 @@ export default function ClubsPage() {
                       styles: clubStyles,
                       image: imageUrl,
                       creatorEmail: user?.email || "",
+                      recruiting: true,
                     }),
                   });
                   const createData = await createRes.json();
