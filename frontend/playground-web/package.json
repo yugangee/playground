@@ -8,9 +8,15 @@
     "start": "next start",
     "lint": "eslint",
     "deploy": "bash deploy.sh",
-    "deploy:win": "deploy.bat"
+    "deploy:win": "deploy.bat",
+    "cap:sync": "next build && npx cap sync android",
+    "cap:open": "npx cap open android",
+    "cap:run": "npx cap run android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.2.0",
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0",
     "@types/qrcode": "^1.5.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

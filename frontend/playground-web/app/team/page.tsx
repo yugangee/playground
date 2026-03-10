@@ -383,7 +383,15 @@ export default function TeamPage() {
   }
 
   if (teams.length === 0 || !currentTeam) {
-    return <TeamPageContent club={null} members={[]} isDemo={false} />;
+    return (
+      <div className="max-w-4xl mx-auto pt-20 text-center space-y-4">
+        <Shield size={40} className="text-gray-600 mx-auto" />
+        <p className="text-gray-400 text-sm">소속된 팀이 없습니다</p>
+        <Link href="/manage/team" className="inline-block px-6 py-2 rounded-xl text-sm font-semibold border" style={{ background: "rgba(255,255,255,0.08)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.15)" }}>
+          팀 만들기
+        </Link>
+      </div>
+    );
   }
 
   const sportName = sportTypeLabel[currentTeam.sportType ?? ''] ?? currentTeam.sportType ?? '-';
@@ -478,6 +486,7 @@ export default function TeamPage() {
       currentTeam={currentTeam}
       teams={teams}
       onTeamChange={setCurrentTeam}
+      memberNames={memberNames}
     />
   );
 }
@@ -514,6 +523,7 @@ function TeamPageContent({
   currentTeam = null,
   teams = [],
   onTeamChange = null,
+  memberNames = {} as Record<string, string>,
 }: any) {
   if (!club) {
     return (

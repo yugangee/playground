@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { isNativeApp } from "@/lib/platform";
 import { UserCircle, LogOut, Shield, Trophy, Calendar, Users, MessageSquare, Home } from "lucide-react";
 
 const navItems = [
@@ -25,6 +27,11 @@ export default function HeaderAuth() {
   const { user, loading, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const [isNative, setIsNative] = useState(false);
+
+  useEffect(() => {
+    if (isNativeApp()) setIsNative(true);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -61,17 +68,16 @@ export default function HeaderAuth() {
                   <UserCircle size={18} />
                 </Link>
               </>
-            ) : (
+            ) : !isNative ? (
               <Link href="/login" className="text-sm font-medium transition-colors hover:text-white" style={{ color: "var(--text-muted)" }}>
                 로그인
               </Link>
-            )}
+            ) : null}
           </div>
         </div>
 
-        {/* 데스크탑: 상단 네비게이션 메뉴 - 로그인한 경우만 표시, md 이상에서만 */}
-        {user && (
-          <nav className="hidden md:flex items-center justify-center gap-[40px] lg:gap-[60px] px-6 pb-0">
+        {/* 데스크탑: 상단 네비게이션 메뉴 - 항상 표시, md 이상 */}
+        <nav className="hidden md:flex items-center justify-center gap-[40px] lg:gap-[60px] px-6 pb-0">
             {desktopNavItems.map(({ href, label, icon: Icon }) => {
               const active = pathname === href || pathname.startsWith(href + "/");
               return (
@@ -94,12 +100,12 @@ export default function HeaderAuth() {
               );
             })}
           </nav>
-        )}
       </header>
 
-      {/* 모바일: 하단 고정 탭바 - 로그인한 경우만 표시, md 미만에서만 */}
+
+      {/* 모바일: 하단 고정 탭바 - 로그인 후에만 표시 */}
       {user && (
-        <nav 
+        <nav
           className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t safe-area-pb"
           style={{ background: "var(--sidebar-bg)", borderColor: "var(--card-border)" }}
         >

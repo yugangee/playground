@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { isNativeApp } from "@/lib/platform";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -12,10 +13,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
+  const [isNative, setIsNative] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
+    if (isNativeApp()) setIsNative(true);
   }, []);
 
   const handleLogin = async () => {
@@ -132,9 +135,11 @@ export default function LoginPage() {
         </Link>
       </div>
 
-      <p className="text-center text-xs" style={{ color: "var(--text-muted)" }}>
-        <Link href="/" className="hover:opacity-70 transition-opacity">← 메인으로 돌아가기</Link>
-      </p>
+      {!isNative && (
+        <p className="text-center text-xs" style={{ color: "var(--text-muted)" }}>
+          <Link href="/" className="hover:opacity-70 transition-opacity">← 메인으로 돌아가기</Link>
+        </p>
+      )}
     </div>
   );
 }

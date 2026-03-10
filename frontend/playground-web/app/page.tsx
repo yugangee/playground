@@ -242,8 +242,12 @@ export default function Home() {
 
   if (loading) return <div className="flex items-center justify-center pt-32"><div className="w-6 h-6 border-2 border-fuchsia-400 border-t-transparent rounded-full animate-spin" /></div>;
 
-  if (user) return <LoggedInHome name={user.name} recentTeams={recentTeams} topMatchTeams={topMatchTeams} />;
-  return <LandingHome recentTeams={recentTeams} topMatchTeams={topMatchTeams} />;
+  return (
+    <>
+      <LoggedInHome name={user?.name || "게스트"} recentTeams={recentTeams} topMatchTeams={topMatchTeams} />
+      {!user && <GuestLoginBanner />}
+    </>
+  );
 }
 
 function KJABanner() {
@@ -667,6 +671,33 @@ function LoggedInHome({ name, recentTeams: initialRecent, topMatchTeams: initial
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function GuestLoginBanner() {
+  return (
+    <div
+      className="fixed bottom-0 left-0 right-0 z-40 border-t"
+      style={{ background: "#000000", borderColor: "rgba(255,255,255,0.1)" }}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+        <div>
+          <p className="font-bold text-sm sm:text-base" style={{ color: "#ffffff" }}>
+            월 ₩1,000으로 만날 수 있는 플레이그라운드.
+          </p>
+          <p className="text-xs mt-0.5 hidden sm:block" style={{ color: "rgba(255,255,255,0.5)" }}>
+            가장 경제적인 아마추어 스포츠 플랫폼을 이용해 보세요.
+          </p>
+        </div>
+        <Link
+          href="/signup"
+          className="shrink-0 ml-4 px-5 py-2 rounded-md text-sm font-semibold transition-colors hover:bg-white/10 border"
+          style={{ color: "rgba(255,255,255,0.9)", borderColor: "rgba(255,255,255,0.3)" }}
+        >
+          자세히 알아보기
+        </Link>
       </div>
     </div>
   );
