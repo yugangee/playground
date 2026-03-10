@@ -478,6 +478,7 @@ export default function TeamPage() {
       currentTeam={currentTeam}
       teams={teams}
       onTeamChange={setCurrentTeam}
+      memberNames={memberNames}
     />
   );
 }
@@ -514,6 +515,7 @@ function TeamPageContent({
   currentTeam = null,
   teams = [],
   onTeamChange = null,
+  memberNames = {} as Record<string, string>,
 }: any) {
   if (!club) {
     return (
@@ -1191,9 +1193,18 @@ function TeamPageContent({
 
         {/* 팀 스탯 */}
         <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-5">
-          <div className="flex items-center gap-2">
-            <TrendingUp size={16} style={{ color: 'var(--text-primary)' }} />
-            <h2 className="text-sm font-semibold text-gray-300">팀 스탯</h2>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={16} style={{ color: 'var(--text-primary)' }} />
+              <h2 className="text-sm font-semibold text-gray-300">팀 스탯</h2>
+            </div>
+            <Link
+              href="/team/compare"
+              className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors hover:bg-white/10 flex items-center gap-1"
+              style={{ color: "var(--accent)", border: "1px solid var(--accent)" }}>
+              <Swords size={12} />
+              팀 비교
+            </Link>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-white/5 rounded-lg p-3 text-center">
