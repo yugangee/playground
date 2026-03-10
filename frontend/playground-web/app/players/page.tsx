@@ -79,7 +79,7 @@ export default function PlayersPage() {
           {filtered.map((p, index) => (
             <div
               key={p.username || p.email || index}
-              className="rounded-xl p-4 transition-all cursor-pointer hover:opacity-80"
+              className="rounded-xl p-4 transition-all"
               style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}
             >
               <div className="flex flex-col items-center text-center gap-3">

@@ -106,6 +106,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       await Promise.all((teamsResult.Items ?? []).map(t =>
         db.send(new DeleteCommand({ TableName: LEAGUE_TEAMS, Key: { leagueId, teamId: t.teamId } }))
       ))
+      // cascade: LEAGUE_MATCHES 삭제
+      const matchesResult = await db.send(new QueryCommand({
+        TableName: LEAGUE_MATCHES,
+        IndexName: 'leagueId-index',
+        KeyConditionExpression: 'leagueId = :lid',
+        ExpressionAttributeValues: { ':lid': leagueId },
+      }))
+      await Promise.all((matchesResult.Items ?? []).map(m =>
+        db.send(new DeleteCommand({ TableName: LEAGUE_MATCHES, Key: { id: m.id } }))
+      ))
       await db.send(new DeleteCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
       return res(200, { message: 'deleted' })
     }
@@ -146,9 +156,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return res(201, { leagueId, teamId })
     }
 
-    // DELETE /league/:id/teams/:teamId  (팀 참가 취소)
+    // DELETE /league/:id/teams/:teamId  (팀 참가 취소 — 주최자만)
     if (method === 'DELETE' && parts[1] === 'teams' && parts[2]) {
       if (!userId) return res(401, { message: 'Unauthorized' })
+      const league = await db.send(new GetCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
+      if (!league.Item) return res(404, { message: 'League not found' })
+      if (league.Item.organizerId !== userId) return res(403, { message: '리그 주최자만 팀을 제거할 수 있습니다' })
       await db.send(new DeleteCommand({ TableName: LEAGUE_TEAMS, Key: { leagueId, teamId: parts[2] } }))
       return res(200, { message: 'deleted' })
     }

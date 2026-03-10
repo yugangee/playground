@@ -26,7 +26,7 @@ function useToast() {
 }
 
 export default function MypagePage() {
-  const { user, logout } = useAuth()
+  const { user, logout, refresh } = useAuth()
   const router = useRouter()
   const [name, setName] = useState('')
   const [editingName, setEditingName] = useState(false)
@@ -54,6 +54,7 @@ export default function MypagePage() {
       if (res.ok) {
         show('이름이 저장됐습니다', 'success')
         setEditingName(false)
+        refresh()
       } else {
         show('저장에 실패했습니다', 'error')
       }

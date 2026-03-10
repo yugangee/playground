@@ -159,6 +159,24 @@ export default function TeamPage() {
       .finally(() => setLoadingMembers(false));
   }, [currentTeam?.id]);
 
+  // 멤버 이름 매핑 (Auth API의 /users에서 가져옴)
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (members.length === 0) return;
+    fetch(`${AUTH_API}/users`)
+      .then(r => r.json())
+      .then(data => {
+        const users = data.users || [];
+        const nameMap: Record<string, string> = {};
+        users.forEach((u: any) => {
+          if (u.username) nameMap[u.username] = u.name;
+          if (u.sub) nameMap[u.sub] = u.name;
+        });
+        setMemberNames(nameMap);
+      })
+      .catch(() => {});
+  }, [members.length]);
+
   // Auth API — 매치·활동 (G-1b: 레이팅 시스템 의존성으로 Auth API 유지)
   const [matches, setMatches] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
@@ -314,7 +332,7 @@ export default function TeamPage() {
 
   // 권한 체크
   const currentMember = members.find(m => m.userId === user?.username);
-  const currentUserRoles = currentMember?.roles || (currentMember?.role ? [currentMember.role] : ['member']);
+  const currentUserRoles = currentMember?.role ? [currentMember.role] : ['member'];
   const isManager = currentUserRoles.includes('manager');
   const isTreasurer = currentUserRoles.includes('treasurer');
   const hasFullEditPermission = isLeader || isManager; // 주장 또는 관리자
@@ -396,7 +414,7 @@ export default function TeamPage() {
       setMemberEditing={setMemberEditing}
       editingMember={editingMember}
       setEditingMember={(m: any) => {
-        if (m) setEditingMember({ userId: m.userId, position: m.position || '', roles: m.roles || (m.role ? [m.role] : ['member']) });
+        if (m) setEditingMember({ userId: m.userId, position: m.position || '', roles: m.role ? [m.role] : ['member'] });
         else setEditingMember(null);
       }}
       editForm={editForm}
@@ -862,9 +880,9 @@ function TeamPageContent({
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
           {members.map((m: any, i: number) => {
-            const memberRoles = m.roles || (m.role ? [m.role] : []);
+            const memberRoles = m.role ? [m.role] : [];
             const isLeaderMember = memberRoles.includes('leader');
-            const displayName = m.name || (m.userId ? m.userId.slice(0, 8) + '…' : m.email || '-');
+            const displayName = memberNames[m.userId] || m.name || (m.userId ? m.userId.slice(0, 8) + '…' : m.email || '-');
             const roleLabels = memberRoles
               .filter((r: string) => r !== 'member')
               .map((r: string) => r === 'leader' ? '주장' : r === 'manager' ? '관리자' : r === 'treasurer' ? '총무' : '')
@@ -873,40 +891,52 @@ function TeamPageContent({
               <div key={m.userId || m.email || i}
                 className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isLeaderMember ? "bg-white/10 border border-white/20" : "bg-white/5"}`}
               >
-                {isLeaderMember && <Crown size={12} className="text-yellow-400 shrink-0" />}
-                {m.jerseyNumber && (
-                  <span className="text-xs font-bold text-gray-400 shrink-0">#{m.jerseyNumber}</span>
-                )}
-                <span className="text-white text-sm font-medium truncate">{displayName}</span>
-                {roleLabels.length > 0 && (
-                  <div className="flex gap-1 shrink-0">
-                    {roleLabels.map((label: string, idx: number) => (
-                      <span key={idx} className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ background: "rgba(255,255,255,0.1)", color: "var(--text-primary)" }}>
-                        {label}
-                      </span>
-                    ))}
+                <div className="flex items-center gap-2">
+                  {isLeaderMember && <Crown size={12} className="text-yellow-400 shrink-0" />}
+                  {m.jerseyNumber && (
+                    <span className="text-xs font-bold text-gray-400 shrink-0">#{m.jerseyNumber}</span>
+                  )}
+                  <span className="text-white text-sm font-medium flex-1 truncate">{displayName}</span>
+                  {m.position && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${positionColor[m.position] || "bg-white/10 text-gray-400"}`}>{m.position}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {roleLabels.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {roleLabels.map((label: string, idx: number) => (
+                        <span key={idx} className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: "rgba(255,255,255,0.1)", color: "var(--text-primary)" }}>
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-1 ml-auto">
+                    {!isDemo && !memberEditing && currentUser?.username !== m.userId && m.userId && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); router?.push(`/chat?to=${m.userId}&name=${encodeURIComponent(displayName)}`); }}
+                        className="text-gray-500 hover:text-white transition-colors shrink-0"
+                      >
+                        <MessageCircle size={12} />
+                      </button>
+                    )}
+                    {memberEditing && !isDemo && hasFullEditPermission && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditingMember(m); setEditForm({ position: m.position || "", roles: m.roles || (m.role ? [m.role] : ['member']) }); }}
+                        className="text-gray-500 hover:text-white transition-colors shrink-0"
+                      >
+                        <Pencil size={11} />
+                      </button>
+                    )}
+                    {memberEditing && !isDemo && hasFullEditPermission && !isLeaderMember && currentUser?.username !== m.userId && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteMemberAPI(m.userId); }}
+                        className="text-gray-600 hover:text-red-400 transition-colors shrink-0"
+                      >
+                        <X size={11} />
+                      </button>
+                    )}
                   </div>
-                )}
-                <div className="flex items-center gap-1 ml-auto shrink-0">
-                  {m.position && positionColor[m.position] && (
-                    <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${positionColor[m.position]}`}>{m.position}</span>
-                  )}
-                  {memberEditing && !isDemo && hasFullEditPermission && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setEditingMember(m); setEditForm({ position: m.position || "", roles: m.roles || (m.role ? [m.role] : ['member']) }); }}
-                      className="text-gray-500 hover:text-white transition-colors"
-                    >
-                      <Pencil size={11} />
-                    </button>
-                  )}
-                  {memberEditing && !isDemo && hasFullEditPermission && !isLeaderMember && currentUser?.username !== m.userId && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); deleteMemberAPI(m.userId); }}
-                      className="text-gray-600 hover:text-red-400 transition-colors"
-                    >
-                      <X size={11} />
-                    </button>
-                  )}
                 </div>
               </div>
             );
@@ -1190,41 +1220,7 @@ function TeamPageContent({
               </Link>
             </div>
             {allConfirmed.length === 0 ? (
-              <div className="space-y-2">
-                {/* Mock 데이터 */}
-                {[
-                  { date: "2024-03-15", opponent: "강남 FC", ourScore: 3, theirScore: 2, scorers: ["김민수 2골", "이준호 1골"] },
-                  { date: "2024-03-08", opponent: "서초 유나이티드", ourScore: 1, theirScore: 1, scorers: ["박지성 1골"] },
-                  { date: "2024-03-01", opponent: "송파 FC", ourScore: 2, theirScore: 3, scorers: ["최태욱 1골", "정우성 1골"] },
-                  { date: "2024-02-23", opponent: "마포 FC", ourScore: 4, theirScore: 1, scorers: ["김민수 2골", "이준호 1골", "박지성 1골"] },
-                  { date: "2024-02-16", opponent: "용산 유나이티드", ourScore: 2, theirScore: 2, scorers: ["최태욱 1골", "정우성 1골"] },
-                ].map((match, i) => {
-                  const result = match.ourScore > match.theirScore ? "승" : match.ourScore < match.theirScore ? "패" : "무";
-                  const resultColor = result === "승" ? "text-green-400" : result === "패" ? "text-red-400" : "text-gray-400";
-                  const resultBg = result === "승" ? "bg-green-500/10" : result === "패" ? "bg-red-500/10" : "bg-white/5";
-                  return (
-                    <div key={i} className={`border border-white/10 rounded-lg p-3 ${resultBg}`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <p className="text-white font-medium text-sm">vs {match.opponent}</p>
-                          <p className="text-gray-500 text-xs">{match.date}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-white font-bold">{match.ourScore} - {match.theirScore}</p>
-                          <p className={`text-xs font-semibold ${resultColor}`}>{result}</p>
-                        </div>
-                      </div>
-                      {match.scorers.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {match.scorers.map((scorer, j) => (
-                            <span key={j} className="text-xs px-2 py-0.5 rounded bg-white/10 text-gray-300">⚽ {scorer}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <p className="text-xs text-gray-600 text-center py-2">완료된 경기가 없습니다</p>
             ) : (
               <div className="space-y-2">
                 {allConfirmed.slice(0, 5).map((m: any, i: number) => {
@@ -1413,7 +1409,7 @@ function TeamPageContent({
             </div>
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {members.map((m: any) => {
-                const displayName = m.name || (m.userId ? m.userId.slice(0, 8) + '…' : m.email || '-');
+                const displayName = memberNames[m.userId] || m.name || (m.userId ? m.userId.slice(0, 8) + '…' : m.email || '-');
                 return (
                   <div key={m.userId || m.email} className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
                     <span className="text-white text-sm">{displayName}</span>

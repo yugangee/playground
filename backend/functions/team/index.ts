@@ -205,7 +205,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         TableName: INVITES,
         Item: { token, teamId, createdBy: userId, expiresAt },
       }))
-      const base = process.env.FRONTEND_URL ?? 'https://pg.sedaily.ai'
+      const base = process.env.FRONTEND_URL ?? 'https://fun.sedaily.ai'
       return res(201, { token, inviteUrl: `${base}/join?token=${token}`, expiresAt })
     }
 

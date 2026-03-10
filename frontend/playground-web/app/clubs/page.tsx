@@ -7,6 +7,7 @@ import { useClub } from "@/context/ClubContext";
 import { useAuth } from "@/context/AuthContext";
 import { regionData } from "../signup/regions";
 import RatingBadge from "@/components/RatingBadge";
+import { manageFetch } from "@/lib/manageFetch";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -42,7 +43,7 @@ type DbClub = {
   createdAt: string;
 };
 
-const sidoList = ["전체", "서울", "경기", "인천"];
+const sidoList = ["전체", ...Object.keys(regionData)];
 
 export default function ClubsPage() {
   const { setMyClub } = useClub();
@@ -152,14 +153,28 @@ export default function ClubsPage() {
 
   // API에서 클럽 목록 불러오기 (Auth API만 사용)
   useEffect(() => {
-    fetch(`${API}/clubs`)
-      .then(r => r.json())
-      .then(d => {
-        const clubs = d.clubs || [];
-        setAllClubs(clubs);
-        setAiPool([...clubs].sort(() => Math.random() - 0.5).slice(0, 4));
-      })
-      .catch(() => {});
+    const loadAuthClubs = fetch(`${API}/clubs`).then(r => r.json()).then(d => d.clubs || []).catch(() => []);
+    const loadManageTeams = manageFetch('/discover/teams').then((teams: any[]) =>
+      (teams || []).map((t: any): DbClub & { isManageTeam: boolean } => ({
+        clubId: t.id,
+        name: t.name,
+        sport: sportTypeLabel[t.sportType] ?? t.sportType ?? '-',
+        areas: t.region ? [{ sido: t.region, sigungu: '' }] : [],
+        members: t.memberCount ?? 0,
+        styles: [],
+        image: t.logoUrl ?? '',
+        record: '-',
+        winRate: 0,
+        recruiting: t.hasOpenRecruitment ?? false,
+        createdAt: t.createdAt ?? '',
+        isManageTeam: true,
+      }))
+    ).catch(() => []);
+    Promise.all([loadAuthClubs, loadManageTeams]).then(([authClubs, manageTeams]) => {
+      const list = [...authClubs, ...manageTeams];
+      setAllClubs(list);
+      setAiPool([...authClubs].sort(() => Math.random() - 0.5).slice(0, 4));
+    });
   }, []);
 
   const aiMatches = aiPool.filter((c) => !dismissed.includes(c.clubId));
@@ -588,6 +603,7 @@ export default function ClubsPage() {
                       styles: clubStyles,
                       image: imageUrl,
                       creatorEmail: user?.email || "",
+                      recruiting: true,
                     }),
                   });
                   const createData = await createRes.json();
