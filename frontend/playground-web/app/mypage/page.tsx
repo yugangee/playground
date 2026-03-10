@@ -4,30 +4,22 @@ import Link from "next/link";
 import { MapPin, Shield, Trophy, Crosshair, Pencil, X, User, Mail, Calendar, Activity, Globe, Camera, Sun, Moon } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { useTeam } from "@/context/TeamContext";
 import { useTheme } from "@/context/ThemeContext";
 import { regionData } from "@/app/signup/regions";
 import RatingBadge from "@/components/RatingBadge";
 import { manageFetch } from "@/lib/manageFetch";
-
-const sportTypeLabel: Record<string, string> = {
-  soccer: "축구", futsal: "풋살", basketball: "농구", baseball: "야구",
-  volleyball: "배구", ice_hockey: "아이스하키",
-  running: "러닝크루", snowboard: "스노보드", badminton: "배드민턴",
-};
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 const allSports = ["축구", "풋살", "농구", "야구", "배구", "배드민턴", "아이스하키", "스노보드", "러닝크루", "기타"];
 
 export default function MyPage() {
   const { user, loading, refresh } = useAuth();
-  const { teams: manageTeams } = useTeam();
   const { theme, toggle } = useTheme();
   const [club, setClub] = useState<any>(null);
   const [myClubs, setMyClubs] = useState<any[]>([]);
   const [editing, setEditing] = useState(false);
   const [teamSaving, setTeamSaving] = useState(false);
-  const [teamDraft, setTeamDraft] = useState({ sport: "", teamId: "" as string | null, position: "" });
+  const [teamDraft, setTeamDraft] = useState({ sport: "", teamId: "" as string | null, position: "", number: 0 });
   const [teamClubs, setTeamClubs] = useState<any[]>([]);
   const [leaveConfirm, setLeaveConfirm] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -265,7 +257,7 @@ export default function MyPage() {
     if (ids.length === 0) {
       // 소속 없으면 새 팀 가입 모드
       setEditingTeamId(null);
-      setTeamDraft({ sport: "", teamId: null, position: "" });
+      setTeamDraft({ sport: "", teamId: null, position: "", number: 0 });
     } else {
       setEditingTeamId("__select__");
     }
@@ -280,13 +272,14 @@ export default function MyPage() {
       sport: c?.sport || user?.teamSport || "",
       teamId: clubId,
       position: user?.position || "",
+      number: user?.teamNumbers?.[clubId] || 0,
     });
     setLeaveConfirm(false);
   }
 
   function startNewTeamJoin() {
     setEditingTeamId(null);
-    setTeamDraft({ sport: "", teamId: null, position: "" });
+    setTeamDraft({ sport: "", teamId: null, position: "", number: 0 });
     setLeaveConfirm(false);
     setEditing(true);
   }
@@ -308,6 +301,7 @@ export default function MyPage() {
           teamId: teamDraft.teamId,
           teamIds: newTeamIds,
           position: teamDraft.position,
+          teamNumbers: { ...(user?.teamNumbers || {}), ...(editingTeamId ? { [editingTeamId]: teamDraft.number || null } : {}) },
         }),
       });
       if (!r.ok) {
@@ -378,7 +372,21 @@ export default function MyPage() {
     setEditing(false);
     setLeaveConfirm(false);
     setEditingTeamId(null);
-    setTeamDraft({ sport: "", teamId: null, position: "" });
+    setTeamDraft({ sport: "", teamId: null, position: "", number: 0 });
+  }
+
+  async function setPrimaryTeam(clubId: string) {
+    try {
+      const token = localStorage.getItem("accessToken");
+      await fetch(`${API}/auth/profile`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ teamId: clubId }),
+      });
+      await refresh();
+    } catch {
+      alert("대표팀 지정에 실패했습니다");
+    }
   }
 
   const record = user?.record || { games: 0, goals: 0, assists: 0 };
@@ -430,8 +438,15 @@ export default function MyPage() {
           </div>
           <div className="text-center space-y-1">
             <p className="text-white text-2xl font-bold">{user.name}</p>
-            {user.position && (
-              <span className="text-xs px-2 py-0.5 rounded bg-white/15 text-white font-semibold">{user.position}</span>
+            {(user.position || user.number) && (
+              <div className="flex items-center justify-center gap-1.5">
+                {user.position && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-white/15 text-white font-semibold">{user.position}</span>
+                )}
+                {user.number ? (
+                  <span className="text-xs px-2 py-0.5 rounded bg-white/15 text-white font-semibold">#{user.number}</span>
+                ) : null}
+              </div>
             )}
             {club ? (
               <Link href="/team" className="flex items-center justify-center gap-1 text-xs text-gray-400 mt-1 hover:text-white transition-colors">
@@ -659,68 +674,56 @@ export default function MyPage() {
             <Shield size={14} style={{ color: 'var(--text-primary)' }} />
             <span className="text-sm font-semibold text-gray-300">소속</span>
           </div>
-          <button onClick={startNewTeamJoin} className="text-xs px-2.5 py-1 rounded-full text-white hover:bg-white/10 transition-colors" style={{ border: "1px solid rgba(255,255,255,0.2)" }}>
-            + 새 팀
-          </button>
+          <Link href="/clubs" className="text-xs px-2.5 py-1 rounded-full text-white hover:bg-white/10 transition-colors" style={{ border: "1px solid rgba(255,255,255,0.2)" }}>
+            클럽 탐색
+          </Link>
         </div>
-        {myClubs.map((c: any) => (
-          <div key={c.clubId} className="bg-white/5 rounded-lg px-4 py-3 flex items-center justify-between">
+        {myClubs.map((c: any) => {
+          const isPrimary = user.teamId === c.clubId;
+          return (
+          <div key={c.clubId} className={`rounded-lg px-4 py-3 flex items-center justify-between ${isPrimary ? "bg-purple-500/10 border border-purple-500/30" : "bg-white/5"}`}>
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 {c.image && <img src={c.image} alt={c.name} className="w-6 h-6 rounded-full object-cover" />}
                 <span className="text-white text-sm font-semibold">{c.name}</span>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/15 text-white">{c.sport}</span>
+                {isPrimary && <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500 text-white font-semibold">대표</span>}
+                {user.role && <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">{user.role}</span>}
               </div>
               <div className="flex gap-4 text-xs text-gray-400">
                 <span>포지션: {user.position || "-"}</span>
+                {user.teamNumbers?.[c.clubId] ? <span>등번호: #{user.teamNumbers[c.clubId]}</span> : null}
                 <span>멤버 {c.members}명</span>
                 <span>승률 {c.winRate}%</span>
               </div>
             </div>
-            <button onClick={() => { selectTeamForEdit(c.clubId); setEditing(true); }} className="text-gray-500 hover:text-white transition-colors">
-              <Pencil size={14} />
-            </button>
-          </div>
-        ))}
-        {manageTeams.map((t) => (
-          <div key={t.id} className="bg-white/5 rounded-lg px-4 py-3 flex items-center justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                {t.logoUrl && <img src={t.logoUrl} alt={t.name} className="w-6 h-6 rounded-full object-cover" />}
-                <span className="text-white text-sm font-semibold">{t.name}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">팀</span>
-                {t.sportType && <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/15 text-white">{sportTypeLabel[t.sportType] ?? t.sportType}</span>}
-              </div>
-              {t.region && <p className="text-xs text-gray-500">{t.region}</p>}
+            <div className="flex items-center gap-2">
+              {!isPrimary && myClubs.length > 1 && (
+                <button onClick={() => setPrimaryTeam(c.clubId)} className="text-[10px] px-2 py-1 rounded bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors">대표 지정</button>
+              )}
+              <button onClick={() => { selectTeamForEdit(c.clubId); setEditing(true); }} className="text-gray-500 hover:text-white transition-colors">
+                <Pencil size={14} />
+              </button>
             </div>
-            <Link href="/team" className="text-gray-500 hover:text-white transition-colors">
-              <Pencil size={14} />
-            </Link>
           </div>
-        ))}
-        {myClubs.length === 0 && manageTeams.length === 0 && (
+          );
+        })}
+        {myClubs.length === 0 && (
           <p className="text-xs text-gray-500">소속팀이 없습니다</p>
         )}
       </div>
 
       {/* 소속 편집 모달 */}
-      {editing && (
+      {editing && editingTeamId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={closeTeamEdit}>
           <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-sm space-y-4 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <span className="text-white font-semibold">
-                {editingTeamId ? "소속 편집" : "새 팀 가입"}
-              </span>
+              <span className="text-white font-semibold">소속 편집</span>
               <button onClick={closeTeamEdit} className="text-gray-500 hover:text-white"><X size={16} /></button>
             </div>
 
-            {/* 편집/가입 화면 */}
-            {editingTeamId && (
-              <button type="button" onClick={() => { setEditingTeamId(null); setTeamDraft({ sport: "", teamId: null, position: "" }); }} className="text-xs text-gray-500 hover:text-white">← 새 팀 가입으로 전환</button>
-            )}
-
             {/* 기존 팀 편집: 팀 정보 표시 */}
-            {editingTeamId && (() => {
+            {(() => {
               const c = myClubs.find((cl: any) => cl.clubId === editingTeamId);
               return c ? (
                 <div className="bg-white/5 rounded-lg px-4 py-3 flex items-center gap-3">
@@ -773,7 +776,7 @@ export default function MyPage() {
               </div>
             )}
 
-            {/* 포지션 선택 */}
+            {/* 포지션 선택 + 등번호 */}
             {teamDraft.teamId && (() => {
               const selectedClub = myClubs.find((c: any) => c.clubId === teamDraft.teamId) || teamClubs.find((c: any) => c.clubId === teamDraft.teamId);
               const sport = selectedClub?.sport || teamDraft.sport;
@@ -789,7 +792,9 @@ export default function MyPage() {
                 "러닝크루": ["페이스메이커", "러너"],
               };
               const positions = [...(positionsBySport[sport] || []), "기타"];
+              const hasNumber = ["축구", "풋살", "농구", "야구", "배구", "아이스하키"].includes(sport);
               return (
+                <>
                 <div className="space-y-1">
                   <label className="text-xs text-gray-400">포지션</label>
                   <div className="flex flex-wrap gap-2">
@@ -805,6 +810,21 @@ export default function MyPage() {
                     ))}
                   </div>
                 </div>
+                {hasNumber && (
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">등번호</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="99"
+                      value={teamDraft.number || ""}
+                      onChange={e => setTeamDraft(prev => ({ ...prev, number: parseInt(e.target.value) || 0 }))}
+                      placeholder="예) 10"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-white/30 placeholder:text-gray-600"
+                    />
+                  </div>
+                )}
+                </>
               );
             })()}
 

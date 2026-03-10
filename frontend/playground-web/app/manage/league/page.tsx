@@ -146,7 +146,7 @@ export default function LeaguePage() {
         </div>
         {isLeader && (
           <button onClick={() => setView('create')}
-            className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">
+            className="flex items-center gap-1.5 rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
@@ -179,7 +179,7 @@ export default function LeaguePage() {
             <p className="text-sm font-medium text-slate-600">주최한 리그 또는 토너먼트가 없습니다</p>
             {isLeader && (
               <button onClick={() => setView('create')}
-                className="mt-5 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
+                className="mt-5 rounded-xl bg-[var(--btn-solid-bg)] px-5 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] hover:opacity-85">
                 첫 리그 만들기
               </button>
             )}
@@ -234,7 +234,7 @@ export default function LeaguePage() {
                   <button
                     onClick={() => joinLeague(l.id)}
                     disabled={joining === l.id}
-                    className="mt-4 w-full rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">
+                    className="mt-4 w-full rounded-xl bg-[var(--btn-solid-bg)] py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50">
                     {joining === l.id ? '신청 중...' : '참가 신청'}
                   </button>
                 ) : (
@@ -314,7 +314,7 @@ function CreateForm({ teamId, onSuccess, onCancel }: { teamId: string; onSuccess
         {error && <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
 
         <button type="submit" disabled={loading}
-          className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">
+          className="w-full rounded-xl bg-[var(--btn-solid-bg)] py-3 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50">
           {loading ? '생성 중...' : '만들기'}
         </button>
       </form>
@@ -331,20 +331,30 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
   const [tab, setTab] = useState<'teams' | 'matches' | 'standings'>('teams')
   const [teams, setTeams] = useState<LeagueTeam[]>([])
   const [matches, setMatches] = useState<LeagueMatch[]>([])
-  const [inviteTeamId, setInviteTeamId] = useState('')
+  const [teamNames, setTeamNames] = useState<Record<string, string>>({})
   const [generating, setGenerating] = useState(false)
 
-  const loadTeams = async () => { try { setTeams(await manageFetch(`/league/${league.id}/teams`)) } catch {} }
+  const fetchTeamNames = async (leagueTeams: LeagueTeam[]) => {
+    const names: Record<string, string> = {}
+    await Promise.all(leagueTeams.map(async t => {
+      try {
+        const data = await manageFetch(`/team/${t.teamId}`)
+        names[t.teamId] = data?.name ?? t.teamId
+      } catch { names[t.teamId] = t.teamId }
+    }))
+    setTeamNames(names)
+  }
+
+  const loadTeams = async () => {
+    try {
+      const data: LeagueTeam[] = await manageFetch(`/league/${league.id}/teams`)
+      setTeams(data)
+      fetchTeamNames(data)
+    } catch {}
+  }
   const loadMatches = async () => { try { setMatches(await manageFetch(`/league/${league.id}/matches`)) } catch {} }
 
   useEffect(() => { loadTeams(); loadMatches() }, [league.id])
-
-  const invite = async () => {
-    if (!inviteTeamId.trim()) return
-    await manageFetch(`/league/${league.id}/teams`, { method: 'POST', body: JSON.stringify({ teamId: inviteTeamId }) })
-    setInviteTeamId('')
-    loadTeams()
-  }
 
   const deleteLeague = async () => {
     if (!confirm(`"${league.name}" 리그를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return
@@ -468,7 +478,7 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
                 <button
                   onClick={startLeague}
                   disabled={generating}
-                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">
+                  className="flex items-center gap-1.5 rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50">
                   {generating ? (
                     <>
                       <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -485,7 +495,7 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
                 </button>
                 <button
                   onClick={deleteLeague}
-                  className="rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50">
+                  className="rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85">
                   리그 삭제
                 </button>
               </>
@@ -493,7 +503,7 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
             {league.status === 'ongoing' && (
               <button
                 onClick={endLeague}
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50">
+                className="rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85">
                 대회 종료
               </button>
             )}
@@ -523,14 +533,10 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
       {tab === 'teams' && (
         <div className="space-y-4">
           {isLeader && league.status === 'recruiting' && (
-            <div className="flex gap-2">
-              <input value={inviteTeamId} onChange={e => setInviteTeamId(e.target.value)}
-                className={`${inp} max-w-xs`} placeholder="팀 ID 입력" />
-              <button onClick={invite}
-                className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
-                초대
-              </button>
-            </div>
+            <TeamSearchInvite onInvite={async (teamId) => {
+              await manageFetch(`/league/${league.id}/teams`, { method: 'POST', body: JSON.stringify({ teamId }) })
+              loadTeams()
+            }} />
           )}
           {teams.length === 0 ? <Empty text="참가팀이 없습니다" /> : (
             <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
@@ -548,10 +554,10 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
                       <td className="px-5 py-3.5 font-medium text-slate-900">
                         {t.teamId === currentTeamId ? (
                           <span className="inline-flex items-center gap-1.5">
-                            {t.teamId}
+                            {teamNames[t.teamId] ?? t.teamId}
                             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">우리팀</span>
                           </span>
-                        ) : t.teamId}
+                        ) : (teamNames[t.teamId] ?? t.teamId)}
                       </td>
                       <td className="px-5 py-3.5 text-slate-500">{new Date(t.joinedAt).toLocaleDateString('ko-KR')}</td>
                       {isLeader && league.status === 'recruiting' && (
@@ -575,7 +581,7 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
       )}
 
       {tab === 'matches' && (
-        <MatchesSection leagueId={league.id} matches={matches} onRefresh={loadMatches} isLeader={isLeader} leagueStatus={league.status} />
+        <MatchesSection leagueId={league.id} matches={matches} onRefresh={loadMatches} isLeader={isLeader} leagueStatus={league.status} teamNames={teamNames} />
       )}
 
       {tab === 'standings' && (
@@ -601,8 +607,8 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
                     </td>
                     <td className="px-4 py-3.5 font-medium text-slate-900">
                       {s.teamId === currentTeamId
-                        ? <span className="text-emerald-700 font-semibold">{s.teamId} ★</span>
-                        : s.teamId}
+                        ? <span className="text-emerald-700 font-semibold">{teamNames[s.teamId] ?? s.teamId} ★</span>
+                        : (teamNames[s.teamId] ?? s.teamId)}
                     </td>
                     <td className="px-4 py-3.5 text-center font-semibold text-emerald-600">{s.w}</td>
                     <td className="px-4 py-3.5 text-center text-slate-500">{s.d}</td>
@@ -620,8 +626,8 @@ function LeagueDetail({ league: initialLeague, onBack, isLeader, currentTeamId }
   )
 }
 
-function MatchesSection({ leagueId, matches, onRefresh, isLeader, leagueStatus }: {
-  leagueId: string; matches: LeagueMatch[]; onRefresh: () => void; isLeader: boolean; leagueStatus: string
+function MatchesSection({ leagueId, matches, onRefresh, isLeader, leagueStatus, teamNames }: {
+  leagueId: string; matches: LeagueMatch[]; onRefresh: () => void; isLeader: boolean; leagueStatus: string; teamNames: Record<string, string>
 }) {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ homeTeamId: '', awayTeamId: '', scheduledAt: '', venue: '', round: '' })
@@ -667,7 +673,7 @@ function MatchesSection({ leagueId, matches, onRefresh, isLeader, leagueStatus }
       {isLeader && leagueStatus !== 'finished' && (
         <>
           <button onClick={() => setShowForm(v => !v)}
-            className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700">
+            className="flex items-center gap-1.5 rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
@@ -684,7 +690,7 @@ function MatchesSection({ leagueId, matches, onRefresh, isLeader, leagueStatus }
                 <div><label className={lbl}>라운드</label><input value={form.round} onChange={e => setForm(f => ({ ...f, round: e.target.value }))} className={inp} placeholder="8강, 준결승..." /></div>
               </div>
               <button type="submit" disabled={loading}
-                className="mt-4 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                className="mt-4 rounded-xl bg-[var(--btn-solid-bg)] px-5 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] hover:opacity-85 disabled:opacity-50">
                 {loading ? '추가 중...' : '추가'}
               </button>
             </form>
@@ -705,14 +711,14 @@ function MatchesSection({ leagueId, matches, onRefresh, isLeader, leagueStatus }
               <div className="space-y-3">
                 {matches.filter(m => m.round === round).map(m => (
                   <MatchCard key={m.id} match={m} isLeader={isLeader} leagueStatus={leagueStatus}
-                    scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} onDelete={() => deleteMatch(m.id)} />
+                    scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} onDelete={() => deleteMatch(m.id)} teamNames={teamNames} />
                 ))}
               </div>
             </div>
           ))}
           {ungrouped.length > 0 && ungrouped.map(m => (
             <MatchCard key={m.id} match={m} isLeader={isLeader} leagueStatus={leagueStatus}
-              scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} onDelete={() => deleteMatch(m.id)} />
+              scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} onDelete={() => deleteMatch(m.id)} teamNames={teamNames} />
           ))}
         </div>
       )}
@@ -720,7 +726,7 @@ function MatchesSection({ leagueId, matches, onRefresh, isLeader, leagueStatus }
   )
 }
 
-function MatchCard({ match: m, isLeader, leagueStatus, scores, setScores, onSave, onDelete }: {
+function MatchCard({ match: m, isLeader, leagueStatus, scores, setScores, onSave, onDelete, teamNames }: {
   match: LeagueMatch
   isLeader: boolean
   leagueStatus: string
@@ -728,16 +734,17 @@ function MatchCard({ match: m, isLeader, leagueStatus, scores, setScores, onSave
   setScores: React.Dispatch<React.SetStateAction<Record<string, { home: string; away: string }>>>
   onSave: () => void
   onDelete: () => void
+  teamNames: Record<string, string>
 }) {
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4 text-sm font-semibold">
-          <span className="text-slate-900">{m.homeTeamId}</span>
+          <span className="text-slate-900">{teamNames[m.homeTeamId] ?? m.homeTeamId}</span>
           {m.status === 'completed'
-            ? <span className="rounded-xl bg-slate-900 px-4 py-2 text-lg font-bold text-white tabular-nums">{m.homeScore} : {m.awayScore}</span>
+            ? <span className="rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2 text-lg font-bold text-[var(--btn-solid-color)] tabular-nums">{m.homeScore} : {m.awayScore}</span>
             : <span className="text-slate-300">vs</span>}
-          <span className="text-slate-900">{m.awayTeamId}</span>
+          <span className="text-slate-900">{teamNames[m.awayTeamId] ?? m.awayTeamId}</span>
         </div>
         <div className="flex items-center gap-2">
           <StatusBadge status={m.status} />
@@ -760,7 +767,7 @@ function MatchCard({ match: m, isLeader, leagueStatus, scores, setScores, onSave
           <input type="number" placeholder="원정" value={scores[m.id]?.away ?? ''} onChange={e => setScores(s => ({ ...s, [m.id]: { ...s[m.id], away: e.target.value } }))}
             className="w-16 rounded-xl border border-slate-200 px-3 py-2 text-center text-sm outline-none focus:border-emerald-500" />
           <button onClick={onSave}
-            className="rounded-xl bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100">
+            className="rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2 text-xs font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85">
             결과 저장
           </button>
         </div>
@@ -812,6 +819,69 @@ function Field({ label, required, children }: { label: string; required?: boolea
         {label}{required && <span className="ml-0.5 text-emerald-500">*</span>}
       </label>
       {children}
+    </div>
+  )
+}
+
+function TeamSearchInvite({ onInvite }: { onInvite: (teamId: string) => Promise<void> }) {
+  const [query, setQuery] = useState('')
+  const [allTeams, setAllTeams] = useState<{ id: string; name: string }[]>([])
+  const [focused, setFocused] = useState(false)
+  const [inviting, setInviting] = useState<string | null>(null)
+
+  useEffect(() => {
+    manageFetch('/discover/teams').then((data: { id: string; name: string }[]) => {
+      setAllTeams(data ?? [])
+    }).catch(() => {})
+  }, [])
+
+  const results = query.trim()
+    ? allTeams.filter(t => t.name?.toLowerCase().includes(query.toLowerCase()))
+    : []
+
+  const showDropdown = focused && query.trim().length > 0
+
+  const handleInvite = async (team: { id: string; name: string }) => {
+    setInviting(team.id)
+    try {
+      await onInvite(team.id)
+      setQuery('')
+      setFocused(false)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '초대 실패')
+    } finally { setInviting(null) }
+  }
+
+  return (
+    <div className="relative max-w-xs">
+      <input
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 150)}
+        className={inp}
+        placeholder="팀 이름으로 검색"
+      />
+      {showDropdown && results.length > 0 && (
+        <div className="absolute z-10 mt-1 w-full rounded-xl border border-slate-100 bg-white shadow-lg">
+          {results.map(t => (
+            <div key={t.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-slate-50">
+              <span className="text-sm text-slate-900">{t.name}</span>
+              <button
+                onClick={() => handleInvite(t)}
+                disabled={inviting === t.id}
+                className="rounded-lg bg-[var(--btn-solid-bg)] px-3 py-1 text-xs font-semibold text-[var(--btn-solid-color)] hover:opacity-85 disabled:opacity-50">
+                {inviting === t.id ? '초대 중...' : '초대'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {showDropdown && results.length === 0 && (
+        <div className="absolute z-10 mt-1 w-full rounded-xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-400 shadow-lg">
+          검색 결과가 없습니다
+        </div>
+      )}
     </div>
   )
 }

@@ -23,13 +23,14 @@ export interface Team {
 }
 
 export interface TeamMember {
-  teamId: string
-  userId: string
-  role: TeamRole
-  number?: number
-  position?: string
-  phone?: string
-  joinedAt: string
+  id?: string;
+  userId: string;
+  name: string;
+  email?: string;
+  position?: string;
+  role?: string;
+  roles?: string[];
+  joinedAt?: string;
 }
 
 export interface PlayerStats {

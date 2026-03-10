@@ -58,7 +58,18 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         seen.add(m.id)
         return true
       })
-      return res(200, items)
+      // 각 경기의 참석 데이터 병렬 조회
+      const withAttendance = await Promise.all(items.map(async m => {
+        const att = await db.send(new QueryCommand({
+          TableName: ATTENDANCE,
+          KeyConditionExpression: 'matchId = :mid',
+          ExpressionAttributeValues: { ':mid': m.id },
+        }))
+        const attendances = att.Items ?? []
+        const myAttendance = userId ? attendances.find((a: any) => a.userId === userId)?.status ?? null : null
+        return { ...m, attendances, myAttendance }
+      }))
+      return res(200, withAttendance)
     }
 
     // POST /schedule/matches
@@ -90,6 +101,28 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         TableName: MATCHES, Key: { id: parts[1] },
         UpdateExpression: expr, ExpressionAttributeNames: names, ExpressionAttributeValues: values,
       }))
+
+      // 경기 완료 시 선수 골 기록 업데이트
+      if (body.status === 'completed' && Array.isArray(body.scorers) && body.scorers.length > 0) {
+        const USERS_TABLE = 'playground-users'
+        await Promise.all(body.scorers.map(async (s: { userId: string; name: string; goals: number; assists: number }) => {
+          if (!s.userId || (!s.goals && !s.assists)) return
+          const goals = Number(s.goals) || 0
+          const assists = Number(s.assists) || 0
+          try {
+            await db.send(new UpdateCommand({
+              TableName: USERS_TABLE,
+              Key: { email: s.userId },
+              UpdateExpression: 'SET #rec.#goals = if_not_exists(#rec.#goals, :zero) + :goals, #rec.#assists = if_not_exists(#rec.#assists, :zero) + :assists, #rec.#games = if_not_exists(#rec.#games, :zero) + :one',
+              ExpressionAttributeNames: { '#rec': 'record', '#goals': 'goals', '#assists': 'assists', '#games': 'games' },
+              ExpressionAttributeValues: { ':goals': goals, ':assists': assists, ':one': 1, ':zero': 0 },
+            }))
+          } catch (e) {
+            console.error('Failed to update scorer record:', s.userId, e)
+          }
+        }))
+      }
+
       return res(200, { message: 'updated', captainRoomId: body.captainRoomId })
     }
 
@@ -115,8 +148,8 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // PUT /schedule/matches/:id/attendance
     if (method === 'PUT' && parts[0] === 'matches' && parts[2] === 'attendance') {
       if (!userId) return res(401, { message: 'Unauthorized' })
-      const { status } = JSON.parse(event.body ?? '{}')
-      const item = { matchId: parts[1], userId, status, updatedAt: new Date().toISOString() }
+      const { status, userName } = JSON.parse(event.body ?? '{}')
+      const item = { matchId: parts[1], userId, userName: userName || userId, status, updatedAt: new Date().toISOString() }
       await db.send(new PutCommand({ TableName: ATTENDANCE, Item: item }))
       return res(200, item)
     }

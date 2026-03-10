@@ -1,4 +1,4 @@
-"use client";
+ "use client";
 
 import Image from "next/image";
 import { MapPin, Trophy, Users, X, Swords, Send, Plus, ImageIcon, Search } from "lucide-react";
@@ -7,7 +7,6 @@ import { useClub } from "@/context/ClubContext";
 import { useAuth } from "@/context/AuthContext";
 import { regionData } from "../signup/regions";
 import RatingBadge from "@/components/RatingBadge";
-import { manageFetch } from "@/lib/manageFetch";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -85,6 +84,9 @@ export default function ClubsPage() {
     }
   }, []);
 
+  // 가입 신청 상태 관리
+  const [joinRequestStatus, setJoinRequestStatus] = useState<Record<string, string>>({});
+
   // 유저가 이미 가입한 클럽인지 확인
   const isAlreadyMember = (clubId: string) => {
     if (!user) return false;
@@ -93,73 +95,71 @@ export default function ClubsPage() {
     return false;
   };
 
-  // 클럽 가입 처리
-  const handleJoinClub = async (club: DbClub) => {
+  // 가입 신청 상태 확인
+  const checkJoinRequestStatus = async (clubId: string) => {
+    if (!user) return null;
+    try {
+      const r = await fetch(`${API}/join-requests/user?clubId=${clubId}&email=${encodeURIComponent(user.email)}`);
+      const d = await r.json();
+      if (d.status) {
+        setJoinRequestStatus(prev => ({ ...prev, [clubId]: d.status }));
+      }
+      return d.status;
+    } catch {
+      return null;
+    }
+  };
+
+  // 클럽 가입 신청
+  const handleJoinRequest = async (club: DbClub) => {
     if (!user) { show("로그인이 필요합니다", "error"); return; }
     if (isAlreadyMember(club.clubId)) { show("이미 가입한 클럽입니다", "error"); return; }
+    if (joinRequestStatus[club.clubId] === "pending") { show("이미 가입 신청 중입니다", "error"); return; }
+    
     setJoining(club.clubId);
     try {
-      // 1) 멤버 등록
-      await fetch(`${API}/club-members`, {
+      const r = await fetch(`${API}/join-requests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clubId: club.clubId, email: user.email, name: user.name, position: user.position || "" }),
+        body: JSON.stringify({ 
+          clubId: club.clubId, 
+          email: user.email, 
+          name: user.name, 
+          position: user.position || "" 
+        }),
       });
-      // 2) 프로필 업데이트 (teamIds에 추가)
-      const token = localStorage.getItem("accessToken");
-      if (token) {
-        const newTeamIds = [...new Set([...(user.teamIds || (user.teamId ? [user.teamId] : [])), club.clubId])];
-        await fetch(`${API}/auth/profile`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ hasTeam: true, teamSport: club.sport, teamId: newTeamIds[0], teamIds: newTeamIds, position: user.position || "" }),
-        });
-        await refresh();
-      }
-      // 3) 클럽 멤버 수 증가
-      await fetch(`${API}/clubs`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clubId: club.clubId, members: (club.members || 0) + 1 }),
-      });
-      // 4) 목록 새로고침
-      const r = await fetch(`${API}/clubs`);
       const d = await r.json();
-      setAllClubs(d.clubs || []);
-      show(`${club.name}에 가입했습니다! 🎉`, "success");
+      if (!r.ok) { show(d.message || "가입 신청 실패", "error"); return; }
+      
+      setJoinRequestStatus(prev => ({ ...prev, [club.clubId]: "pending" }));
+      show(`${club.name}에 가입 신청했습니다! 관리자 승인을 기다려주세요 📝`, "success");
       setSelected(null);
     } catch (e) {
       console.error(e);
-      show("가입 처리 중 오류가 발생했습니다", "error");
+      show("가입 신청 중 오류가 발생했습니다", "error");
     } finally {
       setJoining(null);
     }
   };
 
-  // API에서 클럽 목록 불러오기 (Auth API + Manage API 병합)
+  // 가입 버튼 상태 텍스트
+  const getJoinButtonText = (clubId: string) => {
+    if (isAlreadyMember(clubId)) return "가입됨";
+    if (joinRequestStatus[clubId] === "pending") return "승인 대기중...";
+    if (joining === clubId) return "신청 중...";
+    return "가입 신청";
+  };
+
+  // API에서 클럽 목록 불러오기 (Auth API만 사용)
   useEffect(() => {
-    const loadAuthClubs = fetch(`${API}/clubs`).then(r => r.json()).then(d => d.clubs || []).catch(() => []);
-    const loadManageTeams = manageFetch('/discover/teams').then((teams: any[]) =>
-      (teams || []).map((t: any): DbClub & { isManageTeam: boolean } => ({
-        clubId: t.id,
-        name: t.name,
-        sport: sportTypeLabel[t.sportType] ?? t.sportType ?? '-',
-        areas: t.region ? [{ sido: t.region, sigungu: '' }] : [],
-        members: t.memberCount ?? 0,
-        styles: [],
-        image: t.logoUrl ?? '',
-        record: '-',
-        winRate: 0,
-        recruiting: false,
-        createdAt: t.createdAt ?? '',
-        isManageTeam: true,
-      }))
-    ).catch(() => []);
-    Promise.all([loadAuthClubs, loadManageTeams]).then(([authClubs, manageTeams]) => {
-      const list = [...authClubs, ...manageTeams];
-      setAllClubs(list);
-      setAiPool([...authClubs].sort(() => Math.random() - 0.5).slice(0, 4));
-    });
+    fetch(`${API}/clubs`)
+      .then(r => r.json())
+      .then(d => {
+        const clubs = d.clubs || [];
+        setAllClubs(clubs);
+        setAiPool([...clubs].sort(() => Math.random() - 0.5).slice(0, 4));
+      })
+      .catch(() => {});
   }, []);
 
   const aiMatches = aiPool.filter((c) => !dismissed.includes(c.clubId));
@@ -429,16 +429,16 @@ export default function ClubsPage() {
                 </div>
                 {c.recruiting && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleJoinClub(c); }}
-                    disabled={isAlreadyMember(c.clubId) || joining === c.clubId}
+                    onClick={(e) => { e.stopPropagation(); handleJoinRequest(c); }}
+                    disabled={isAlreadyMember(c.clubId) || joinRequestStatus[c.clubId] === "pending" || joining === c.clubId}
                     className="w-full py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors mt-1"
-                    style={isAlreadyMember(c.clubId)
+                    style={isAlreadyMember(c.clubId) || joinRequestStatus[c.clubId] === "pending"
                       ? { background: "transparent", color: "var(--text-muted)", border: "1px solid var(--card-border)" }
                       : { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }
                     }
                   >
                     <Users size={12} />
-                    {isAlreadyMember(c.clubId) ? "가입됨" : joining === c.clubId ? "가입 중..." : "가입하기"}
+                    {getJoinButtonText(c.clubId)}
                   </button>
                 )}
               </div>
@@ -594,11 +594,11 @@ export default function ClubsPage() {
                   const newClubId = createData.clubId || createData.club?.clubId;
 
                   if (newClubId && user) {
-                    // 1) 멤버로 등록
+                    // 1) 멤버로 등록 (생성자는 관리자)
                     await fetch(`${process.env.NEXT_PUBLIC_API_URL}/club-members`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ clubId: newClubId, email: user.email, name: user.name, position: user.position || "" }),
+                      body: JSON.stringify({ clubId: newClubId, email: user.email, name: user.name, position: user.position || "", role: "manager" }),
                     }).catch(() => { });
 
                     // 2) 캡틴으로 설정
@@ -614,10 +614,22 @@ export default function ClubsPage() {
                       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/profile`, {
                         method: "PUT",
                         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                        body: JSON.stringify({ hasTeam: true, teamSport: clubSport, teamId: newClubId, teamIds: [...(user.teamIds || (user.teamId ? [user.teamId] : [])), newClubId], position: user.position || "" }),
+                        body: JSON.stringify({ hasTeam: true, teamSport: clubSport, teamId: newClubId, teamIds: [...(user.teamIds || (user.teamId ? [user.teamId] : [])), newClubId], position: user.position || "", role: "leader" }),
                       }).catch(() => { });
                       await refresh();
                     }
+
+                    // 4) Manage API team members에도 등록 (팀관리 페이지 선수 명단용)
+                    try {
+                      const manageApi = process.env.NEXT_PUBLIC_MANAGE_API_URL;
+                      if (manageApi) {
+                        await fetch(`${manageApi}/team/${newClubId}/members`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                          body: JSON.stringify({ userId: user.username, name: user.name, email: user.email, position: user.position || "", roles: ["leader", "manager"] }),
+                        });
+                      }
+                    } catch (e) { console.error("Manage API 멤버 등록 실패", e); }
                   }
                 } catch (e) { console.error(e); }
                 setMyClub({ name: newClub.name, sido: areas[0]?.sido || "", sigungu: areas[0]?.sigungu || "", style: clubStyles.join(", "), image: imageUrl || newClub.image });
@@ -697,18 +709,18 @@ export default function ClubsPage() {
               </div>
             </div>
 
-            {/* 가입하기 버튼 */}
+            {/* 가입 신청 버튼 */}
             {selected.recruiting && (
               <button
-                onClick={() => handleJoinClub(selected)}
-                disabled={isAlreadyMember(selected.clubId) || joining === selected.clubId}
+                onClick={() => handleJoinRequest(selected)}
+                disabled={isAlreadyMember(selected.clubId) || joinRequestStatus[selected.clubId] === "pending" || joining === selected.clubId}
                 className="w-full py-2.5 rounded-lg font-semibold text-sm disabled:opacity-50"
-                style={isAlreadyMember(selected.clubId)
+                style={isAlreadyMember(selected.clubId) || joinRequestStatus[selected.clubId] === "pending"
                   ? { background: "#f5f5f5", color: "#666666" }
                   : { background: "#000000", color: "#ffffff" }
                 }
               >
-                {isAlreadyMember(selected.clubId) ? "이미 가입한 클럽입니다" : joining === selected.clubId ? "가입 중..." : "가입하기"}
+                {isAlreadyMember(selected.clubId) ? "이미 가입한 클럽입니다" : getJoinButtonText(selected.clubId)}
               </button>
             )}
 

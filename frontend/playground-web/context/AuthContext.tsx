@@ -22,6 +22,7 @@ interface User {
   position?: string;
   avatar?: string;
   number?: number;
+  teamNumbers?: Record<string, number>;
   role?: string;
   record?: { games: number; goals: number; assists: number };
   recentGoals?: { date: string; opponent: string; minute: number; score: string }[];

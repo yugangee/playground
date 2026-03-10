@@ -1,4 +1,4 @@
-import {
+  import {
   CognitoIdentityProviderClient,
   SignUpCommand,
   AdminConfirmSignUpCommand,
@@ -22,6 +22,7 @@ const CLUBS_TABLE = "playground-clubs";
 const MEMBERS_TABLE = "playground-club-members";
 const MATCHES_TABLE = "playground-matches";
 const ACTIVITIES_TABLE = "playground-activities";
+const JOIN_REQUESTS_TABLE = "playground-join-requests";
 const S3_BUCKET = "playground-web-sedaily-us";
 const CF_DOMAIN = "https://d1t0vkbh1b2z3x.cloudfront.net";
 
@@ -74,6 +75,7 @@ async function signup(body) {
       kakaoId: body.kakaoId || null,
       avatar: "",
       number: 0,
+      teamNumbers: {},
       role: "",
       record: { games: 0, goals: 0, assists: 0 },
       recentGoals: [],
@@ -163,7 +165,7 @@ async function updateProfile(accessToken, body) {
   const email = attrs.email;
   if (!email) return res(400, { message: "이메일을 찾을 수 없습니다" });
 
-  const allowed = ["name", "gender", "birthdate", "regionSido", "regionSigungu", "activeAreas", "sports", "position", "teamId", "teamIds", "teamSport", "hasTeam", "avatar"];
+  const allowed = ["name", "gender", "birthdate", "regionSido", "regionSigungu", "activeAreas", "sports", "position", "teamId", "teamIds", "teamSport", "hasTeam", "avatar", "number", "teamNumbers", "role"];
   const updates = {};
   const exprParts = [];
   const exprNames = {};
@@ -281,7 +283,7 @@ async function listClubs(query) {
 }
 
 async function addClubMember(body) {
-  const { clubId, email, name, position } = body;
+  const { clubId, email, name, position, role } = body;
   if (!clubId || !email) return res(400, { message: "clubId와 email은 필수입니다" });
   await ddb.send(new PutCommand({
     TableName: MEMBERS_TABLE,
@@ -290,6 +292,7 @@ async function addClubMember(body) {
       email,
       name: name || "",
       position: position || "",
+      role: role || "member",
       joinedAt: new Date().toISOString(),
     },
   }));
@@ -765,6 +768,213 @@ async function aiChat(body) {
   return res(200, { reply: data.choices[0].message.content });
 }
 
+// ─── 가입 신청 서비스 ───
+async function createJoinRequest(body) {
+  const { clubId, email, name, position } = body;
+  if (!clubId || !email) return res(400, { message: "clubId와 email은 필수입니다" });
+
+  // 이미 멤버인지 확인
+  const memberCheck = await ddb.send(new GetCommand({
+    TableName: MEMBERS_TABLE,
+    Key: { clubId, email },
+  }));
+  if (memberCheck.Item) return res(400, { message: "이미 가입된 클럽입니다" });
+
+  // 이미 신청했는지 확인
+  const existingRequest = await ddb.send(new ScanCommand({
+    TableName: JOIN_REQUESTS_TABLE,
+    FilterExpression: "clubId = :c AND email = :e AND #s = :s",
+    ExpressionAttributeNames: { "#s": "status" },
+    ExpressionAttributeValues: { ":c": clubId, ":e": email, ":s": "pending" },
+  }));
+  if (existingRequest.Items?.length > 0) return res(400, { message: "이미 가입 신청 중입니다" });
+
+  const requestId = crypto.randomUUID();
+  await ddb.send(new PutCommand({
+    TableName: JOIN_REQUESTS_TABLE,
+    Item: {
+      requestId,
+      clubId,
+      email,
+      name: name || "",
+      position: position || "",
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    },
+  }));
+  return res(200, { message: "가입 신청 완료", requestId });
+}
+
+async function getJoinRequests(clubId) {
+  if (!clubId) return res(400, { message: "clubId는 필수입니다" });
+  const result = await ddb.send(new ScanCommand({
+    TableName: JOIN_REQUESTS_TABLE,
+    FilterExpression: "clubId = :c",
+    ExpressionAttributeValues: { ":c": clubId },
+  }));
+  return res(200, { requests: result.Items || [] });
+}
+
+async function getUserJoinRequest(query) {
+  const { clubId, email } = query || {};
+  if (!clubId || !email) return res(400, { message: "clubId와 email은 필수입니다" });
+  const result = await ddb.send(new ScanCommand({
+    TableName: JOIN_REQUESTS_TABLE,
+    FilterExpression: "clubId = :c AND email = :e",
+    ExpressionAttributeValues: { ":c": clubId, ":e": email },
+  }));
+  const requests = result.Items || [];
+  const pending = requests.find(r => r.status === "pending");
+  const accepted = requests.find(r => r.status === "accepted");
+  return res(200, { request: pending || accepted || null, status: pending ? "pending" : accepted ? "accepted" : null });
+}
+
+// 관리자 권한 검증 (주장 또는 관리자)
+async function verifyManager(clubId, userEmail) {
+  // 주장인지 확인
+  const clubResult = await ddb.send(new GetCommand({ TableName: CLUBS_TABLE, Key: { clubId } }));
+  if (clubResult.Item?.captainEmail === userEmail) return true;
+
+  // 멤버 테이블에서 관리자인지 확인
+  const memberResult = await ddb.send(new GetCommand({ TableName: MEMBERS_TABLE, Key: { clubId, email: userEmail } }));
+  if (memberResult.Item?.role === "manager" || memberResult.Item?.role === "leader") return true;
+
+  return false;
+}
+
+async function acceptJoinRequest(requestId, body) {
+  const { managerEmail } = body;
+  if (!managerEmail) return res(400, { message: "managerEmail은 필수입니다" });
+
+  // 신청 정보 조회
+  const requestResult = await ddb.send(new GetCommand({ TableName: JOIN_REQUESTS_TABLE, Key: { requestId } }));
+  if (!requestResult.Item) return res(404, { message: "신청을 찾을 수 없습니다" });
+  const request = requestResult.Item;
+
+  if (request.status !== "pending") return res(400, { message: "이미 처리된 신청입니다" });
+
+  // 관리자 권한 확인
+  const isManager = await verifyManager(request.clubId, managerEmail);
+  if (!isManager) return res(403, { message: "관리자만 수락할 수 있습니다" });
+
+  // 신청 상태 업데이트
+  await ddb.send(new UpdateCommand({
+    TableName: JOIN_REQUESTS_TABLE,
+    Key: { requestId },
+    UpdateExpression: "SET #s = :s, processedAt = :p, processedBy = :b",
+    ExpressionAttributeNames: { "#s": "status" },
+    ExpressionAttributeValues: { ":s": "accepted", ":p": new Date().toISOString(), ":b": managerEmail },
+  }));
+
+  // 멤버로 등록
+  await ddb.send(new PutCommand({
+    TableName: MEMBERS_TABLE,
+    Item: {
+      clubId: request.clubId,
+      email: request.email,
+      name: request.name || "",
+      position: request.position || "",
+      role: "member",
+      joinedAt: new Date().toISOString(),
+    },
+  }));
+
+  // 클럽 멤버 수 증가
+  const clubResult = await ddb.send(new GetCommand({ TableName: CLUBS_TABLE, Key: { clubId: request.clubId } }));
+  if (clubResult.Item) {
+    await ddb.send(new UpdateCommand({
+      TableName: CLUBS_TABLE,
+      Key: { clubId: request.clubId },
+      UpdateExpression: "SET members = :m",
+      ExpressionAttributeValues: { ":m": (clubResult.Item.members || 0) + 1 },
+    }));
+  }
+
+  // 사용자 프로필 업데이트 (teamIds에 추가)
+  const userResult = await ddb.send(new GetCommand({ TableName: USERS_TABLE, Key: { email: request.email } }));
+  if (userResult.Item) {
+    const currentTeamIds = userResult.Item.teamIds || (userResult.Item.teamId ? [userResult.Item.teamId] : []);
+    const newTeamIds = [...new Set([...currentTeamIds, request.clubId])];
+    await ddb.send(new UpdateCommand({
+      TableName: USERS_TABLE,
+      Key: { email: request.email },
+      UpdateExpression: "SET teamIds = :t, hasTeam = :h",
+      ExpressionAttributeValues: { ":t": newTeamIds, ":h": true },
+    }));
+  }
+
+  return res(200, { message: "가입 승인 완료" });
+}
+
+async function rejectJoinRequest(requestId, body) {
+  const { managerEmail } = body;
+  if (!managerEmail) return res(400, { message: "managerEmail은 필수입니다" });
+
+  // 신청 정보 조회
+  const requestResult = await ddb.send(new GetCommand({ TableName: JOIN_REQUESTS_TABLE, Key: { requestId } }));
+  if (!requestResult.Item) return res(404, { message: "신청을 찾을 수 없습니다" });
+  const request = requestResult.Item;
+
+  if (request.status !== "pending") return res(400, { message: "이미 처리된 신청입니다" });
+
+  // 관리자 권한 확인
+  const isManager = await verifyManager(request.clubId, managerEmail);
+  if (!isManager) return res(403, { message: "관리자만 거절할 수 있습니다" });
+
+  // 신청 상태 업데이트
+  await ddb.send(new UpdateCommand({
+    TableName: JOIN_REQUESTS_TABLE,
+    Key: { requestId },
+    UpdateExpression: "SET #s = :s, processedAt = :p, processedBy = :b",
+    ExpressionAttributeNames: { "#s": "status" },
+    ExpressionAttributeValues: { ":s": "rejected", ":p": new Date().toISOString(), ":b": managerEmail },
+  }));
+
+  return res(200, { message: "가입 거절 완료" });
+}
+
+async function updateMemberRole(body) {
+  const { clubId, email, role, managerEmail } = body;
+  if (!clubId || !email || !role || !managerEmail) return res(400, { message: "clubId, email, role, managerEmail은 필수입니다" });
+
+  // 변경 가능한 역할 확인
+  const validRoles = ["member", "manager", "treasurer"];
+  if (!validRoles.includes(role)) return res(400, { message: "유효하지 않은 역할입니다" });
+
+  // 주장(leader)만 역할 변경 가능
+  const clubResult = await ddb.send(new GetCommand({ TableName: CLUBS_TABLE, Key: { clubId } }));
+  if (!clubResult.Item) return res(404, { message: "클럽을 찾을 수 없습니다" });
+  if (clubResult.Item.captainEmail !== managerEmail) {
+    // 기존 관리자인지 확인
+    const managerMember = await ddb.send(new GetCommand({ TableName: MEMBERS_TABLE, Key: { clubId, email: managerEmail } }));
+    if (managerMember.Item?.role !== "manager" && managerMember.Item?.role !== "leader") {
+      return res(403, { message: "관리자만 역할을 변경할 수 있습니다" });
+    }
+  }
+
+  // 관리자/총무 최대 인원 체크
+  if (role === "manager" || role === "treasurer") {
+    const allMembers = await ddb.send(new QueryCommand({
+      TableName: MEMBERS_TABLE,
+      KeyConditionExpression: "clubId = :c",
+      ExpressionAttributeValues: { ":c": clubId },
+    }));
+    const roleCount = (allMembers.Items || []).filter(m => m.role === role && m.email !== email).length;
+    if (roleCount >= 2) return res(400, { message: `${role === "manager" ? "관리자" : "총무"}는 최대 2명까지만 지정할 수 있습니다` });
+  }
+
+  // 역할 업데이트
+  await ddb.send(new UpdateCommand({
+    TableName: MEMBERS_TABLE,
+    Key: { clubId, email },
+    UpdateExpression: "SET #r = :r",
+    ExpressionAttributeNames: { "#r": "role" },
+    ExpressionAttributeValues: { ":r": role },
+  }));
+
+  return res(200, { message: "역할 변경 완료" });
+}
+
 async function kakaoAuth(body) {
   const { code, redirectUri } = body;
   if (!code) return res(400, { message: "code가 필요합니다" });
@@ -831,7 +1041,7 @@ async function kakaoAuth(body) {
   });
 }
 
-
+export const handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return res(200, {});
 
   const path = event.path;
@@ -932,6 +1142,28 @@ async function kakaoAuth(body) {
     // ─── AI 챗봇 ───
     if (method === "POST" && path === "/ai-chat") {
       return await aiChat(JSON.parse(event.body));
+    }
+
+    // ─── 가입 신청 서비스 라우트 ───
+    if (method === "POST" && path === "/join-requests") {
+      return await createJoinRequest(JSON.parse(event.body));
+    }
+    if (method === "GET" && path === "/join-requests") {
+      return await getJoinRequests(event.queryStringParameters?.clubId);
+    }
+    if (method === "GET" && path === "/join-requests/user") {
+      return await getUserJoinRequest(event.queryStringParameters);
+    }
+    if (method === "PUT" && path.match(/^\/join-requests\/[^/]+\/accept$/)) {
+      const requestId = path.split("/")[2];
+      return await acceptJoinRequest(requestId, JSON.parse(event.body));
+    }
+    if (method === "PUT" && path.match(/^\/join-requests\/[^/]+\/reject$/)) {
+      const requestId = path.split("/")[2];
+      return await rejectJoinRequest(requestId, JSON.parse(event.body));
+    }
+    if (method === "PUT" && path === "/club-members/role") {
+      return await updateMemberRole(JSON.parse(event.body));
     }
 
     return res(404, { message: "Not found" });

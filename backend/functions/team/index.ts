@@ -56,6 +56,23 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return res(200, teams.filter(Boolean))
     }
 
+    // GET /team/all - 모든 팀 조회 (클럽 탐색용)
+    if (method === 'GET' && parts[0] === 'all') {
+      const { ScanCommand } = await import('@aws-sdk/lib-dynamodb')
+      const sport = event.queryStringParameters?.sport
+      let result
+      if (sport) {
+        result = await db.send(new ScanCommand({
+          TableName: TEAMS,
+          FilterExpression: 'sportType = :s',
+          ExpressionAttributeValues: { ':s': sport },
+        }))
+      } else {
+        result = await db.send(new ScanCommand({ TableName: TEAMS }))
+      }
+      return res(200, { teams: result.Items ?? [] })
+    }
+
     // POST /team
     if (method === 'POST' && parts.length === 0) {
       if (!userId) return res(401, { message: 'Unauthorized' })
