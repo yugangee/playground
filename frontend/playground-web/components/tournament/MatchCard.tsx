@@ -21,17 +21,17 @@ function isSedailyTeam(team: TournamentMatch['homeTeam']): boolean {
 }
 
 const statusLabel: Record<string, string> = {
-  upcoming: '예정',
-  live: '진행중',
-  completed: '완료',
+  upcoming: '-',
+  live: 'LIVE',
+  completed: 'END',
   pk: 'PK',
 };
 
 const statusStyle: Record<string, React.CSSProperties> = {
-  upcoming: { background: 'rgba(107,114,128,0.15)', color: '#9ca3af' },
-  live:     { background: 'rgba(59,130,246,0.15)',  color: '#60a5fa' },
-  completed:{ background: 'rgba(34,197,94,0.15)',   color: '#4ade80' },
-  pk:       { background: 'rgba(251,191,36,0.15)',  color: '#fbbf24' },
+  upcoming: { background: 'transparent', color: '#9CA3AF' },
+  live:     { background: '#DBEAFE', color: '#1D4ED8' },
+  completed:{ background: '#F3F4F6', color: '#6B7280' },
+  pk:       { background: '#FEF3C7', color: '#92400E' },
 };
 
 export default function MatchCard({ match, compact = false, onClick, scoreEditable, onScoreEdit }: Props) {
@@ -45,100 +45,64 @@ export default function MatchCard({ match, compact = false, onClick, scoreEditab
   return (
     <div
       onClick={() => onClick?.(match)}
-      className={`rounded-xl border transition-all ${onClick ? 'cursor-pointer hover:border-fuchsia-500/40' : ''} ${compact ? 'p-3' : 'p-4'}`}
-      style={{
-        background: isSedaily ? 'rgba(192,38,211,0.06)' : 'var(--card-bg)',
-        borderColor: isSedaily ? 'rgba(192,38,211,0.35)' : 'var(--card-border)',
-        boxShadow: isSedaily ? '0 0 12px rgba(192,38,211,0.1)' : undefined,
-      }}
+      className={`rounded-lg transition-all ${onClick ? 'cursor-pointer hover:opacity-90' : ''} ${compact ? 'p-2.5' : 'p-3'}`}
+      style={{ background: isSedaily ? '#EEF2FF' : '#F9FAFB' }}
     >
-      {/* 헤더: 조번호 + 상태 */}
+      {/* 헤더 */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
-          {match.matchNo}조 · {match.roundLabel}
+        <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>
+          {match.matchNo}조
         </span>
-        <div className="flex items-center gap-1.5">
-          {isSedaily && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(192,38,211,0.2)', color: '#e879f9' }}>
-              서경 ★
-            </span>
-          )}
-          <span className="text-[10px] px-1.5 py-0.5 rounded" style={statusStyle[match.status]}>
+        {match.status !== 'upcoming' && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded" style={statusStyle[match.status]}>
             {statusLabel[match.status]}
           </span>
-        </div>
+        )}
       </div>
 
       {/* 팀 vs 스코어 */}
       <div className="flex items-center gap-2">
-        {/* 홈팀 */}
-        <div className={`flex-1 text-right ${compact ? '' : ''}`}>
-          <span
-            className={`${compact ? 'text-sm' : 'text-[15px]'} font-semibold`}
-            style={{ color: homeIsSedaily ? '#e879f9' : homeWon ? 'var(--text-primary)' : 'var(--text-secondary)' }}
-          >
+        <div className="flex-1 text-right truncate">
+          <span className="text-[11px] font-medium"
+            style={{ color: homeIsSedaily ? '#4F46E5' : homeWon ? 'var(--text-primary)' : 'var(--text-muted)' }}>
             {teamName(match.homeTeam)}
-            {match.homeTeam && !isTBD(match.homeTeam) && match.homeTeam.seed && (
-              <span className="ml-1 text-[10px] text-amber-400">({match.homeTeam.seed}시드)</span>
-            )}
           </span>
         </div>
 
-        {/* 스코어 */}
         <div className="shrink-0 flex items-center gap-1">
           {match.score ? (
             <>
-              <span className={`${compact ? 'text-base' : 'text-xl'} font-bold tabular-nums`}
-                style={{ color: homeWon ? '#4ade80' : 'var(--text-muted)' }}>
+              <span className="text-xs font-bold tabular-nums"
+                style={{ color: homeWon ? '#16A34A' : '#9CA3AF' }}>
                 {match.score.home}
               </span>
-              <span className="text-sm font-light" style={{ color: 'var(--text-muted)' }}>:</span>
-              <span className={`${compact ? 'text-base' : 'text-xl'} font-bold tabular-nums`}
-                style={{ color: awayWon ? '#4ade80' : 'var(--text-muted)' }}>
+              <span className="text-[10px]" style={{ color: '#D1D5DB' }}>:</span>
+              <span className="text-xs font-bold tabular-nums"
+                style={{ color: awayWon ? '#16A34A' : '#9CA3AF' }}>
                 {match.score.away}
               </span>
-              {match.score.pkHome !== undefined && (
-                <span className="text-[10px] text-amber-400 ml-1">
-                  PK({match.score.pkHome}:{match.score.pkAway})
-                </span>
-              )}
             </>
           ) : (
-            <span className="text-sm px-2 font-light" style={{ color: 'var(--text-muted)' }}>vs</span>
+            <span className="text-[10px]" style={{ color: '#D1D5DB' }}>vs</span>
           )}
         </div>
 
-        {/* 어웨이팀 */}
-        <div className="flex-1">
-          <span
-            className={`${compact ? 'text-sm' : 'text-[15px]'} font-semibold`}
-            style={{ color: awayIsSedaily ? '#e879f9' : awayWon ? 'var(--text-primary)' : 'var(--text-secondary)' }}
-          >
+        <div className="flex-1 truncate">
+          <span className="text-[11px] font-medium"
+            style={{ color: awayIsSedaily ? '#4F46E5' : awayWon ? 'var(--text-primary)' : 'var(--text-muted)' }}>
             {teamName(match.awayTeam)}
-            {match.awayTeam && !isTBD(match.awayTeam) && match.awayTeam.seed && (
-              <span className="ml-1 text-[10px] text-amber-400">({match.awayTeam.seed}시드)</span>
-            )}
           </span>
         </div>
       </div>
 
-      {/* TBD 안내 */}
-      {(isTBD(match.homeTeam) || isTBD(match.awayTeam)) && !compact && (
-        <p className="text-[11px] mt-2" style={{ color: 'var(--text-muted)' }}>
-          {isTBD(match.homeTeam) && <span>{match.homeTeam.label}</span>}
-          {isTBD(match.homeTeam) && isTBD(match.awayTeam) && <span> · </span>}
-          {isTBD(match.awayTeam) && <span>{match.awayTeam.label}</span>}
-        </p>
-      )}
-
       {/* 스코어 입력 버튼 */}
-      {scoreEditable && (
+      {scoreEditable && !compact && (
         <button
           onClick={e => { e.stopPropagation(); onScoreEdit?.(match); }}
-          className="mt-3 w-full py-1.5 rounded-lg text-xs font-semibold transition-colors"
-          style={{ background: 'rgba(192,38,211,0.15)', color: '#e879f9', border: '1px solid rgba(192,38,211,0.3)' }}
+          className="mt-2.5 w-full py-1.5 rounded-md text-[10px] font-medium"
+          style={{ background: '#4F46E5', color: 'white' }}
         >
-          스코어 입력
+          입력
         </button>
       )}
     </div>
