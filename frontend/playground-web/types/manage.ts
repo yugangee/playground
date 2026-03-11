@@ -113,6 +113,7 @@ export interface GoalRecord {
   scorer: string   // userId
   assist?: string  // userId
   minute?: number
+  quarter?: string  // '1Q' | '2Q' | '3Q' | '4Q'
 }
 
 export type CardType = 'yellow' | 'red'
@@ -121,11 +122,21 @@ export interface CardRecord {
   playerId: string  // userId
   type: CardType
   minute?: number
+  quarter?: string  // '1Q' | '2Q' | '3Q' | '4Q'
 }
 
 export interface Lineup {
   starters: string[]  // userIds (max 11)
   subs: string[]      // bench userIds
+}
+
+export interface MatchTeamStats {
+  shots?: number
+  shotsOnTarget?: number
+  corners?: number
+  fouls?: number
+  offsides?: number
+  possession?: number  // 0-100 %
 }
 
 export interface Match {
@@ -147,6 +158,8 @@ export interface Match {
   cardReset?: { at: string; by: string }  // 경고 초기화 이벤트 (KJA 4강 진출 시)
   guests?: string[]                       // 용병(Guest) 임시 등록 이름 목록
   media?: string[]                         // 경기 미디어 (사진/영상 URL 목록)
+  homeStats?: MatchTeamStats
+  awayStats?: MatchTeamStats
   note?: string
   createdAt: string
 }
@@ -187,6 +200,34 @@ export interface PollVote {
 // ── League ────────────────────────────────────────────
 export type LeagueType = 'league' | 'tournament'
 export type LeagueStatus = 'recruiting' | 'ongoing' | 'finished'
+export type SubstitutionRule = 'free' | 'limited'
+
+export interface LeagueRules {
+  quartersPerMatch?: number       // 기본 4
+  minutesPerQuarter?: number      // 기본 15
+  halftimeMinutes?: number        // 기본 5
+  substitutionRule?: SubstitutionRule  // 교체 규정
+  maxSubstitutions?: number       // limited일 때 최대 교체 수
+  yellowCardAccumulation?: number // 경고 누적 기준 (기본 2)
+  redCardSuspension?: number      // 퇴장 시 출전정지 경기 수 (기본 1)
+  penaltyShootout?: boolean       // 토너먼트 승부차기 여부
+  maxGuestsPerMatch?: number      // 경기당 용병 제한 (기본 3)
+}
+
+export interface LeagueRegistration {
+  visibility?: 'public' | 'private'
+  entryFee?: number               // 참가비 (원)
+  minTeams?: number               // 최소 참가팀 수 (기본 4)
+  maxTeams?: number               // 최대 참가팀 수 (기본 16)
+  registrationDeadline?: string   // ISO date
+}
+
+export interface LeagueVenue {
+  name?: string
+  address?: string
+  parkingInfo?: string
+  mapUrl?: string
+}
 
 export interface League {
   id: string
@@ -200,6 +241,10 @@ export interface League {
   startDate?: string
   endDate?: string
   description?: string
+  rules?: LeagueRules
+  registration?: LeagueRegistration
+  venue?: LeagueVenue
+  awards?: string[]               // 시상 항목
   createdAt: string
 }
 

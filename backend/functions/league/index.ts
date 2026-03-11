@@ -14,6 +14,9 @@ const db = DynamoDBDocumentClient.from(new DynamoDBClient({}))
 const LEAGUES = process.env.LEAGUES_TABLE!
 const LEAGUE_TEAMS = process.env.LEAGUE_TEAMS_TABLE!
 const LEAGUE_MATCHES = process.env.LEAGUE_MATCHES_TABLE!
+const MATCH_EVENTS = process.env.MATCH_EVENTS_TABLE!
+const MATCH_LINEUPS = process.env.MATCH_LINEUPS_TABLE!
+const MATCH_MOM = process.env.MATCH_MOM_TABLE!
 
 const res = (statusCode: number, body: unknown) => ({
   statusCode,
@@ -445,6 +448,120 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       }
 
       return res(200, { message: 'updated' })
+    }
+
+    // ── Match Events (타임라인) ────────────────────────────────────────────
+
+    const matchId = parts[2]
+
+    // GET /league/:id/matches/:matchId/events
+    if (method === 'GET' && parts[1] === 'matches' && parts[3] === 'events' && !parts[4]) {
+      const result = await db.send(new QueryCommand({
+        TableName: MATCH_EVENTS,
+        KeyConditionExpression: 'matchId = :mid',
+        ExpressionAttributeValues: { ':mid': matchId },
+      }))
+      return res(200, result.Items ?? [])
+    }
+
+    // POST /league/:id/matches/:matchId/events
+    if (method === 'POST' && parts[1] === 'matches' && parts[3] === 'events') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
+      const item = {
+        matchId,
+        eventId: randomUUID(),
+        leagueId,
+        ...body,
+        createdBy: userId,
+        createdAt: new Date().toISOString(),
+      }
+      await db.send(new PutCommand({ TableName: MATCH_EVENTS, Item: item }))
+      return res(201, item)
+    }
+
+    // DELETE /league/:id/matches/:matchId/events/:eventId
+    if (method === 'DELETE' && parts[1] === 'matches' && parts[3] === 'events' && parts[4]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      await db.send(new DeleteCommand({ TableName: MATCH_EVENTS, Key: { matchId, eventId: parts[4] } }))
+      return res(200, { message: 'deleted' })
+    }
+
+    // ── Match Lineups ───────────────────────────────────────────────────
+
+    // GET /league/:id/matches/:matchId/lineups
+    if (method === 'GET' && parts[1] === 'matches' && parts[3] === 'lineups') {
+      const result = await db.send(new QueryCommand({
+        TableName: MATCH_LINEUPS,
+        KeyConditionExpression: 'matchId = :mid',
+        ExpressionAttributeValues: { ':mid': matchId },
+      }))
+      return res(200, result.Items ?? [])
+    }
+
+    // POST /league/:id/matches/:matchId/lineups
+    if (method === 'POST' && parts[1] === 'matches' && parts[3] === 'lineups') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
+      const quarter = (body.quarter as string) ?? 'Q1'
+      const item = {
+        matchId,
+        quarter,
+        ...body,
+        updatedBy: userId,
+        updatedAt: new Date().toISOString(),
+      }
+      await db.send(new PutCommand({ TableName: MATCH_LINEUPS, Item: item }))
+      return res(201, item)
+    }
+
+    // ── MOM 투표 ────────────────────────────────────────────────────────
+
+    // GET /league/:id/matches/:matchId/mom
+    if (method === 'GET' && parts[1] === 'matches' && parts[3] === 'mom') {
+      const result = await db.send(new QueryCommand({
+        TableName: MATCH_MOM,
+        KeyConditionExpression: 'matchId = :mid',
+        ExpressionAttributeValues: { ':mid': matchId },
+      }))
+      // 투표 집계
+      const votes = result.Items ?? []
+      const tally = new Map<string, number>()
+      votes.forEach(v => {
+        const pid = v.playerId as string
+        tally.set(pid, (tally.get(pid) ?? 0) + 1)
+      })
+      const ranked = Array.from(tally.entries())
+        .map(([playerId, count]) => ({ playerId, votes: count }))
+        .sort((a, b) => b.votes - a.votes)
+      return res(200, { votes, ranked, totalVotes: votes.length })
+    }
+
+    // POST /league/:id/matches/:matchId/mom
+    if (method === 'POST' && parts[1] === 'matches' && parts[3] === 'mom') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      const body = parseBody(event.body)
+      if (!body || !body.playerId) return res(400, { message: 'playerId는 필수입니다' })
+      try {
+        await db.send(new PutCommand({
+          TableName: MATCH_MOM,
+          Item: {
+            matchId,
+            voterId: userId,
+            playerId: body.playerId,
+            votedAt: new Date().toISOString(),
+          },
+          ConditionExpression: 'attribute_not_exists(matchId) AND attribute_not_exists(voterId)',
+        }))
+      } catch (e) {
+        if (e instanceof ConditionalCheckFailedException) {
+          return res(409, { message: '이미 투표하셨습니다' })
+        }
+        throw e
+      }
+      return res(201, { message: 'voted' })
     }
 
     return res(404, { message: 'Not found' })
