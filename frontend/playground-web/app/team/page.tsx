@@ -210,22 +210,27 @@ export default function TeamPage() {
     authFetch('/clubs').then(d => {
       const clubs = d.clubs || [];
       setAllClubs(clubs);
-      const myClub = clubs.find((c: any) => c.clubId === authClubId);
-      if (myClub) setRecruiting(!!myClub.recruiting);
     }).catch(() => {});
   }, [authClubId]);
+
+  // currentTeam이 바뀌면 recruiting 상태 업데이트
+  useEffect(() => {
+    if (!currentTeam?.id || allClubs.length === 0) return;
+    const myClub = allClubs.find((c: any) => c.clubId === currentTeam.id);
+    if (myClub) setRecruiting(!!myClub.recruiting);
+  }, [currentTeam?.id, allClubs]);
 
   const clubNameMap: Record<string, string> = {};
   allClubs.forEach((c: any) => { clubNameMap[c.clubId] = c.name; });
 
   const toggleRecruiting = async () => {
-    if (!authClubId) return;
+    if (!currentTeam?.id) return;
     setRecruitingLoading(true);
     try {
       await fetch(`${AUTH_API}/clubs`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clubId: authClubId, recruiting: !recruiting }),
+        body: JSON.stringify({ clubId: currentTeam.id, recruiting: !recruiting }),
       });
       setRecruiting(!recruiting);
     } catch (e) { console.error('모집 상태 변경 실패', e); }
