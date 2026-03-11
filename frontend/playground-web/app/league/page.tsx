@@ -112,7 +112,7 @@ export default function LeaguePage() {
           className="text-xs px-3 py-1.5 rounded-lg transition-colors"
           style={{ color: "var(--text-muted)", background: "var(--card-bg)", border: "1px solid var(--card-border)" }}
         >
-          내 리그 관리 →
+          대회 탐색 →
         </Link>
       </div>
 

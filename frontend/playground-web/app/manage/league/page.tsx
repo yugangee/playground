@@ -197,7 +197,7 @@ function LeaguePageInner() {
         <div className="flex items-center gap-2">
           <Link href="/league" className="rounded-xl px-4 py-2.5 text-sm font-medium transition-colors hover:opacity-80"
             style={{ color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
-            리그 탐색 →
+            대회 탐색 →
           </Link>
           {isLeader && (
             <button onClick={() => setView('create')}
