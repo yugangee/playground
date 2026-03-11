@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Trophy, Users, Calendar, ChevronRight, AlertTriangle, Shield, Zap } from 'lucide-react';
+import { Calendar, ChevronRight, AlertTriangle, Shield } from 'lucide-react';
 import TournamentBracket from '@/components/tournament/TournamentBracket';
 import TeamRoster from '@/components/tournament/TeamRoster';
 import { kja51 } from '@/data/kja-tournament-51';
@@ -52,7 +52,7 @@ function ScoreModal({
       <button
         onClick={() => onChange(value + 1)}
         className="w-8 h-8 rounded-lg font-bold text-lg transition-colors"
-        style={{ background: 'rgba(192,38,211,0.15)', color: '#e879f9', border: '1px solid rgba(192,38,211,0.3)' }}
+        style={{ background: 'rgba(79,70,229,0.15)', color: '#818CF8', border: '1px solid rgba(79,70,229,0.3)' }}
       >+</button>
     </div>
   );
@@ -119,7 +119,7 @@ function ScoreModal({
             취소
           </button>
           <button onClick={handleSave} className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
-            style={{ background: 'rgba(192,38,211,0.1)', border: '2px solid rgba(192,38,211,0.3)', color: '#c026d3' }}>
+            style={{ background: 'rgba(79,70,229,0.1)', border: '2px solid rgba(79,70,229,0.3)', color: '#4F46E5' }}>
             저장
           </button>
         </div>
@@ -154,91 +154,59 @@ export default function KJA51Page() {
   const sedailyMatch = matches.find(m => m.matchNo === 38);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-4">
 
       {/* ── 히어로 섹션 ── */}
-      <div className="relative rounded-2xl overflow-hidden border"
-        style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.15) 0%, rgba(192,38,211,0.12) 50%, rgba(16,185,129,0.08) 100%)', borderColor: 'rgba(192,38,211,0.25)' }}>
-        <div className="p-6 sm:p-8">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide"
-                  style={{ background: 'rgba(192,38,211,0.2)', color: '#e879f9', border: '1px solid rgba(192,38,211,0.3)' }}>
-                  LIVE DEMO
-                </span>
-                <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold"
-                  style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}>
-                  ★ 4시드 서울경제 참가 중
-                </span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                제51회 한국기자협회<br className="sm:hidden" /> 서울지역 축구대회
-              </h1>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                2025년 9월 예정 · 토너먼트 방식 · 전후반 각 15분
-              </p>
-            </div>
-            <div className="flex gap-3 flex-wrap">
-              <Stat icon={<Users size={14} />} value={`${kja51.teamsCount}개`} label="참가팀" />
-              <Stat icon={<Trophy size={14} />} value={`${kja51.matchesCount}경기`} label="총 경기" />
-              <Stat icon={<Zap size={14} />} value={`${completedCount}`} label="완료" />
-            </div>
-          </div>
-
-          {/* 시드 팀 배너 */}
-          <div className="mt-4 flex gap-2 flex-wrap">
-            {[
-              { seed: 1, name: 'YTN', bg: 'rgba(34,197,94,0.15)', color: '#4ade80' },
-              { seed: 2, name: '동아일보', bg: 'rgba(59,130,246,0.15)', color: '#60a5fa' },
-              { seed: 3, name: '뉴스1', bg: 'rgba(251,191,36,0.15)', color: '#fbbf24' },
-              { seed: 4, name: '서울경제', bg: 'rgba(192,38,211,0.15)', color: '#e879f9', highlight: true },
-            ].map(s => (
-              <span key={s.seed} className="text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1"
-                style={{ background: s.bg, color: s.color, border: s.highlight ? `1px solid ${s.color}50` : undefined }}>
-                <Trophy size={11} /> {s.seed}시드 {s.name}
-              </span>
-            ))}
-          </div>
+      <div className="rounded-xl p-5" style={{ background: 'var(--card-bg)', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: '#F3F4F6', color: '#6B7280' }}>DEMO</span>
+          <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: '#FEF3C7', color: '#92400E' }}>4시드</span>
+        </div>
+        <h1 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+          제51회 한국기자협회 서울지역 축구대회
+        </h1>
+        <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+          2025년 9월 · {kja51.teamsCount}개팀 · {kja51.matchesCount}경기
+        </p>
+        <div className="flex gap-2 flex-wrap">
+          {['YTN', '동아일보', '뉴스1', '서울경제'].map((name, i) => (
+            <span key={name} className="text-[11px] px-2 py-1 rounded"
+              style={{
+                background: name === '서울경제' ? '#EEF2FF' : '#F9FAFB',
+                color: name === '서울경제' ? '#4F46E5' : 'var(--text-muted)'
+              }}>
+              {i + 1}시드 {name}
+            </span>
+          ))}
         </div>
       </div>
 
-      {/* ── 서경 경기 바로가기 배너 ── */}
+      {/* ── 서경 경기 바로가기 ── */}
       {sedailyMatch && (
-        <div className="rounded-xl border p-4 flex items-center justify-between gap-3"
-          style={{ background: 'rgba(192,38,211,0.06)', borderColor: 'rgba(192,38,211,0.25)' }}>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-              style={{ background: 'rgba(192,38,211,0.2)' }}>
-              <Shield size={16} style={{ color: '#e879f9' }} />
-            </div>
-            <div>
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                서울경제 첫 경기: <span style={{ color: '#e879f9' }}>38조</span> (2회전)
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                서울경제 vs 19조 승자 · 우측 블록 · 4시드
-              </p>
-            </div>
+        <button onClick={() => setActiveTab('bracket')}
+          className="w-full rounded-lg px-4 py-3 flex items-center justify-between text-left"
+          style={{ background: '#EEF2FF' }}>
+          <div className="flex items-center gap-2.5">
+            <Shield size={16} style={{ color: '#4F46E5' }} />
+            <span className="text-xs font-medium" style={{ color: '#4F46E5' }}>
+              서울경제 첫 경기: 38조 vs 19조 승자
+            </span>
           </div>
-          <button onClick={() => setActiveTab('bracket')} className="flex items-center gap-1 text-xs font-semibold"
-            style={{ color: '#e879f9' }}>
-            경로 보기 <ChevronRight size={14} />
-          </button>
-        </div>
+          <ChevronRight size={14} style={{ color: '#4F46E5' }} />
+        </button>
       )}
 
       {/* ── 탭 ── */}
-      <div className="flex gap-1 overflow-x-auto hide-scrollbar border-b" style={{ borderColor: 'var(--card-border)' }}>
+      <div className="flex gap-1 overflow-x-auto hide-scrollbar">
         {TABS.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className="px-4 py-2.5 text-sm font-semibold shrink-0 transition-colors border-b-2"
+            className="px-3 py-2 text-xs font-medium shrink-0 rounded-lg transition-colors"
             style={
               activeTab === tab.key
-                ? { color: '#e879f9', borderColor: '#e879f9' }
-                : { color: 'var(--text-muted)', borderColor: 'transparent' }
+                ? { background: '#4F46E5', color: 'white' }
+                : { background: 'transparent', color: 'var(--text-muted)' }
             }
           >
             {tab.label}
@@ -259,49 +227,35 @@ export default function KJA51Page() {
 
       {/* 경기 일정 */}
       {activeTab === 'schedule' && (
-        <div className="space-y-4">
-          <div className="rounded-xl border p-8 text-center"
-            style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
-            <Calendar size={32} className="mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
-            <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>경기 일정 추후 공지</p>
-            <p className="text-sm mt-2" style={{ color: 'var(--text-muted)' }}>
-              2025년 8월 말 선수 명단 제출 마감 후 일정이 확정됩니다.
-            </p>
-            <div className="mt-4 p-3 rounded-lg text-left text-xs space-y-1"
-              style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
-              <p>• 선수 명단 제출 마감: 2025.8.29(금) 오후 3시</p>
-              <p>• 예선 → 16강 → 8강~결승: 2025년 9월 예정</p>
-              <p>• 대회 장소: 추후 공지</p>
-            </div>
+        <div className="rounded-lg p-4 text-center" style={{ background: 'var(--card-bg)' }}>
+          <Calendar size={20} className="mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
+          <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>경기 일정 추후 공지</p>
+          <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>
+            8월 말 선수 명단 마감 후 일정 확정
+          </p>
+          <div className="mt-3 p-2 rounded text-left text-[10px] space-y-0.5"
+            style={{ background: '#FEF3C7', color: '#92400E' }}>
+            <p>명단 마감: 2025.8.29(금)</p>
+            <p>예선~결승: 9월 예정</p>
           </div>
         </div>
       )}
 
       {/* 서경 어벤져스 */}
       {activeTab === 'sedaily' && (
-        <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-sm"
-              style={{ background: 'linear-gradient(135deg, #c026d3, #7c3aed)' }}>
-              SE
-            </div>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded flex items-center justify-center font-semibold text-white text-[10px]"
+              style={{ background: '#4F46E5' }}>SE</div>
             <div>
-              <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>서울경제신문 어벤져스</h2>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>제51회 한국기자협회 서울지역 축구대회 · 4시드</p>
+              <h2 className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>서울경제 어벤져스</h2>
+              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>4시드</p>
             </div>
           </div>
 
-          {/* 7명 경고 배지 */}
-          <div className="rounded-xl border p-4 flex items-start gap-3"
-            style={{ background: 'rgba(239,68,68,0.06)', borderColor: 'rgba(239,68,68,0.25)' }}>
-            <AlertTriangle size={18} className="shrink-0 mt-0.5" style={{ color: '#f87171' }} />
-            <div>
-              <p className="text-sm font-semibold" style={{ color: '#f87171' }}>최소 출전 인원 규정</p>
-              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                경기 개시 시각까지 신분 확인이 완료된 선수 <strong style={{ color: 'var(--text-secondary)' }}>7명 이상</strong>이어야 합니다.
-                7명 미만 시 <strong style={{ color: '#f87171' }}>몰수패</strong>. 총무(이건율)의 출석 확인이 최우선 과제입니다.
-              </p>
-            </div>
+          <div className="rounded-lg p-2.5 flex items-center gap-2" style={{ background: '#FEF2F2' }}>
+            <AlertTriangle size={12} style={{ color: '#DC2626' }} />
+            <p className="text-[10px]" style={{ color: '#DC2626' }}>7명 미만 시 몰수패</p>
           </div>
 
           <TeamRoster roster={kja51.roster} />
@@ -310,43 +264,31 @@ export default function KJA51Page() {
 
       {/* 이전 대회 */}
       {activeTab === 'history' && (
-        <div className="space-y-4">
-          <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>직전 대회 결과 (제{kja50.edition}회)</h2>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="space-y-3">
+          <p className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>제{kja50.edition}회 결과</p>
+          <div className="grid grid-cols-4 gap-1.5">
             {[
-              { rank: '우승', team: kja50.champion, color: '#fbbf24', bg: 'rgba(251,191,36,0.1)', icon: '🥇' },
-              { rank: '준우승', team: kja50.runnerUp, color: '#9ca3af', bg: 'rgba(156,163,175,0.1)', icon: '🥈' },
-              { rank: '3위', team: kja50.third, color: '#fb923c', bg: 'rgba(251,146,60,0.1)', icon: '🥉' },
-              { rank: '4위', team: kja50.fourth, color: '#e879f9', bg: 'rgba(232,121,249,0.1)', icon: '★' },
-            ].map(r => (
-              <div key={r.rank} className="rounded-xl border p-4 text-center space-y-2"
-                style={{ background: r.bg, borderColor: `${r.color}40` }}>
-                <p className="text-2xl">{r.icon}</p>
-                <p className="text-xs font-semibold" style={{ color: r.color }}>{r.rank}</p>
-                <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{r.team}</p>
+              { rank: '우승', team: kja50.champion, bg: '#FEF3C7', color: '#92400E' },
+              { rank: '준우승', team: kja50.runnerUp, bg: '#F3F4F6', color: '#6B7280' },
+              { rank: '3위', team: kja50.third, bg: '#FED7AA', color: '#9A3412' },
+              { rank: '4위', team: kja50.fourth, bg: '#EEF2FF', color: '#4338CA' },
+            ].map((r, i) => (
+              <div key={r.rank} className="rounded-lg p-2 text-center" style={{ background: r.bg }}>
+                <p className="text-xs font-bold" style={{ color: r.color }}>{i + 1}</p>
+                <p className="text-[9px]" style={{ color: r.color }}>{r.rank}</p>
+                <p className="text-[10px] font-medium mt-0.5" style={{ color: 'var(--text-primary)' }}>{r.team}</p>
               </div>
             ))}
           </div>
-
-          <div className="rounded-xl border p-4 text-sm" style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
-            <p style={{ color: 'var(--text-muted)' }}>{kja50.note}</p>
-          </div>
-
-          <div className="rounded-xl border p-4" style={{ background: 'rgba(192,38,211,0.06)', borderColor: 'rgba(192,38,211,0.25)' }}>
-            <h3 className="text-sm font-bold mb-2" style={{ color: '#e879f9' }}>한국기자협회 축구대회 연혁</h3>
-            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              1972년 첫 개최. 올해 51회째를 맞는 유서 깊은 대회로, 회원 언론인의 체력 향상과 친목 도모를 목적으로 합니다.
-              2014년 이후 서울지역 대회로 운영. 2020~2021년 코로나19로 취소. 제51회부터 KT스카이라이프 AI 중계('포착') 도입.
-            </p>
-          </div>
+          <p className="text-[10px] p-2 rounded" style={{ background: 'var(--card-bg)', color: 'var(--text-muted)' }}>
+            {kja50.note}
+          </p>
         </div>
       )}
 
       {/* 대회 규정 */}
       {activeTab === 'rules' && (
-        <div className="space-y-3">
-          <h2 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>대회 주요 규정</h2>
+        <div className="space-y-2">
           {kja51.rules.map((rule, i) => (
             <RuleAccordion key={i} title={rule.title} content={rule.content} />
           ))}
@@ -368,36 +310,24 @@ export default function KJA51Page() {
 // ─────────────────────────────────────────────────────────────
 // 서브 컴포넌트
 // ─────────────────────────────────────────────────────────────
-function Stat({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
-  return (
-    <div className="text-center rounded-xl border px-3 py-2 min-w-16"
-      style={{ background: 'rgba(0,0,0,0.2)', borderColor: 'rgba(255,255,255,0.1)' }}>
-      <div className="flex items-center justify-center gap-1 text-fuchsia-400 mb-0.5">{icon}</div>
-      <p className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>{value}</p>
-      <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{label}</p>
-    </div>
-  );
-}
-
 function RuleAccordion({ title, content }: { title: string; content: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--card-border)' }}>
+    <div className="rounded-lg overflow-hidden" style={{ background: 'var(--card-bg)' }}>
       <button
         onClick={() => setOpen(p => !p)}
-        className="w-full flex items-center justify-between px-4 py-3 text-left transition-colors"
-        style={{ background: open ? 'rgba(192,38,211,0.06)' : 'var(--card-bg)' }}
+        className="w-full flex items-center justify-between px-3 py-2 text-left"
       >
-        <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
+        <span className="text-[11px] font-medium" style={{ color: 'var(--text-primary)' }}>{title}</span>
         <ChevronRight
-          size={16}
+          size={12}
           className="shrink-0 transition-transform"
           style={{ color: 'var(--text-muted)', transform: open ? 'rotate(90deg)' : 'none' }}
         />
       </button>
       {open && (
-        <div className="px-4 pb-3 pt-1" style={{ background: 'var(--card-bg)' }}>
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-muted)' }}>{content}</p>
+        <div className="px-3 pb-2">
+          <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>{content}</p>
         </div>
       )}
     </div>

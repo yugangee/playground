@@ -12,14 +12,14 @@ interface Props {
 }
 
 const ROUND_TABS: { key: TournamentRoundKey | 'all' | 'sedaily'; label: string }[] = [
-  { key: 'sedaily', label: '⭐ 서경 경로' },
+  { key: 'sedaily', label: '서경' },
   { key: 'all',     label: '전체' },
-  { key: 'R1',  label: ROUND_LABEL['R1'] },
-  { key: 'R2',  label: ROUND_LABEL['R2'] },
-  { key: 'QF',  label: ROUND_LABEL['QF'] },
-  { key: 'SF',  label: ROUND_LABEL['SF'] },
-  { key: 'F3',  label: ROUND_LABEL['F3'] },
-  { key: 'F1',  label: ROUND_LABEL['F1'] },
+  { key: 'R1',  label: '1R' },
+  { key: 'R2',  label: '2R' },
+  { key: 'QF',  label: '8강' },
+  { key: 'SF',  label: '4강' },
+  { key: 'F3',  label: '3결' },
+  { key: 'F1',  label: '결승' },
 ];
 
 // 서경 경기 경로 (matchNo 기준)
@@ -40,18 +40,18 @@ export default function TournamentBracket({ matches, scoreEditable, onScoreEdit 
   const finalMatches = filteredMatches.filter(m => m.block === 'final');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* 탭 */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-1.5 flex-wrap">
         {ROUND_TABS.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+            className="px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all"
             style={
               activeTab === tab.key
-                ? { background: 'linear-gradient(to right, #c026d3, #7c3aed)', color: 'white' }
-                : { background: 'var(--chip-inactive-bg)', color: 'var(--chip-inactive-color)' }
+                ? { background: '#4F46E5', color: 'white' }
+                : { background: '#F3F4F6', color: 'var(--text-muted)' }
             }
           >
             {tab.label}
@@ -62,31 +62,22 @@ export default function TournamentBracket({ matches, scoreEditable, onScoreEdit 
       {/* 서경 경기 경로 뷰 */}
       {activeTab === 'sedaily' && (
         <div className="space-y-4">
-          <div className="rounded-xl border p-4" style={{ background: 'rgba(192,38,211,0.06)', borderColor: 'rgba(192,38,211,0.25)' }}>
-            <h3 className="text-sm font-bold mb-1" style={{ color: '#e879f9' }}>서울경제 어벤져스 대진 경로</h3>
-            <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
-              4시드 배정. 우측 블록 38조에서 시작 → 8강(48조) → 4강(53조) → 우측 블록 결승(55조) → 결승
-            </p>
-
-            {/* 경로 플로우 */}
-            <div className="flex items-start gap-2 overflow-x-auto pb-2">
-              {sedailyMatches.map((match, i) => (
-                <div key={match.matchNo} className="flex items-start gap-2 shrink-0">
-                  <div className="w-44">
-                    <MatchCard match={match} compact scoreEditable={scoreEditable} onScoreEdit={onScoreEdit} />
-                  </div>
-                  {i < sedailyMatches.length - 1 && (
-                    <div className="flex items-center h-16 mt-2">
-                      <ChevronRight size={20} style={{ color: '#e879f9' }} />
-                    </div>
-                  )}
+          {/* 경로 플로우 */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-2">
+            {sedailyMatches.map((match, i) => (
+              <div key={match.matchNo} className="flex items-center gap-1.5 shrink-0">
+                <div className="w-36">
+                  <MatchCard match={match} compact scoreEditable={scoreEditable} onScoreEdit={onScoreEdit} />
                 </div>
-              ))}
-            </div>
+                {i < sedailyMatches.length - 1 && (
+                  <ChevronRight size={14} style={{ color: '#9CA3AF' }} />
+                )}
+              </div>
+            ))}
           </div>
 
           {/* 서경 경기 상세 카드 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {sedailyMatches.map(match => (
               <MatchCard key={match.matchNo} match={match} scoreEditable={scoreEditable} onScoreEdit={onScoreEdit} />
             ))}
@@ -96,18 +87,14 @@ export default function TournamentBracket({ matches, scoreEditable, onScoreEdit 
 
       {/* 전체 / 라운드별 뷰 */}
       {activeTab !== 'sedaily' && (
-        <div className="space-y-8">
+        <div className="space-y-5">
           {/* 좌측 블록 */}
           {leftBlock.length > 0 && (
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-2 h-2 rounded-full bg-violet-400" />
-                <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-                  좌측 블록 ({leftBlock.length}경기)
-                </h3>
-                <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>→ 54조 결승</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <p className="text-xs font-medium mb-2.5" style={{ color: 'var(--text-muted)' }}>
+                좌측 블록 ({leftBlock.length})
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {leftBlock.map(m => (
                   <MatchCard key={m.matchNo} match={m} scoreEditable={scoreEditable} onScoreEdit={onScoreEdit} />
                 ))}
@@ -118,14 +105,10 @@ export default function TournamentBracket({ matches, scoreEditable, onScoreEdit 
           {/* 우측 블록 */}
           {rightBlock.length > 0 && (
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-2 h-2 rounded-full bg-fuchsia-400" />
-                <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-                  우측 블록 ({rightBlock.length}경기)
-                </h3>
-                <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>→ 55조 결승 · 서경 경로</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <p className="text-xs font-medium mb-2.5" style={{ color: 'var(--text-muted)' }}>
+                우측 블록 ({rightBlock.length})
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {rightBlock.map(m => (
                   <MatchCard key={m.matchNo} match={m} scoreEditable={scoreEditable} onScoreEdit={onScoreEdit} />
                 ))}
@@ -136,11 +119,8 @@ export default function TournamentBracket({ matches, scoreEditable, onScoreEdit 
           {/* 결승 */}
           {finalMatches.length > 0 && (
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-2 h-2 rounded-full bg-amber-400" />
-                <h3 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>결승 라운드</h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
+              <p className="text-xs font-medium mb-2.5" style={{ color: 'var(--text-muted)' }}>결승</p>
+              <div className="grid grid-cols-2 gap-3">
                 {finalMatches.map(m => (
                   <MatchCard key={m.matchNo} match={m} scoreEditable={scoreEditable} onScoreEdit={onScoreEdit} />
                 ))}
@@ -149,7 +129,7 @@ export default function TournamentBracket({ matches, scoreEditable, onScoreEdit 
           )}
 
           {filteredMatches.length === 0 && (
-            <p className="text-center py-8 text-sm" style={{ color: 'var(--text-muted)' }}>해당 라운드 경기가 없습니다.</p>
+            <p className="text-center py-6 text-xs" style={{ color: 'var(--text-muted)' }}>해당 라운드 경기 없음</p>
           )}
         </div>
       )}

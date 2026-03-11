@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import HeaderAuth from "./HeaderAuth";
-import TodayBanner from "./TodayBannerNew";
 import ScrollToTop from "@/components/ScrollToTop";
 import SplashScreen from "@/components/app/SplashScreen";
 import { isNativeApp } from "@/lib/platform";
@@ -41,7 +40,6 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden">
       <HeaderAuth />
-      {user && <TodayBanner />}
       <main className="flex-1 px-4 sm:px-6 md:px-8 pt-6 pb-24 md:pb-8 max-w-7xl mx-auto w-full overflow-x-hidden">
         <ScrollToTop />
         {showSplash && <SplashScreen onFinish={handleSplashFinish} />}

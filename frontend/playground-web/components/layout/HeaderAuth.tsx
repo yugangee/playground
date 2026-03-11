@@ -44,14 +44,40 @@ export default function HeaderAuth() {
         className="sticky top-0 z-50 border-b"
         style={{ background: "var(--sidebar-bg)", borderColor: "var(--card-border)" }}
       >
-        {/* 상단: 로고 + 유저 */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3">
-          <Link href="/" className="font-black text-lg sm:text-xl tracking-tight uppercase" style={{ color: "var(--text-primary)" }}>
+        {/* 한 줄: 로고 + 네비게이션 + 유저 */}
+        <div className="flex items-center justify-between px-8 lg:px-12 py-4 max-w-[1400px] mx-auto w-full">
+          {/* 좌측: 로고 */}
+          <Link href="/" className="font-black text-xl tracking-tight uppercase flex-shrink-0" style={{ color: "var(--text-primary)" }}>
             Playground
           </Link>
 
-          {/* 우측 유저 영역 */}
-          <div className="flex items-center gap-3">
+          {/* 중앙: 데스크탑 네비게이션 메뉴 */}
+          <nav className="hidden md:flex items-center justify-center flex-1 gap-12 lg:gap-16 xl:gap-20 mx-8">
+            {desktopNavItems.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href || pathname.startsWith(href + "/");
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`flex items-center gap-2 text-sm font-medium transition-colors relative py-2 whitespace-nowrap ${
+                    active
+                      ? "text-white"
+                      : "hover:text-white"
+                  }`}
+                  style={active ? undefined : { color: "var(--text-muted)" }}
+                >
+                  <Icon size={16} />
+                  {label}
+                  {active && (
+                    <span className="absolute -bottom-4 left-0 right-0 h-0.5 bg-black dark:bg-white" />
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* 우측: 유저 영역 */}
+          <div className="flex items-center gap-3 flex-shrink-0">
             {loading ? (
               <div className="h-5" />
             ) : user ? (
@@ -75,31 +101,6 @@ export default function HeaderAuth() {
             ) : null}
           </div>
         </div>
-
-        {/* 데스크탑: 상단 네비게이션 메뉴 - 항상 표시, md 이상 */}
-        <nav className="hidden md:flex items-center justify-center gap-[40px] lg:gap-[60px] px-6 pb-0">
-            {desktopNavItems.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href || pathname.startsWith(href + "/");
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative ${
-                    active
-                      ? "text-white"
-                      : "hover:text-white"
-                  }`}
-                  style={active ? undefined : { color: "var(--text-muted)" }}
-                >
-                  <Icon size={16} />
-                  {label}
-                  {active && (
-                    <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-black dark:bg-white" />
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
       </header>
 
 
