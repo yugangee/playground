@@ -53,6 +53,49 @@ type JoinRequest = {
   status: string;
   createdAt: string;
 };
+
+// 커스텀 확인 모달 타입
+type ConfirmModalState = {
+  open: boolean;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm: () => void;
+  type?: 'confirm' | 'alert';
+};
+
+// 커스텀 확인 모달 컴포넌트
+function ConfirmModal({ state, onClose }: { state: ConfirmModalState; onClose: () => void }) {
+  if (!state.open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}>
+      <div className="w-full max-w-sm rounded-2xl p-6 space-y-4" style={{ background: "var(--card-bg, #1a1a1a)", border: "1px solid rgba(255,255,255,0.1)" }}>
+        <h3 className="text-lg font-bold text-white">{state.title}</h3>
+        <p className="text-sm text-gray-300 whitespace-pre-line">{state.message}</p>
+        <div className="flex gap-3 pt-2">
+          {state.type !== 'alert' && (
+            <button
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+              style={{ background: "rgba(255,255,255,0.1)", color: "#fff" }}
+            >
+              {state.cancelText || '취소'}
+            </button>
+          )}
+          <button
+            onClick={() => { state.onConfirm(); onClose(); }}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+            style={{ background: "#fff", color: "#000" }}
+          >
+            {state.confirmText || '확인'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 async function authFetch(path: string, options: RequestInit = {}) {
   const getToken = () => typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
   const buildReq = () => ({
@@ -200,18 +243,24 @@ export default function TeamPage() {
   const [scoreModal, setScoreModal] = useState<any>(null);
   const [scoreForm, setScoreForm] = useState({ ourScore: "", theirScore: "" });
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({ open: false, title: '', message: '', onConfirm: () => {} });
   const router = useRouter();
 
   useEffect(() => {
     if (!authClubId) return;
     authFetch(`/matches?clubId=${authClubId}`).then(d => setMatches(d.matches || [])).catch(() => {});
     authFetch(`/activities?clubId=${authClubId}`).then(d => setActivities(d.activities || [])).catch(() => {});
-    fetch(`${AUTH_API}/join-requests?clubId=${authClubId}`).then(r => r.json()).then(d => setJoinRequests((d.requests || d || []).filter((r: any) => r.status === 'pending'))).catch(() => {});
     authFetch('/clubs').then(d => {
       const clubs = d.clubs || [];
       setAllClubs(clubs);
     }).catch(() => {});
   }, [authClubId]);
+
+  // currentTeam이 바뀌면 해당 팀의 가입 신청 목록 조회
+  useEffect(() => {
+    if (!currentTeam?.id) return;
+    fetch(`${AUTH_API}/join-requests?clubId=${currentTeam.id}`).then(r => r.json()).then(d => setJoinRequests((d.requests || d || []).filter((r: any) => r.status === 'pending'))).catch(() => {});
+  }, [currentTeam?.id]);
 
   // currentTeam이 바뀌면 recruiting 상태 업데이트
   useEffect(() => {
@@ -223,7 +272,7 @@ export default function TeamPage() {
   const clubNameMap: Record<string, string> = {};
   allClubs.forEach((c: any) => { clubNameMap[c.clubId] = c.name; });
 
-  const toggleRecruiting = async () => {
+  const doToggleRecruiting = async () => {
     if (!currentTeam?.id) return;
     setRecruitingLoading(true);
     try {
@@ -235,6 +284,23 @@ export default function TeamPage() {
       setRecruiting(!recruiting);
     } catch (e) { console.error('모집 상태 변경 실패', e); }
     setRecruitingLoading(false);
+  };
+
+  const toggleRecruiting = () => {
+    if (!currentTeam?.id) return;
+    // 모집 해제 시 확인 모달
+    if (recruiting) {
+      setConfirmModal({
+        open: true,
+        title: '팀원 모집 해제',
+        message: '팀원 모집을 해제하시겠습니까?\n클럽 탐색에서 모집중 표시가 사라집니다.',
+        confirmText: '해제',
+        cancelText: '취소',
+        onConfirm: doToggleRecruiting,
+      });
+    } else {
+      doToggleRecruiting();
+    }
   };
 
   const isCompetitive = currentTeam ? COMPETITIVE_SPORT_TYPES.has(currentTeam.sportType ?? '') : false;
@@ -349,22 +415,30 @@ export default function TeamPage() {
   // 멤버 삭제 (Manage API)
   async function deleteMemberAPI(userId: string) {
     if (!currentTeam) return;
-    if (!confirm('이 멤버를 팀에서 제거하시겠습니까?')) return;
-    try {
-      await manageFetch(`/team/${currentTeam.id}/members/${userId}`, { method: 'DELETE' });
-      setMembers(prev => prev.filter(m => m.userId !== userId));
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '멤버 삭제에 실패했습니다');
-    }
+    setConfirmModal({
+      open: true,
+      title: '멤버 제거',
+      message: '이 멤버를 팀에서 제거하시겠습니까?',
+      confirmText: '제거',
+      cancelText: '취소',
+      onConfirm: async () => {
+        try {
+          await manageFetch(`/team/${currentTeam.id}/members/${userId}`, { method: 'DELETE' });
+          setMembers(prev => prev.filter(m => m.userId !== userId));
+        } catch (e) {
+          setConfirmModal({ open: true, title: '오류', message: e instanceof Error ? e.message : '멤버 삭제에 실패했습니다', onConfirm: () => {}, type: 'alert' });
+        }
+      },
+    });
   }
 
-  // 가입 신청 수락
-  async function acceptJoinRequest(requestId: string) {
+  // 가입 신청 수락 실행
+  async function doAcceptJoinRequest(requestId: string, applicantName: string) {
     try {
       await fetch(`${AUTH_API}/join-requests/${requestId}/accept`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clubId: authClubId }),
+        body: JSON.stringify({ managerEmail: user?.email }),
       });
       setJoinRequests(prev => prev.filter(r => r.requestId !== requestId));
       // 멤버 목록 새로고침
@@ -383,19 +457,48 @@ export default function TeamPage() {
         });
         setMembers(converted);
       }
-    } catch { alert('수락에 실패했습니다'); }
+      setConfirmModal({ open: true, title: '승인 완료', message: `${applicantName}님이 팀에 추가되었습니다.`, onConfirm: () => {}, type: 'alert' });
+    } catch {
+      setConfirmModal({ open: true, title: '오류', message: '수락에 실패했습니다', onConfirm: () => {}, type: 'alert' });
+    }
   }
 
-  // 가입 신청 거절
-  async function rejectJoinRequest(requestId: string) {
+  // 가입 신청 수락
+  function acceptJoinRequest(requestId: string, applicantName: string) {
+    setConfirmModal({
+      open: true,
+      title: '가입 신청 승인',
+      message: `${applicantName}님의 가입 신청을 승인하시겠습니까?`,
+      confirmText: '승인',
+      cancelText: '취소',
+      onConfirm: () => doAcceptJoinRequest(requestId, applicantName),
+    });
+  }
+
+  // 가입 신청 거절 실행
+  async function doRejectJoinRequest(requestId: string) {
     try {
       await fetch(`${AUTH_API}/join-requests/${requestId}/reject`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clubId: authClubId }),
+        body: JSON.stringify({ managerEmail: user?.email }),
       });
       setJoinRequests(prev => prev.filter(r => r.requestId !== requestId));
-    } catch { alert('거절에 실패했습니다'); }
+    } catch {
+      setConfirmModal({ open: true, title: '오류', message: '거절에 실패했습니다', onConfirm: () => {}, type: 'alert' });
+    }
+  }
+
+  // 가입 신청 거절
+  function rejectJoinRequest(requestId: string, applicantName: string) {
+    setConfirmModal({
+      open: true,
+      title: '가입 신청 거절',
+      message: `${applicantName}님의 가입 신청을 거절하시겠습니까?`,
+      confirmText: '거절',
+      cancelText: '취소',
+      onConfirm: () => doRejectJoinRequest(requestId),
+    });
   }
 
   // 초대 링크 (Manage API)
@@ -621,8 +724,8 @@ function TeamPageContent({
   recruitingLoading = false,
   toggleRecruiting = () => {},
   joinRequests = [] as JoinRequest[],
-  acceptJoinRequest = (_: string) => {},
-  rejectJoinRequest = (_: string) => {},
+  acceptJoinRequest = (_id: string, _name: string) => {},
+  rejectJoinRequest = (_id: string, _name: string) => {},
 }: any) {
   if (!club) {
     return (
@@ -1101,6 +1204,11 @@ function TeamPageContent({
                   {m.position && (
                     <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${positionColor[m.position] || "bg-gray-200 text-gray-600"}`}>{m.position}</span>
                   )}
+                  {memberRoles.length > 0 && (() => {
+                    const roleLabel: Record<string, string> = { leader: '주장', manager: '관리자', treasurer: '총무', member: '멤버' };
+                    const label = memberRoles.map((r: string) => roleLabel[r] || r).join('·');
+                    return <span className="text-[10px] text-gray-400 shrink-0">{label}</span>;
+                  })()}
                 </div>
                 <div className="flex gap-1 shrink-0">
                   {memberEditing && !isDemo && hasFullEditPermission && (
@@ -1147,12 +1255,12 @@ function TeamPageContent({
                   </div>
                   <div className="flex gap-1 shrink-0 ml-2">
                     <button
-                      onClick={() => acceptJoinRequest(req.requestId)}
+                      onClick={() => acceptJoinRequest(req.requestId, req.name)}
                       className="text-xs px-2 py-1 rounded font-semibold" style={{ background: "#000", color: "#fff" }}>
                       승인
                     </button>
                     <button
-                      onClick={() => rejectJoinRequest(req.requestId)}
+                      onClick={() => rejectJoinRequest(req.requestId, req.name)}
                       className="text-xs px-2 py-1 rounded font-semibold text-gray-500 hover:text-red-400">
                       거절
                     </button>
@@ -1796,6 +1904,9 @@ function TeamPageContent({
           </div>
         </div>
       )}
+
+      {/* 커스텀 확인 모달 */}
+      <ConfirmModal state={confirmModal} onClose={() => setConfirmModal(prev => ({ ...prev, open: false }))} />
     </div>
     </div>
     </div>
