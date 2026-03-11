@@ -1,6 +1,6 @@
 "use client";
 
-import { Trophy, MapPin, Calendar, ArrowRight } from "lucide-react";
+import { Trophy, MapPin, Calendar, ArrowRight, Users, DollarSign, Award } from "lucide-react";
 import { useState, useEffect } from "react";
 import { manageFetch } from "@/lib/manageFetch";
 import { useTeam } from "@/context/TeamContext";
@@ -221,9 +221,39 @@ export default function LeaguePage() {
                 <p className="text-xs line-clamp-2" style={{ color: "var(--text-muted)" }}>{l.description}</p>
               )}
 
-              {(l.startDate || l.endDate) && (
-                <div className="flex items-center gap-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                  <Calendar size={11} /> {l.startDate ?? "?"} ~ {l.endDate ?? "미정"}
+              {/* 추가 정보 행 */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                {(l.startDate || l.endDate) && (
+                  <span className="flex items-center gap-1">
+                    <Calendar size={11} /> {l.startDate ?? "?"} ~ {l.endDate ?? "미정"}
+                  </span>
+                )}
+                {l.venue?.name && (
+                  <span className="flex items-center gap-1">
+                    <MapPin size={11} /> {l.venue.name}
+                  </span>
+                )}
+                {l.registration?.maxTeams && (
+                  <span className="flex items-center gap-1">
+                    <Users size={11} /> 최대 {l.registration.maxTeams}팀
+                  </span>
+                )}
+                {l.registration?.entryFee && (
+                  <span className="flex items-center gap-1">
+                    <DollarSign size={11} /> {l.registration.entryFee}
+                  </span>
+                )}
+              </div>
+
+              {/* 시상 항목 뱃지 */}
+              {l.awards && l.awards.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {l.awards.map(a => (
+                    <span key={a} className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full"
+                      style={{ background: 'rgba(234,179,8,0.1)', color: '#eab308', border: '1px solid rgba(234,179,8,0.25)' }}>
+                      <Award size={9} /> {a}
+                    </span>
+                  ))}
                 </div>
               )}
 
