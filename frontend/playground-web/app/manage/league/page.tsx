@@ -357,9 +357,26 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
   const [generating, setGenerating] = useState(false)
   const [detailMatch, setDetailMatch] = useState<LeagueMatch | null>(null)
 
+  // 전체 팀 이름 맵을 한번에 로드 (GET /team/all)
+  const fetchAllTeamNames = async () => {
+    try {
+      const data = await manageFetch('/team/all')
+      const allTeams: Array<{ id: string; name: string }> = data?.teams ?? data ?? []
+      const names: Record<string, string> = {}
+      allTeams.forEach((t: { id: string; name: string }) => {
+        if (t.id && t.name) names[t.id] = t.name
+      })
+      setTeamNames(prev => ({ ...prev, ...names }))
+    } catch {
+      // fallback: 개별 조회
+    }
+  }
+
+  // 개별 팀 이름 조회 (fallback)
   const fetchTeamNames = async (teamIds: string[]) => {
+    const uniqueIds = Array.from(new Set(teamIds)).filter(id => !teamNames[id])
+    if (uniqueIds.length === 0) return
     const names: Record<string, string> = {}
-    const uniqueIds = Array.from(new Set(teamIds))
     await Promise.all(uniqueIds.map(async tid => {
       try {
         const data = await manageFetch(`/team/${tid}`)
@@ -385,11 +402,14 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
   }
 
   useEffect(() => {
-    Promise.all([loadTeams(), loadMatches()]).then(([teamsData, matchesData]) => {
-      const allIds = new Set<string>()
-      teamsData.forEach(t => allIds.add(t.teamId))
-      matchesData.forEach(m => { allIds.add(m.homeTeamId); allIds.add(m.awayTeamId) })
-      if (allIds.size > 0) fetchTeamNames(Array.from(allIds))
+    // 먼저 전체 팀 이름 맵을 로드한 후, 데이터 로드
+    fetchAllTeamNames().then(() => {
+      Promise.all([loadTeams(), loadMatches()]).then(([teamsData, matchesData]) => {
+        const allIds = new Set<string>()
+        teamsData.forEach(t => allIds.add(t.teamId))
+        matchesData.forEach(m => { allIds.add(m.homeTeamId); allIds.add(m.awayTeamId) })
+        if (allIds.size > 0) fetchTeamNames(Array.from(allIds))
+      })
     })
   }, [league.id])
 
@@ -1009,7 +1029,7 @@ function MatchesSection({ leagueId, matches, onRefresh, isOrganizer, leagueStatu
           {(selectedRound ? rounds.filter(r => r === selectedRound) : rounds).map(round => (
             <div key={round}>
               <div className="mb-3 flex items-center gap-3">
-                <span className="rounded-lg px-3 py-1 text-xs font-bold" style={{ background: 'var(--text-primary)', color: 'var(--card-bg)' }}>{round}</span>
+                <span className="rounded-lg px-3 py-1 text-xs font-bold" style={{ background: 'var(--btn-solid-bg)', color: 'var(--btn-solid-color)' }}>{round}</span>
                 <div className="h-px flex-1" style={{ background: 'var(--card-border)' }} />
               </div>
               <div className="space-y-3">
@@ -1492,9 +1512,9 @@ function BracketView({ matches, tn, onMatchClick, leagueStatus }: {
             <g key={`label-${group.round}`}>
               <rect x={gi * colWidth + (MATCH_W - group.round.length * 14) / 2 - 8} y={2}
                 width={group.round.length * 14 + 16} height={24} rx={6}
-                fill="var(--text-primary)" />
+                fill="var(--btn-solid-bg)" />
               <text x={gi * colWidth + MATCH_W / 2} y={19}
-                textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--card-bg)">
+                textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--btn-solid-color)">
                 {group.round}
               </text>
             </g>
@@ -1516,7 +1536,7 @@ function BracketView({ matches, tn, onMatchClick, leagueStatus }: {
       {thirdPlaceMatch && (
         <div>
           <div className="mb-3 flex items-center gap-3">
-            <span className="rounded-lg px-3 py-1 text-xs font-bold" style={{ background: 'var(--text-primary)', color: 'var(--card-bg)' }}>3/4위전</span>
+            <span className="rounded-lg px-3 py-1 text-xs font-bold" style={{ background: 'var(--btn-solid-bg)', color: 'var(--btn-solid-color)' }}>3/4위전</span>
             <div className="h-px flex-1" style={{ background: 'var(--card-border)' }} />
           </div>
           <div onClick={() => onMatchClick(thirdPlaceMatch)}
