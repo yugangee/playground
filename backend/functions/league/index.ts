@@ -75,11 +75,13 @@ async function tryAdvanceTournament(leagueId: string, currentRound: string) {
   const nextRoundMatches = allMatches.filter(m => m.round === next)
   if (nextRoundMatches.length > 0) return
 
-  // winners 추출 후 다음 라운드 매치 생성
+  // winners & losers 추출
   const winners = roundMatches.map(m => getWinner(m)!).filter(Boolean)
   if (winners.length < 2) return
 
   const defaultDate = new Date().toISOString()
+
+  // 다음 라운드 매치 생성
   for (let i = 0; i + 1 < winners.length; i += 2) {
     await db.send(new PutCommand({
       TableName: LEAGUE_MATCHES,
@@ -95,6 +97,35 @@ async function tryAdvanceTournament(leagueId: string, currentRound: string) {
         createdAt: defaultDate,
       },
     }))
+  }
+
+  // 준결승 완료 시 3/4위전 자동 생성
+  if (currentRound === '준결승') {
+    const losers = roundMatches.map(m => {
+      const w = getWinner(m)
+      if (!w) return null
+      return w === (m.homeTeamId as string) ? (m.awayTeamId as string) : (m.homeTeamId as string)
+    }).filter(Boolean) as string[]
+
+    if (losers.length === 2) {
+      const thirdPlaceExists = allMatches.some(m => m.round === '3/4위전')
+      if (!thirdPlaceExists) {
+        await db.send(new PutCommand({
+          TableName: LEAGUE_MATCHES,
+          Item: {
+            id: randomUUID(),
+            leagueId,
+            homeTeamId: losers[0],
+            awayTeamId: losers[1],
+            round: '3/4위전',
+            scheduledAt: defaultDate,
+            venue: '미정',
+            status: 'pending',
+            createdAt: defaultDate,
+          },
+        }))
+      }
+    }
   }
 
   // 홀수 winner → 부전승 (자동 다음 라운드 진출은 하지 않음, 주최자가 수동 처리)

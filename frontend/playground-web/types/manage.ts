@@ -213,6 +213,7 @@ export interface LeagueMatch extends Match {
   leagueId: string
   round?: string
   winner?: string  // 토너먼트: 승리팀 ID (PK 등 동점 시 수동 지정)
+  pkScore?: { home: number; away: number }  // 승부차기 결과
 }
 
 export interface LeaguePlayerStats {
@@ -224,4 +225,14 @@ export interface LeaguePlayerStats {
   yellowCards: number
   redCards: number
   gamesPlayed: number
+}
+
+// 프론트에서 계산 — 경고 누적/출전정지 추적용
+export interface PlayerSuspension {
+  playerId: string
+  teamId: string
+  totalYellows: number
+  totalReds: number
+  matchesBanned: number   // 남은 출전정지 경기 수
+  warningReset: boolean   // 4강 진출 시 초기화 여부
 }

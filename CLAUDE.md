@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**PLAYGROUND** — Amateur sports platform (아마추어 스포츠의 프로 경험). Features team/club management, match tracking, a rating/tier system, real-time chat (WebSocket), AI video analysis, and an equipment marketplace.
+**PLAYGROUND** — Amateur sports platform (아마추어 스포츠의 프로 경험). Features team/club management, league/tournament operations, match tracking with detailed stats, a rating/tier system, real-time chat (WebSocket), AI video analysis, GPS tracking, and an equipment marketplace.
+
+**Live site:** `fun.sedaily.ai`
 
 ## Repository Structure
 
@@ -14,9 +16,10 @@ sedaily-playground/
 ├── backend/
 │   ├── auth/                  # Auth Lambda (index.mjs, scoring.mjs) — manually deployed
 │   ├── chat/                  # WebSocket chat Lambda
-│   ├── functions/             # CDK-managed Lambdas (team, finance, league, schedule, notifications, reminder, seasonReset)
+│   ├── chatbot/               # AI chatbot server (Python)
+│   ├── functions/             # CDK-managed Lambdas (team, finance, league, schedule, notifications, reminder, seasonReset, ec2)
 │   └── infra/                 # AWS CDK stack definition (cdk.json lives here)
-└── docs/                      # README.md, PROGRESS.md, DEPLOY.md, CHAT-PIPELINE.md, RATING-SYSTEM.md, VIDEO-ANALYSIS.md, DB-CONNECTIONS.md
+└── docs/                      # PROGRESS.md, MILESTONES.md, WORK-LOG-*.md, DB-CONNECTIONS.md, RATING-SYSTEM.md, etc.
 ```
 
 ## Frontend Commands
@@ -52,7 +55,7 @@ npm run build    # TypeScript → dist/
 ## Frontend Architecture
 
 - **Framework:** Next.js 16 with App Router, configured for **static export** (`output: 'export'`). No SSR — all pages are pre-rendered HTML.
-- **Styling:** Tailwind CSS 4 + Radix UI primitives (shadcn-style, configured in `components.json`)
+- **Styling:** Tailwind CSS 4 + Radix UI primitives (shadcn-style, configured in `components.json`). Theme via CSS custom properties (`var(--text-primary)`, `var(--card-bg)`, etc.)
 - **State:** React Context providers in `context/` — `AuthContext`, `ChatContext`, `ClubContext`, `TeamContext`, `ThemeContext`
 - **API calls:**
   - `lib/manageFetch.ts` — wraps fetch for the **Manage API** (CDK stack); uses idToken; includes 401 auto-refresh + retry
@@ -61,6 +64,48 @@ npm run build    # TypeScript → dist/
   - `app/team/page.tsx` defines a local `authFetch()` — wraps fetch for the **Auth API**; uses accessToken; same 401 → refresh → retry pattern
 - **Path alias:** `@/` maps to the `frontend/playground-web/` root
 - **React Compiler** is enabled — ESLint enforces `react-hooks/refs` (no ref access during render), `react-hooks/immutability`, `react-hooks/preserve-manual-memoization`
+
+## Frontend Pages
+
+**Navigation flow:** Top nav "대회" → `/manage/league` (league management). "대회 탐색 →" button → `/league` (public league discovery).
+
+| Route | Description |
+|---|---|
+| `/login`, `/signup` | Auth (email/password + Kakao OAuth) |
+| `/clubs` | Club discovery with filters, AI matching |
+| `/league` | Browse public leagues, join, filter by type/status/region |
+| `/league/kja-51` | KJA 51st tournament bracket & stats |
+| `/players` | Player search by name/region/position/sport |
+| `/schedule` | Monthly calendar, attendance tracking, check-in |
+| `/chat` | WebSocket real-time team chat |
+| `/team` | Team creation, members, team list |
+| `/team/matches` | Match records & statistics (Auth+Manage API merge) |
+| `/team/compare` | Team/player/head-to-head comparison with radar charts |
+| `/finance` | Team financial dashboard |
+| `/report` | AI performance report with radar charts |
+| `/video`, `/m/video` | AI video analysis upload & coaching insights |
+| `/market` | Equipment marketplace (mock data) |
+| `/mypage` | Profile, activity stats, GPS sessions |
+| `/manage/league` | Create/manage leagues & tournaments (primary entry point) |
+| `/manage/team` | Team admin (members, stats, uniforms, recruitment) |
+| `/manage/schedule` | Match scheduling, attendance management |
+| `/manage/finance` | Ledger, dues, fines, settlement |
+| `/manage/social` | Friends, favorites |
+| `/manage/discover` | Discover teams/leagues by region/age |
+| `/m` | Mobile landing with quick actions |
+
+## Backend Lambdas (CDK-managed)
+
+| Function | Key Endpoints |
+|---|---|
+| **team** | `GET/POST/PUT/DELETE /team/{id}`, `/team/{id}/members`, stats, uniforms, equipment, recruitment |
+| **schedule** | `/schedule/matches`, announcements, polls, attendance |
+| **finance** | `/finance/transactions`, `/finance/dues`, `/finance/fines` |
+| **league** | `GET/POST /league`, `/league/{id}/teams` (join), `/league/{id}/matches/generate` (bracket/round-robin), `PATCH /league/{id}/matches/{matchId}` (with tournament auto-advancement), `GET /league/{id}/stats` |
+| **notifications** | `/social/friends`, `/social/favorites`, `/social/discover`, `/notifications/push/*` |
+| **reminder** | EventBridge hourly — D-2/D-1/same-day match reminders (Kakao AlimTalk + SMS fallback) |
+| **seasonReset** | EventBridge Jan 1 KST — 50% point decay, tier recalculation |
+| **ec2** | Auto-start EC2 for video analysis pipeline |
 
 ## Dual API System — Critical Architecture
 
@@ -72,7 +117,7 @@ The project uses **two separate APIs** that share one Cognito pool but serve dif
 | **Token** | `accessToken` | `idToken` (CognitoUserPoolsAuthorizer) |
 | **Fetch wrapper** | `authFetch()` in team/page.tsx | `manageFetch()` in lib/manageFetch.ts |
 | **Endpoints** | `/auth/*`, `/clubs`, `/matches`, `/activities`, `/join-requests`, `/users` | `/team`, `/finance`, `/league`, `/schedule`, `/social`, `/discover`, `/notifications` |
-| **Tables** | `playground-*` (users, clubs, matches, activities, chat-messages, ws-connections) | `pg-*` (~24 tables: teams, leagues, finance, dues, fines, etc.) |
+| **Tables** | `playground-*` (users, clubs, matches, activities, chat-messages, ws-connections) | `pg-*` (28 tables: teams, leagues, finance, dues, fines, etc.) |
 
 **Club ↔ Team data mapping:** Auth API "clubs" and Manage API "teams" represent the same real-world entity. `TeamContext` converts club data from Auth API into the Team interface. When both APIs return data for the same entity, the frontend merges them (see `team/page.tsx` and `team/matches/page.tsx`).
 
@@ -99,6 +144,13 @@ The project uses **two separate APIs** that share one Cognito pool but serve dif
 
 **Match lifecycle:** `proposed → scheduled → homeSubmitted/awaySubmitted → bothSubmitted/disputed → confirmed`
 
+**League/Tournament system:**
+- League types: `league` (round-robin) or `tournament` (elimination bracket)
+- Tournament auto-advancement: completing a round's matches triggers next round match generation
+- Round order: 1라운드 → 16강 → 8강 → 준결승 → 결승
+- Match details: goals (scorer/assist/minute), cards (yellow/red), guests, lineups, PK order
+- Authorization: `user.sub` (Cognito UUID) compared with `league.organizerId` — not `user.username`
+
 **Scheduled backend jobs** (EventBridge):
 - `playground-reminder` Lambda — hourly check for D-2/D-1/same-day match reminders
 - `playground-season-reset` Lambda — Dec 31 15:00 UTC (= Jan 1 KST) with 50% point decay
@@ -111,6 +163,7 @@ The project uses **two separate APIs** that share one Cognito pool but serve dif
 | Manage API (`NEXT_PUBLIC_MANAGE_API_URL`) | `https://91iv3etr0h.execute-api.us-east-1.amazonaws.com/prod` |
 | WebSocket | `wss://s2b7iclwcj.execute-api.us-east-1.amazonaws.com/prod` |
 | Frontend | `fun.sedaily.ai` → S3 bucket `playground-web-sedaily-us` via CloudFront `E1U8HJ0871GR0O` |
+| Video CDN | `d2e8khynpnbcpl.cloudfront.net` via CloudFront `E2AQ982ZLLWYM9` |
 | Cognito Pool | `us-east-1_dolZhFZDJ` (both APIs use this pool) |
 
 ## Important Gotchas
@@ -121,10 +174,12 @@ The project uses **two separate APIs** that share one Cognito pool but serve dif
 - **Build ignores errors:** `ignoreBuildErrors: true` in `next.config.ts` means the build will pass even with TypeScript/ESLint errors. Always run `npm run lint` explicitly.
 - **CDK GSI limit:** DynamoDB does not allow adding more than one GSI in a single CloudFormation update — deploy GSI additions in separate steps.
 - **S3 deploy exclusion:** Always use `--exclude "uploads/*"` when syncing to S3 to preserve user-uploaded files.
+- **`sub` vs `username`:** Cognito `Username` is email, `sub` is UUID. Backend stores `sub` as `organizerId` for leagues. Always use `user.sub` for organizer checks, not `user.username`.
+- **`useSearchParams` requires Suspense:** Pages using `useSearchParams()` (like `/manage/league`) must be wrapped in `<Suspense>` for static export compatibility.
 
 ## Deployment Notes
 
-- **Frontend:** `npm run deploy` from `frontend/playground-web/` — builds, syncs to S3, invalidates CloudFront
+- **Frontend:** `npm run deploy` from `frontend/playground-web/` — builds, syncs to S3 (`--exclude "uploads/*"`), invalidates CloudFront
 - **CDK stack:** `npx cdk deploy` from `backend/infra/` (not `backend/`)
 - **Auth Lambda:** Not in CDK — deploy manually via `aws lambda update-function-code`
 

@@ -2,87 +2,119 @@
 
 **누구나 즐기는 스포츠, 데이터로 더 재미있게 - 아마추어 스포츠의 프로 경험**
 
+> Live: [fun.sedaily.ai](https://fun.sedaily.ai)
+
 ## 핵심 가치
 
 Playground는 전문 선수가 아닌 일반인도 프로처럼 팀을 운영하고, 경기를 분석하며, 데이터 기반으로 성장할 수 있는 스포츠 통합 플랫폼입니다.
 
 ## 주요 기능
 
-### 1. 스마트 리그 매니지먼트 & 커뮤니티
+### 1. 팀 & 클럽 관리
+- **팀 운영**: 팀 생성, 멤버 초대, 포지션·등번호 관리, 장비 관리
+- **클럽 탐색 & 매칭**: 지역·종목·실력별 상대 팀 검색, AI 기반 매칭 추천
+- **선수 탐색**: 이름·지역·포지션·종목별 선수 검색 및 스카우트
+- **팀/선수 비교**: 레이더 차트 기반 능력치 비교, 상대전적 분석
 
-- **팀 및 선수 관리**: 팀 생성, 멤버 초대, 포지션 관리, 주장 설정 등 체계적인 팀 운영
-- **클럽 탐색 & 매칭**: 지역, 종목, 실력별로 상대 팀을 찾고 경기 제안
-- **실시간 채팅**: 팀 간 경기 일정 조율 및 전략 회의를 위한 안전한 소통 공간 (AI 기반 불량 언어 감지 시스템 적용 예정)
-- **선수 탐색**: 실제 데이터베이스 기반 선수 검색 및 스카우트
-- **리그 관리**: 대진표, 순위, 경기 결과 실시간 업데이트 (구현 예정)
+### 2. 대회 & 리그 시스템
+- **리그/토너먼트 생성**: 라운드 로빈(리그) 또는 토너먼트(엘리미네이션) 방식 선택
+- **대진표 자동 생성**: 참가팀 기반 라운드별 매치 자동 배정
+- **토너먼트 자동 진출**: 라운드 완료 시 다음 라운드 매치 자동 생성 (16강→8강→준결승→결승)
+- **경기 상세 기록**: 골(득점자/어시스트/시간), 카드(옐로/레드), 용병 등록, 라인업
+- **통계 대시보드**: 득점 순위, 카드 현황, 팀 순위표 (득실차, 폼 가이드)
+- **대회 탐색**: 공개 대회 검색, 타입/상태/지역별 필터, 참가 신청
 
-### 2. 지능형 경기 분석 시스템 (구현 예정)
+### 3. 경기 & 일정
+- **월별 캘린더**: 경기 일정 시각화, 출석 체크인
+- **매치 기록**: 경기별 상세 결과, 골/어시스트/카드 기록
+- **출석 관리**: 참석/불참 투표, 실시간 현황
+- **알림**: Kakao AlimTalk D-2/D-1/당일 자동 알림
 
-- **퍼포먼스 데이터화**: 경기 영상 업로드 시 선수 움직임, 공의 흐름, 점유율, 활동량 등 주요 지표 자동 분석
-- **하이라이트 자동 생성**: 득점 상황, 결정적 찬스를 AI가 감지하여 자동 편집 및 가상 해설 음성 생성
-- **개인 리포트**: 선수별 강점, 약점, 성장 추이를 시각화한 맞춤형 분석 리포트
+### 4. 레이팅 & 티어 시스템
+- **선수 티어**: B → S → A → SP → P (승리·득점·활동 기반 포인트)
+- **팀 티어**: Rookie → Club → Crew → Elite → Legend
+- **시즌 리셋**: 매년 1월 1일 50% 포인트 감쇠 + 티어 재산정
 
-### 3. 데이터 기반 시뮬레이션 게임 (구현 예정)
+### 5. 실시간 소통
+- **팀 채팅**: WebSocket 기반 실시간 메시징
+- **일정 조율**: 채팅 내 날짜/장소 선택
+- **AI 챗봇**: 운영 도우미
 
-- **실제 데이터의 게임화**: 분석된 개인 역량(스피드, 슈팅, 패스 등)을 캐릭터 능력치로 변환한 디지털 선수 카드 발급
-- **전략적 시뮬레이션**: 실제 팀 기록을 바탕으로 다른 팀과 가상 대결, 전술 시뮬레이션
-- **오프라인 연계**: 실제 경기 결과가 게임 능력치에 반영되어 끊임없는 동기부여
+### 6. AI 영상 분석
+- **경기 영상 업로드**: 실시간 분석 진행률 표시
+- **자동 분석**: 선수 움직임, 공 흐름, 점유율 등 주요 지표
+- **코칭 인사이트**: AI 기반 전술 제안 및 개인 리포트
 
-### 4. 부가 기능
+### 7. 재정 관리
+- **수입/지출 장부**: 팀 재정 투명 관리
+- **회비 관리**: 멤버별 회비 납부 추적
+- **벌금 관리**: 지각/불참 벌금 기록
 
-- **장비 마켓**: 스포츠 용품 중고거래
-- **팀 재정 관리**: 회비, 경기 비용, 장비 구매 등 투명한 재정 운영
-- **결제 시스템**: 프리미엄 기능 구독 및 팀 운영비 관리
-
-## 요금제
-
-- **베이직** (무료): 팀 생성, 클럽 탐색, 기본 채팅, 선수 검색
-- **플러스** (₩9,900/월): 무제한 경기 제안, 스마트 팀 관리, 재정 관리
-- **프로** (₩19,900/월): AI 영상 분석, 선수 개인 리포트, 하이라이트 자동 생성, 시뮬레이션 게임
-
-## 확장 가능성
-
-- **글로벌 확장**: 축구, 농구, 야구, 배구 등 모든 스포츠에 적용 가능한 범용 플랫폼
-- **누구나 참여**: 전문 팀이 아닌 동네 클럽, 직장 동호회, 학교 팀 등 누구나 가입하여 팀 운영 가능
-- **데이터 생태계**: 축적된 경기 데이터를 기반으로 스포츠 산업 전반에 활용 가능한 인사이트 제공
+### 8. 부가 기능
+- **장비 마켓**: 스포츠 용품 중고거래 및 공동구매
+- **GPS 트래킹**: 훈련 시 움직임·거리 기록
+- **PWA**: 모바일 앱 설치 지원
+- **웹 푸시 알림**: 경기/팀 알림
 
 ## 기술 스택
 
 ### Frontend
-- **Framework**: Next.js 16.1.6 (React 19.2.3)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS 4
-- **UI Components**: Radix UI, Lucide React
+- **Framework**: Next.js 16 (React 19) — Static Export (SSG)
+- **Language**: TypeScript (strict mode)
+- **Styling**: Tailwind CSS 4 + CSS Custom Properties (다크/라이트 모드)
+- **UI Components**: Radix UI (shadcn-style), Lucide React icons
 - **Charts**: Recharts
-- **Utilities**: clsx, class-variance-authority, tailwind-merge
+- **State**: React Context API (Auth, Team, Chat, Club, Theme)
+- **Compiler**: React Compiler enabled (ESLint rules enforced)
 
 ### Backend
-- 구현 예정
+- **Runtime**: Node.js 20 (ARM64/Graviton2)
+- **Infrastructure**: AWS CDK (TypeScript)
+- **Compute**: AWS Lambda (7 functions)
+- **Database**: Amazon DynamoDB (28 tables)
+- **Auth**: Amazon Cognito (email/password + Kakao OAuth)
+- **API**: API Gateway REST (2 APIs) + WebSocket
+- **Scheduling**: Amazon EventBridge (match reminders, season reset)
+- **Storage**: S3 + CloudFront (frontend, video CDN)
+- **Video Analysis**: EC2 (auto-start via Lambda)
+
+### Dual API Architecture
+| | Auth API | Manage API |
+|---|---|---|
+| 배포 | 수동 (zip + AWS CLI) | CDK (`npx cdk deploy`) |
+| 인증 | accessToken | idToken (CognitoUserPoolsAuthorizer) |
+| 엔드포인트 | `/auth/*`, `/clubs`, `/matches`, `/users` | `/team`, `/finance`, `/league`, `/schedule`, `/social`, `/notifications` |
 
 ## 프로젝트 구조
 
 ```
-Playground/
-├── frontend/
-│   └── playground-web/
-│       ├── app/              # Next.js 페이지
-│       │   ├── chat/         # 채팅
-│       │   ├── clubs/        # 클럽 탐색
-│       │   ├── finance/      # 팀 매니지먼트
-│       │   ├── login/        # 로그인
-│       │   ├── market/       # 장비 마켓
-│       │   ├── mypage/       # 마이페이지
-│       │   ├── payment/      # 결제
-│       │   ├── report/       # AI 리포트
-│       │   ├── signup/       # 회원가입
-│       │   ├── team/         # 팀 관리
-│       │   └── video/        # AI 영상분석
-│       ├── components/       # 재사용 컴포넌트
-│       │   └── layout/
-│       ├── context/          # React Context
-│       ├── lib/              # 유틸리티
-│       └── public/           # 정적 파일
-└── backend/                  # 백엔드 (구현 예정)
+sedaily-playground/
+├── frontend/playground-web/
+│   ├── app/                    # Next.js App Router pages
+│   │   ├── login/, signup/     # 인증
+│   │   ├── clubs/              # 클럽 탐색
+│   │   ├── league/             # 대회 탐색 & KJA 대회
+│   │   ├── players/            # 선수 탐색
+│   │   ├── team/               # 팀 관리 & 매치 기록 & 비교
+│   │   ├── schedule/           # 일정 & 출석
+│   │   ├── chat/               # 실시간 채팅
+│   │   ├── finance/            # 재정 대시보드
+│   │   ├── report/             # AI 퍼포먼스 리포트
+│   │   ├── video/              # AI 영상분석
+│   │   ├── manage/             # 관리 (팀, 리그, 일정, 재정, 소셜, 탐색)
+│   │   ├── market/             # 장비 마켓
+│   │   └── m/                  # 모바일 전용
+│   ├── components/             # 공통 컴포넌트 (layout, tournament, UI)
+│   ├── context/                # React Context (Auth, Team, Chat, Club, Theme)
+│   ├── lib/                    # API fetch, token refresh, WebSocket, utils
+│   └── types/                  # TypeScript 타입 정의
+├── backend/
+│   ├── auth/                   # Auth Lambda (수동 배포)
+│   ├── chat/                   # WebSocket Lambda
+│   ├── chatbot/                # AI 챗봇 (Python)
+│   ├── functions/              # CDK Lambda (team, finance, league, schedule, notifications, reminder, seasonReset, ec2)
+│   └── infra/                  # AWS CDK 스택 정의
+└── docs/                       # 문서 (진행 현황, 마일스톤, 작업 로그, DB, 레이팅 등)
 ```
 
 ## 시작하기
@@ -102,17 +134,26 @@ npm run dev
 
 브라우저에서 http://127.0.0.1:3000 접속
 
-### 빌드
+### 빌드 & 배포
 
 ```bash
+# 프론트엔드 빌드
 npm run build
-npm start
+
+# 프론트엔드 배포 (S3 + CloudFront)
+npm run deploy
+
+# 백엔드 배포 (CDK)
+cd backend/infra
+npx cdk deploy
 ```
 
 ## 개발 환경
 
 - Node.js 20+
 - npm
+- AWS CLI (배포 시)
+- AWS CDK CLI (백엔드 배포 시)
 
 ## 라이선스
 
