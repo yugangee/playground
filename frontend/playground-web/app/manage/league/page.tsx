@@ -6,7 +6,7 @@ import { manageFetch } from '@/lib/manageFetch'
 import { useTeam } from '@/context/TeamContext'
 import { useAuth } from '@/context/AuthContext'
 import Link from 'next/link'
-import type { League } from '@/types/manage'
+import type { League, GoalRecord, CardRecord, TeamMember } from '@/types/manage'
 
 type View = 'list' | 'create' | 'detail'
 type MainTab = 'mine' | 'participated'
@@ -22,6 +22,10 @@ interface LeagueMatch {
   homeScore?: number
   awayScore?: number
   round?: string
+  goals?: GoalRecord[]
+  cards?: CardRecord[]
+  guests?: string[]
+  winner?: string
 }
 
 interface LeagueTeam { leagueId: string; teamId: string; joinedAt: string }
@@ -128,7 +132,6 @@ function LeaguePageInner() {
   useEffect(() => {
     if (!deepLinkLeagueId || deepLinkResolved || loading) return
 
-    // 주최한 리그에서 찾기
     const inMine = leagues.find(l => l.id === deepLinkLeagueId)
     if (inMine) {
       setSelected(inMine)
@@ -138,7 +141,6 @@ function LeaguePageInner() {
       return
     }
 
-    // 참가 리그에서 찾으려면 먼저 로드 필요
     if (!loadingParticipated && participatedLeagues.length === 0 && !deepLinkResolved) {
       loadParticipated()
       return
@@ -153,59 +155,47 @@ function LeaguePageInner() {
       return
     }
 
-    // 두 목록 모두 로드 완료 후에도 못 찾으면 → 직접 조회
-    if (!loadingParticipated) {
+    if (!loadingParticipated && !deepLinkResolved) {
       manageFetch(`/league/${deepLinkLeagueId}`)
         .then((data: League) => {
-          if (data) {
-            setSelected(data)
-            setView('detail')
-          }
+          if (data) { setSelected(data); setView('detail') }
         })
         .catch(() => {})
         .finally(() => setDeepLinkResolved(true))
     }
-  }, [deepLinkLeagueId, loading, loadingParticipated, leagues, participatedLeagues, deepLinkResolved])
+  }, [deepLinkLeagueId, deepLinkResolved, loading, leagues, participatedLeagues, loadingParticipated])
 
-  if (!teamId) return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed py-20"
-      style={{ borderColor: 'var(--card-border)' }}>
-      <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl"
-        style={{ background: 'var(--card-bg)' }}>
-        <svg className="h-6 w-6" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 0 0 2.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 0 1 2.916.52 6.003 6.003 0 0 1-5.395 4.972m0 0a6.726 6.726 0 0 1-2.749 1.35m0 0a6.772 6.772 0 0 1-3.044 0" />
-        </svg>
+  if (view === 'create') {
+    return (
+      <div className="mx-auto max-w-5xl">
+        <CreateForm teamId={teamId} onSuccess={() => { load(); setView('list') }} onCancel={() => setView('list')} />
       </div>
-      <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>먼저 팀을 만들거나 팀에 가입하세요</p>
-    </div>
-  )
+    )
+  }
 
-  if (loading) return (
-    <div className="flex h-48 items-center justify-center">
-      <div className="h-6 w-6 animate-spin rounded-full border-2"
-        style={{ borderColor: 'var(--card-border)', borderTopColor: 'var(--text-primary)' }} />
-    </div>
-  )
-
-  if (view === 'create') return <CreateForm teamId={teamId} onSuccess={() => { load(); setView('list') }} onCancel={() => setView('list')} />
-  if (view === 'detail' && selected) return (
-    <LeagueDetail
-      league={selected}
-      onBack={() => { load(); loadParticipated(); setSelected(null); setView('list') }}
-      isOrganizer={!!user?.sub && selected.organizerId === user.sub}
-      currentTeamId={teamId}
-    />
-  )
+  if (view === 'detail' && selected) {
+    const isOrganizer = !!(user?.sub && selected.organizerId === user.sub)
+    return (
+      <div className="mx-auto max-w-5xl">
+        <LeagueDetail
+          league={selected}
+          onBack={() => { setView('list'); setSelected(null) }}
+          isOrganizer={isOrganizer}
+          currentTeamId={teamId}
+        />
+      </div>
+    )
+  }
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
+    <div className="mx-auto max-w-5xl space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>리그 &amp; 토너먼트</h1>
-          <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>리그 생성, 팀 초대, 대진표, 전적을 관리합니다</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>리그 관리</h1>
+          <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>주최하거나 참가한 리그를 관리하세요</p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/league" className="text-xs px-3 py-2 rounded-lg transition-colors"
+          <Link href="/league" className="rounded-xl px-4 py-2.5 text-sm font-medium transition-colors hover:opacity-80"
             style={{ color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
             리그 탐색 →
           </Link>
@@ -221,12 +211,11 @@ function LeaguePageInner() {
         </div>
       </div>
 
-      {/* 탭 */}
-      <div className="mb-6 flex gap-1 rounded-xl p-1 w-fit" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-        {([['mine', '주최한 리그'], ['participated', '참가 중인 리그']] as [MainTab, string][]).map(([key, label]) => (
-          <button key={key} onClick={() => setMainTab(key)}
+      <div className="flex gap-1 rounded-xl p-1 w-fit" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+        {([['mine', '주최한 리그'], ['participated', '참가 중인 리그']] as const).map(([k, label]) => (
+          <button key={k} onClick={() => setMainTab(k)}
             className="rounded-lg px-5 py-2 text-sm font-medium transition-all"
-            style={mainTab === key
+            style={mainTab === k
               ? { background: 'var(--btn-solid-bg)', color: 'var(--btn-solid-color)' }
               : { color: 'var(--text-muted)' }
             }>
@@ -235,98 +224,52 @@ function LeaguePageInner() {
         ))}
       </div>
 
-      {/* 주최한 리그 탭 */}
       {mainTab === 'mine' && (
-        leagues.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed py-20"
-            style={{ borderColor: 'var(--card-border)' }}>
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
-              style={{ background: 'var(--card-bg)' }}>
-              <svg className="h-7 w-7" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 0 0 2.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 0 1 2.916.52 6.003 6.003 0 0 1-5.395 4.972m0 0a6.726 6.726 0 0 1-2.749 1.35m0 0a6.772 6.772 0 0 1-3.044 0" />
-              </svg>
-            </div>
-            <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>주최한 리그 또는 토너먼트가 없습니다</p>
-            {isLeader && (
-              <button onClick={() => setView('create')}
-                className="mt-5 rounded-xl bg-[var(--btn-solid-bg)] px-5 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] hover:opacity-85">
-                첫 리그 만들기
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {leagues.map(l => (
-              <button key={l.id} onClick={() => { setSelected(l); setView('detail') }}
-                className="group rounded-2xl p-6 text-left transition-all hover:opacity-90"
-                style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-                <div className="mb-3 flex items-center justify-between">
-                  <TypeBadge type={l.type} />
-                  <StatusBadge status={l.status} />
-                </div>
-                <div className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{l.name}</div>
-                {l.region && <div className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>{l.region}</div>}
-                {l.startDate && (
-                  <div className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>{l.startDate} ~ {l.endDate ?? '미정'}</div>
-                )}
-                <div className="mt-4 flex items-center gap-1 text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100"
-                  style={{ color: 'var(--btn-solid-bg)' }}>
-                  <span>상세 보기</span>
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                  </svg>
-                </div>
-              </button>
-            ))}
-          </div>
-        )
+        loading ? <Spinner /> : leagues.length === 0
+          ? <Empty text={isLeader ? '아직 주최한 리그가 없습니다' : '팀 리더만 리그를 만들 수 있습니다'} />
+          : <LeagueGrid leagues={leagues} onSelect={l => { setSelected(l); setView('detail') }} currentTeamId={teamId} />
       )}
 
-      {/* 참가 중인 리그 탭 */}
       {mainTab === 'participated' && (
-        loadingParticipated ? (
-          <div className="flex h-48 items-center justify-center">
-            <div className="h-6 w-6 animate-spin rounded-full border-2"
-              style={{ borderColor: 'var(--card-border)', borderTopColor: 'var(--text-primary)' }} />
-          </div>
-        ) : participatedLeagues.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed py-20"
-            style={{ borderColor: 'var(--card-border)' }}>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>참가 중인 리그가 없습니다</p>
-            <Link href="/league" className="mt-4 text-xs hover:underline" style={{ color: 'var(--text-primary)' }}>
-              리그 탐색하기 →
-            </Link>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {participatedLeagues.map(l => (
-              <button key={l.id}
-                onClick={() => { setSelected(l); setView('detail') }}
-                className="group rounded-2xl p-6 text-left transition-all hover:opacity-90"
-                style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-                <div className="mb-3 flex items-center justify-between">
-                  <TypeBadge type={l.type} />
-                  <StatusBadge status={l.status} />
-                </div>
-                <div className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{l.name}</div>
-                {l.region && <div className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>{l.region}</div>}
-                {l.startDate && (
-                  <div className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {l.startDate} ~ {l.endDate ?? '미정'}
-                  </div>
-                )}
-                <div className="mt-4 flex items-center gap-1 text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100"
-                  style={{ color: 'var(--btn-solid-bg)' }}>
-                  <span>상세 보기</span>
-                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                  </svg>
-                </div>
-              </button>
-            ))}
-          </div>
-        )
+        loadingParticipated ? <Spinner /> : participatedLeagues.length === 0
+          ? <Empty text="참가 중인 리그가 없습니다" />
+          : <LeagueGrid leagues={participatedLeagues} onSelect={l => { setSelected(l); setView('detail') }} currentTeamId={teamId} />
       )}
+    </div>
+  )
+}
+
+function LeagueGrid({ leagues, onSelect, currentTeamId }: { leagues: League[]; onSelect: (l: League) => void; currentTeamId: string }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {leagues.map(l => (
+        <button key={l.id}
+          onClick={() => onSelect(l)}
+          className="group rounded-2xl p-6 text-left transition-all hover:opacity-90"
+          style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+          <div className="mb-3 flex items-center justify-between">
+            <TypeBadge type={l.type} />
+            <StatusBadge status={l.status} />
+          </div>
+          <div className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>{l.name}</div>
+          {l.region && <div className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>{l.region}</div>}
+          {l.startDate && (
+            <div className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+              {l.startDate} ~ {l.endDate ?? '미정'}
+            </div>
+          )}
+          {l.organizerTeamId === currentTeamId && (
+            <div className="mt-2 text-xs font-medium text-emerald-600">주최</div>
+          )}
+          <div className="mt-4 flex items-center gap-1 text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100"
+            style={{ color: 'var(--btn-solid-bg)' }}>
+            <span>상세 보기</span>
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+            </svg>
+          </div>
+        </button>
+      ))}
     </div>
   )
 }
@@ -350,12 +293,7 @@ function CreateForm({ teamId, onSuccess, onCancel }: { teamId: string; onSuccess
   return (
     <div className="max-w-lg">
       <div className="mb-8 flex items-center gap-3">
-        <button onClick={onCancel} className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:opacity-70"
-          style={{ color: 'var(--text-muted)' }}>
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-          </svg>
-        </button>
+        <BackBtn onClick={onCancel} />
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>리그 만들기</h1>
           <p className="mt-0.5 text-sm" style={{ color: 'var(--text-muted)' }}>새로운 리그나 토너먼트를 개설하세요</p>
@@ -392,9 +330,7 @@ function CreateForm({ teamId, onSuccess, onCancel }: { teamId: string; onSuccess
             className="h-4 w-4 rounded accent-emerald-600" />
           공개 리그로 설정 (다른 팀이 탐색·참가 신청 가능)
         </label>
-
         {error && <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
-
         <button type="submit" disabled={loading}
           className="w-full rounded-xl bg-[var(--btn-solid-bg)] py-3 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50">
           {loading ? '생성 중...' : '만들기'}
@@ -406,15 +342,18 @@ function CreateForm({ teamId, onSuccess, onCancel }: { teamId: string; onSuccess
 
 // ── Detail ────────────────────────────────────────────────────────────────────
 
+type DetailTab = 'teams' | 'matches' | 'standings' | 'bracket' | 'stats'
+
 function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamId }: {
   league: League; onBack: () => void; isOrganizer: boolean; currentTeamId: string
 }) {
   const [league, setLeague] = useState(initialLeague)
-  const [tab, setTab] = useState<'teams' | 'matches' | 'standings'>('teams')
+  const [tab, setTab] = useState<DetailTab>('teams')
   const [teams, setTeams] = useState<LeagueTeam[]>([])
   const [matches, setMatches] = useState<LeagueMatch[]>([])
   const [teamNames, setTeamNames] = useState<Record<string, string>>({})
   const [generating, setGenerating] = useState(false)
+  const [detailMatch, setDetailMatch] = useState<LeagueMatch | null>(null)
 
   const fetchTeamNames = async (leagueTeams: LeagueTeam[]) => {
     const names: Record<string, string> = {}
@@ -442,22 +381,14 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
 
   const deleteLeague = async () => {
     if (!confirm(`"${league.name}" 리그를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return
-    try {
-      await manageFetch(`/league/${league.id}`, { method: 'DELETE' })
-      onBack()
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '삭제 실패')
-    }
+    try { await manageFetch(`/league/${league.id}`, { method: 'DELETE' }); onBack() }
+    catch (e) { alert(e instanceof Error ? e.message : '삭제 실패') }
   }
 
   const removeTeam = async (rmTeamId: string) => {
     if (!confirm('이 팀을 리그에서 제거하시겠습니까?')) return
-    try {
-      await manageFetch(`/league/${league.id}/teams/${rmTeamId}`, { method: 'DELETE' })
-      loadTeams()
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '제거 실패')
-    }
+    try { await manageFetch(`/league/${league.id}/teams/${rmTeamId}`, { method: 'DELETE' }); loadTeams() }
+    catch (e) { alert(e instanceof Error ? e.message : '제거 실패') }
   }
 
   const startLeague = async () => {
@@ -503,46 +434,55 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
   const endLeague = async () => {
     if (!confirm('대회를 종료하시겠습니까?')) return
     try {
-      await manageFetch(`/league/${league.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'finished' }),
-      })
+      await manageFetch(`/league/${league.id}`, { method: 'PATCH', body: JSON.stringify({ status: 'finished' }) })
       setLeague(l => ({ ...l, status: 'finished' }))
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '종료 실패')
-    }
+    } catch (e) { alert(e instanceof Error ? e.message : '종료 실패') }
   }
 
+  // 순위 계산
   const standings = teams.map(t => {
     const teamMatches = matches.filter(m => (m.homeTeamId === t.teamId || m.awayTeamId === t.teamId) && m.status === 'completed')
     let w = 0, d = 0, l = 0, gf = 0, ga = 0
-    teamMatches.forEach(m => {
+    const recentForm: string[] = []
+    const sorted = [...teamMatches].sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
+    sorted.forEach(m => {
       const isHome = m.homeTeamId === t.teamId
       const myScore = isHome ? (m.homeScore ?? 0) : (m.awayScore ?? 0)
       const opScore = isHome ? (m.awayScore ?? 0) : (m.homeScore ?? 0)
       gf += myScore; ga += opScore
-      if (myScore > opScore) w++
-      else if (myScore === opScore) d++
-      else l++
+      if (myScore > opScore) { w++; recentForm.push('W') }
+      else if (myScore === opScore) { d++; recentForm.push('D') }
+      else { l++; recentForm.push('L') }
     })
-    return { teamId: t.teamId, w, d, l, gf, ga, pts: w * 3 + d }
-  }).sort((a, b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga))
+    return { teamId: t.teamId, w, d, l, gf, ga, gd: gf - ga, pts: w * 3 + d, form: recentForm.slice(0, 5) }
+  }).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
 
-  const detailTabs = [
-    { key: 'teams' as const, label: `참가팀 (${teams.length})` },
-    { key: 'matches' as const, label: `경기 (${matches.length})` },
-    { key: 'standings' as const, label: '순위' },
+  const isTournament = league.type === 'tournament'
+  const detailTabs: { key: DetailTab; label: string; show: boolean }[] = [
+    { key: 'teams', label: `참가팀 (${teams.length})`, show: true },
+    { key: 'matches', label: `경기 (${matches.length})`, show: true },
+    { key: 'standings', label: '순위', show: !isTournament },
+    { key: 'bracket', label: '대진표', show: isTournament && matches.length > 0 },
+    { key: 'stats', label: '통계', show: matches.some(m => m.status === 'completed') },
   ]
 
   return (
     <div>
+      {/* 경기 상세 모달 */}
+      {detailMatch && (
+        <MatchDetailModal
+          match={detailMatch}
+          leagueId={league.id}
+          isOrganizer={isOrganizer}
+          leagueStatus={league.status}
+          teamNames={teamNames}
+          onClose={() => setDetailMatch(null)}
+          onSave={() => { loadMatches(); setDetailMatch(null) }}
+        />
+      )}
+
       <div className="mb-8 flex items-start gap-3">
-        <button onClick={onBack} className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:opacity-70"
-          style={{ color: 'var(--text-muted)' }}>
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-          </svg>
-        </button>
+        <BackBtn onClick={onBack} />
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>{league.name}</h1>
@@ -557,39 +497,18 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
           <div className="flex flex-shrink-0 gap-2">
             {league.status === 'recruiting' && (
               <>
-                <button
-                  onClick={startLeague}
-                  disabled={generating}
+                <button onClick={startLeague} disabled={generating}
                   className="flex items-center gap-1.5 rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50">
-                  {generating ? (
-                    <>
-                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                      생성 중...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
-                      </svg>
-                      대회 시작
-                    </>
-                  )}
+                  {generating ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />생성 중...</>
+                    : <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" /></svg>대회 시작</>}
                 </button>
-                <button
-                  onClick={deleteLeague}
-                  className="rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors hover:opacity-85"
-                  style={{ color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
-                  삭제
-                </button>
+                <button onClick={deleteLeague} className="rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors hover:opacity-85"
+                  style={{ color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>삭제</button>
               </>
             )}
             {league.status === 'ongoing' && (
-              <button
-                onClick={endLeague}
-                className="rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors hover:opacity-85"
-                style={{ color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
-                대회 종료
-              </button>
+              <button onClick={endLeague} className="rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors hover:opacity-85"
+                style={{ color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>대회 종료</button>
             )}
           </div>
         )}
@@ -602,10 +521,10 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
         </div>
       )}
 
-      <div className="mb-6 flex gap-1 rounded-xl p-1 w-fit" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-        {detailTabs.map(t => (
+      <div className="mb-6 flex gap-1 rounded-xl p-1 w-fit overflow-x-auto" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+        {detailTabs.filter(t => t.show).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className="rounded-lg px-5 py-2 text-sm font-medium transition-all"
+            className="rounded-lg px-5 py-2 text-sm font-medium transition-all whitespace-nowrap"
             style={tab === t.key
               ? { background: 'var(--btn-solid-bg)', color: 'var(--btn-solid-color)' }
               : { color: 'var(--text-muted)' }
@@ -647,10 +566,7 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
                       <td className="px-5 py-3.5" style={{ color: 'var(--text-muted)' }}>{new Date(t.joinedAt).toLocaleDateString('ko-KR')}</td>
                       {isOrganizer && league.status === 'recruiting' && (
                         <td className="px-5 py-3.5 text-right">
-                          <button onClick={() => removeTeam(t.teamId)}
-                            className="hover:text-red-500 transition-colors"
-                            style={{ color: 'var(--text-muted)' }}
-                            title="팀 제거">
+                          <button onClick={() => removeTeam(t.teamId)} className="hover:text-red-500 transition-colors" style={{ color: 'var(--text-muted)' }} title="팀 제거">
                             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                             </svg>
@@ -667,59 +583,242 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
       )}
 
       {tab === 'matches' && (
-        <MatchesSection leagueId={league.id} matches={matches} onRefresh={loadMatches} isOrganizer={isOrganizer} leagueStatus={league.status} teamNames={teamNames} leagueTeams={teams} />
+        <MatchesSection leagueId={league.id} matches={matches} onRefresh={loadMatches} isOrganizer={isOrganizer}
+          leagueStatus={league.status} teamNames={teamNames} leagueTeams={teams} onMatchClick={setDetailMatch} />
       )}
 
-      {tab === 'standings' && (
-        standings.length === 0 ? <Empty text="완료된 경기가 없습니다" /> : (
-          <div className="overflow-hidden rounded-2xl" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--card-border)' }}>
-                  {['순위', '팀', '승', '무', '패', '득/실', '승점'].map(h => (
-                    <th key={h} className="px-4 py-3.5 text-center text-xs font-semibold uppercase tracking-wide first:text-left" style={{ color: 'var(--text-muted)' }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {standings.map((s, i) => (
-                  <tr key={s.teamId} className={i === 0 ? 'bg-emerald-50/50' : ''} style={{ borderBottom: '1px solid var(--card-border)' }}>
-                    <td className="px-4 py-3.5">
-                      <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                        i === 0 ? 'bg-emerald-500 text-white' : i === 1 ? 'bg-slate-300 text-slate-700' : i === 2 ? 'bg-amber-400 text-white' : ''
-                      }`} style={i > 2 ? { color: 'var(--text-muted)' } : undefined}>{i + 1}</span>
-                    </td>
-                    <td className="px-4 py-3.5 font-medium" style={{ color: 'var(--text-primary)' }}>
-                      {s.teamId === currentTeamId
-                        ? <span className="text-emerald-600 font-semibold">{tn(s.teamId)} ★</span>
-                        : tn(s.teamId)}
-                    </td>
-                    <td className="px-4 py-3.5 text-center font-semibold text-emerald-600">{s.w}</td>
-                    <td className="px-4 py-3.5 text-center" style={{ color: 'var(--text-muted)' }}>{s.d}</td>
-                    <td className="px-4 py-3.5 text-center text-red-500">{s.l}</td>
-                    <td className="px-4 py-3.5 text-center" style={{ color: 'var(--text-muted)' }}>{s.gf}:{s.ga}</td>
-                    <td className="px-4 py-3.5 text-center text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{s.pts}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )
-      )}
+      {tab === 'standings' && <StandingsTable standings={standings} tn={tn} currentTeamId={currentTeamId} />}
+
+      {tab === 'bracket' && <BracketView matches={matches} tn={tn} onMatchClick={setDetailMatch} />}
+
+      {tab === 'stats' && <StatsTab matches={matches} />}
     </div>
   )
 }
 
-function MatchesSection({ leagueId, matches, onRefresh, isOrganizer, leagueStatus, teamNames, leagueTeams }: {
+// ── Match Detail Modal ───────────────────────────────────────────────────────
+
+function MatchDetailModal({ match, leagueId, isOrganizer, leagueStatus, teamNames, onClose, onSave }: {
+  match: LeagueMatch; leagueId: string; isOrganizer: boolean; leagueStatus: string
+  teamNames: Record<string, string>; onClose: () => void; onSave: () => void
+}) {
+  const tn = (id: string) => teamNames[id] ?? id
+  const editable = isOrganizer && leagueStatus === 'ongoing' && match.status !== 'completed'
+  const editableCompleted = isOrganizer && match.status === 'completed'
+
+  const [homeScore, setHomeScore] = useState(String(match.homeScore ?? ''))
+  const [awayScore, setAwayScore] = useState(String(match.awayScore ?? ''))
+  const [goals, setGoals] = useState<GoalRecord[]>(match.goals ?? [])
+  const [cards, setCards] = useState<CardRecord[]>(match.cards ?? [])
+  const [guests, setGuests] = useState(match.guests?.join(', ') ?? '')
+  const [saving, setSaving] = useState(false)
+
+  // 팀 멤버 로드
+  const [homeMembers, setHomeMembers] = useState<TeamMember[]>([])
+  const [awayMembers, setAwayMembers] = useState<TeamMember[]>([])
+
+  useEffect(() => {
+    manageFetch(`/team/${match.homeTeamId}/members`).then(setHomeMembers).catch(() => {})
+    manageFetch(`/team/${match.awayTeamId}/members`).then(setAwayMembers).catch(() => {})
+  }, [match.homeTeamId, match.awayTeamId])
+
+  const allMembers = [...homeMembers.map(m => ({ ...m, teamId: match.homeTeamId })), ...awayMembers.map(m => ({ ...m, teamId: match.awayTeamId }))]
+  const memberName = (id: string) => allMembers.find(m => m.userId === id)?.name ?? id
+
+  const addGoal = () => setGoals(g => [...g, { scorer: '', assist: '', minute: undefined }])
+  const removeGoal = (i: number) => setGoals(g => g.filter((_, idx) => idx !== i))
+  const updateGoal = (i: number, field: string, val: unknown) => setGoals(g => g.map((x, idx) => idx === i ? { ...x, [field]: val } : x))
+
+  const addCard = () => setCards(c => [...c, { playerId: '', type: 'yellow' as const, minute: undefined }])
+  const removeCard = (i: number) => setCards(c => c.filter((_, idx) => idx !== i))
+  const updateCard = (i: number, field: string, val: unknown) => setCards(c => c.map((x, idx) => idx === i ? { ...x, [field]: val } : x))
+
+  const save = async (markComplete: boolean) => {
+    setSaving(true)
+    try {
+      const body: Record<string, unknown> = {
+        goals: goals.filter(g => g.scorer),
+        cards: cards.filter(c => c.playerId),
+        guests: guests.split(',').map(s => s.trim()).filter(Boolean),
+      }
+      if (homeScore !== '') body.homeScore = Number(homeScore)
+      if (awayScore !== '') body.awayScore = Number(awayScore)
+      if (markComplete && homeScore !== '' && awayScore !== '') body.status = 'completed'
+
+      await manageFetch(`/league/${leagueId}/matches/${match.id}`, {
+        method: 'PATCH', body: JSON.stringify(body),
+      })
+      onSave()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '저장 실패')
+    } finally { setSaving(false) }
+  }
+
+  const canEdit = editable || editableCompleted
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl p-6" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-3 text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+              <span>{tn(match.homeTeamId)}</span>
+              <span style={{ color: 'var(--text-muted)' }}>vs</span>
+              <span>{tn(match.awayTeamId)}</span>
+            </div>
+            <div className="mt-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+              {match.round && <span className="mr-2 font-semibold">{match.round}</span>}
+              {new Date(match.scheduledAt).toLocaleString('ko-KR')} · {match.venue}
+            </div>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 transition-colors hover:opacity-70" style={{ color: 'var(--text-muted)' }}>
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Score */}
+        <div className="mb-6 flex items-center justify-center gap-4">
+          {canEdit ? (
+            <>
+              <div className="text-center">
+                <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{tn(match.homeTeamId)}</div>
+                <input type="number" value={homeScore} onChange={e => setHomeScore(e.target.value)} min={0}
+                  className="w-20 rounded-xl px-3 py-3 text-center text-2xl font-bold outline-none" style={{ ...inpStyle }} />
+              </div>
+              <span className="text-xl font-bold" style={{ color: 'var(--text-muted)' }}>:</span>
+              <div className="text-center">
+                <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{tn(match.awayTeamId)}</div>
+                <input type="number" value={awayScore} onChange={e => setAwayScore(e.target.value)} min={0}
+                  className="w-20 rounded-xl px-3 py-3 text-center text-2xl font-bold outline-none" style={{ ...inpStyle }} />
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-4">
+              <div className="text-center">
+                <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{tn(match.homeTeamId)}</div>
+                <div className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>{match.homeScore ?? '-'}</div>
+              </div>
+              <span className="text-xl font-bold" style={{ color: 'var(--text-muted)' }}>:</span>
+              <div className="text-center">
+                <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{tn(match.awayTeamId)}</div>
+                <div className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>{match.awayScore ?? '-'}</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Goals */}
+        <Section title={`골 기록 (${goals.length})`}>
+          {goals.map((g, i) => (
+            <div key={i} className="flex items-center gap-2 mb-2">
+              {canEdit ? (
+                <>
+                  <select value={g.scorer} onChange={e => updateGoal(i, 'scorer', e.target.value)} className="flex-1 rounded-lg px-2 py-1.5 text-sm outline-none" style={inpStyle}>
+                    <option value="">득점자 선택</option>
+                    {allMembers.map(m => <option key={m.userId} value={m.userId}>{m.name} ({tn(m.teamId!)})</option>)}
+                  </select>
+                  <select value={g.assist ?? ''} onChange={e => updateGoal(i, 'assist', e.target.value || undefined)} className="flex-1 rounded-lg px-2 py-1.5 text-sm outline-none" style={inpStyle}>
+                    <option value="">어시스트 (선택)</option>
+                    {allMembers.map(m => <option key={m.userId} value={m.userId}>{m.name}</option>)}
+                  </select>
+                  <input type="number" placeholder="분" value={g.minute ?? ''} onChange={e => updateGoal(i, 'minute', e.target.value ? Number(e.target.value) : undefined)}
+                    className="w-16 rounded-lg px-2 py-1.5 text-sm text-center outline-none" style={inpStyle} />
+                  <button onClick={() => removeGoal(i)} className="text-red-400 hover:text-red-600 transition-colors">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                  </button>
+                </>
+              ) : (
+                <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                  {g.minute != null && <span className="font-mono text-xs mr-2" style={{ color: 'var(--text-muted)' }}>{g.minute}&apos;</span>}
+                  <span className="font-semibold">{memberName(g.scorer)}</span>
+                  {g.assist && <span style={{ color: 'var(--text-muted)' }}> (어시스트: {memberName(g.assist)})</span>}
+                </div>
+              )}
+            </div>
+          ))}
+          {canEdit && (
+            <button onClick={addGoal} className="mt-1 text-xs font-medium hover:underline" style={{ color: 'var(--btn-solid-bg)' }}>+ 골 추가</button>
+          )}
+          {!canEdit && goals.length === 0 && <div className="text-xs" style={{ color: 'var(--text-muted)' }}>기록 없음</div>}
+        </Section>
+
+        {/* Cards */}
+        <Section title={`카드 기록 (${cards.length})`}>
+          {cards.map((c, i) => (
+            <div key={i} className="flex items-center gap-2 mb-2">
+              {canEdit ? (
+                <>
+                  <select value={c.playerId} onChange={e => updateCard(i, 'playerId', e.target.value)} className="flex-1 rounded-lg px-2 py-1.5 text-sm outline-none" style={inpStyle}>
+                    <option value="">선수 선택</option>
+                    {allMembers.map(m => <option key={m.userId} value={m.userId}>{m.name} ({tn(m.teamId!)})</option>)}
+                  </select>
+                  <select value={c.type} onChange={e => updateCard(i, 'type', e.target.value)} className="w-24 rounded-lg px-2 py-1.5 text-sm outline-none" style={inpStyle}>
+                    <option value="yellow">옐로</option>
+                    <option value="red">레드</option>
+                  </select>
+                  <input type="number" placeholder="분" value={c.minute ?? ''} onChange={e => updateCard(i, 'minute', e.target.value ? Number(e.target.value) : undefined)}
+                    className="w-16 rounded-lg px-2 py-1.5 text-sm text-center outline-none" style={inpStyle} />
+                  <button onClick={() => removeCard(i)} className="text-red-400 hover:text-red-600 transition-colors">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                  </button>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className={`inline-block h-4 w-3 rounded-sm ${c.type === 'yellow' ? 'bg-yellow-400' : 'bg-red-500'}`} />
+                  <span style={{ color: 'var(--text-primary)' }}>{memberName(c.playerId)}</span>
+                  {c.minute != null && <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{c.minute}&apos;</span>}
+                </div>
+              )}
+            </div>
+          ))}
+          {canEdit && (
+            <button onClick={addCard} className="mt-1 text-xs font-medium hover:underline" style={{ color: 'var(--btn-solid-bg)' }}>+ 카드 추가</button>
+          )}
+          {!canEdit && cards.length === 0 && <div className="text-xs" style={{ color: 'var(--text-muted)' }}>기록 없음</div>}
+        </Section>
+
+        {/* Guests */}
+        {(canEdit || (match.guests && match.guests.length > 0)) && (
+          <Section title="용병">
+            {canEdit ? (
+              <input value={guests} onChange={e => setGuests(e.target.value)} className={inp} style={inpStyle} placeholder="이름을 콤마로 구분 (예: 홍길동, 김철수)" />
+            ) : (
+              <div className="text-sm" style={{ color: 'var(--text-primary)' }}>{match.guests?.join(', ') || '없음'}</div>
+            )}
+          </Section>
+        )}
+
+        {/* Actions */}
+        {canEdit && (
+          <div className="mt-6 flex gap-3">
+            <button onClick={() => save(false)} disabled={saving}
+              className="flex-1 rounded-xl py-3 text-sm font-semibold transition-colors hover:opacity-85 disabled:opacity-50"
+              style={{ color: 'var(--text-primary)', border: '1px solid var(--card-border)' }}>
+              {saving ? '저장 중...' : '임시 저장'}
+            </button>
+            <button onClick={() => save(true)} disabled={saving || homeScore === '' || awayScore === ''}
+              className="flex-1 rounded-xl bg-[var(--btn-solid-bg)] py-3 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85 disabled:opacity-50">
+              {saving ? '저장 중...' : '결과 확정'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Matches Section ──────────────────────────────────────────────────────────
+
+function MatchesSection({ leagueId, matches, onRefresh, isOrganizer, leagueStatus, teamNames, leagueTeams, onMatchClick }: {
   leagueId: string; matches: LeagueMatch[]; onRefresh: () => void; isOrganizer: boolean; leagueStatus: string
-  teamNames: Record<string, string>; leagueTeams: LeagueTeam[]
+  teamNames: Record<string, string>; leagueTeams: LeagueTeam[]; onMatchClick: (m: LeagueMatch) => void
 }) {
   const tn = (id: string) => teamNames[id] ?? id
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ homeTeamId: '', awayTeamId: '', scheduledAt: '', venue: '', round: '' })
-  const [scores, setScores] = useState<Record<string, { home: string; away: string }>>({})
   const [loading, setLoading] = useState(false)
 
   const submit = async (e: React.FormEvent) => {
@@ -732,24 +831,10 @@ function MatchesSection({ leagueId, matches, onRefresh, isOrganizer, leagueStatu
     } finally { setLoading(false) }
   }
 
-  const saveResult = async (matchId: string) => {
-    const s = scores[matchId]
-    if (!s) return
-    await manageFetch(`/league/${leagueId}/matches/${matchId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ homeScore: Number(s.home), awayScore: Number(s.away), status: 'completed' }),
-    })
-    onRefresh()
-  }
-
   const deleteMatch = async (matchId: string) => {
     if (!confirm('이 경기를 삭제하시겠습니까?')) return
-    try {
-      await manageFetch(`/league/${leagueId}/matches/${matchId}`, { method: 'DELETE' })
-      onRefresh()
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '삭제 실패')
-    }
+    try { await manageFetch(`/league/${leagueId}/matches/${matchId}`, { method: 'DELETE' }); onRefresh() }
+    catch (e) { alert(e instanceof Error ? e.message : '삭제 실패') }
   }
 
   const rounds = Array.from(new Set(matches.map(m => m.round ?? ''))).filter(Boolean)
@@ -761,9 +846,7 @@ function MatchesSection({ leagueId, matches, onRefresh, isOrganizer, leagueStatu
         <>
           <button onClick={() => setShowForm(v => !v)}
             className="flex items-center gap-1.5 rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             경기 추가
           </button>
           {showForm && (
@@ -808,14 +891,14 @@ function MatchesSection({ leagueId, matches, onRefresh, isOrganizer, leagueStatu
               <div className="space-y-3">
                 {matches.filter(m => m.round === round).map(m => (
                   <MatchCard key={m.id} match={m} isOrganizer={isOrganizer} leagueStatus={leagueStatus}
-                    scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} onDelete={() => deleteMatch(m.id)} teamNames={teamNames} />
+                    onClick={() => onMatchClick(m)} onDelete={() => deleteMatch(m.id)} teamNames={teamNames} />
                 ))}
               </div>
             </div>
           ))}
           {ungrouped.length > 0 && ungrouped.map(m => (
             <MatchCard key={m.id} match={m} isOrganizer={isOrganizer} leagueStatus={leagueStatus}
-              scores={scores} setScores={setScores} onSave={() => saveResult(m.id)} onDelete={() => deleteMatch(m.id)} teamNames={teamNames} />
+              onClick={() => onMatchClick(m)} onDelete={() => deleteMatch(m.id)} teamNames={teamNames} />
           ))}
         </div>
       )}
@@ -823,31 +906,43 @@ function MatchesSection({ leagueId, matches, onRefresh, isOrganizer, leagueStatu
   )
 }
 
-function MatchCard({ match: m, isOrganizer, leagueStatus, scores, setScores, onSave, onDelete, teamNames }: {
-  match: LeagueMatch
-  isOrganizer: boolean
-  leagueStatus: string
-  scores: Record<string, { home: string; away: string }>
-  setScores: React.Dispatch<React.SetStateAction<Record<string, { home: string; away: string }>>>
-  onSave: () => void
-  onDelete: () => void
-  teamNames: Record<string, string>
+function MatchCard({ match: m, isOrganizer, leagueStatus, onClick, onDelete, teamNames }: {
+  match: LeagueMatch; isOrganizer: boolean; leagueStatus: string
+  onClick: () => void; onDelete: () => void; teamNames: Record<string, string>
 }) {
   const tn = (id: string) => teamNames[id] ?? id
+  const goalCount = m.goals?.length ?? 0
+  const cardCount = m.cards?.length ?? 0
+  const isWinner = (teamId: string) => {
+    if (m.status !== 'completed') return false
+    if (m.winner) return m.winner === teamId
+    return (m.homeScore ?? 0) !== (m.awayScore ?? 0) &&
+      ((m.homeTeamId === teamId && (m.homeScore ?? 0) > (m.awayScore ?? 0)) ||
+       (m.awayTeamId === teamId && (m.awayScore ?? 0) > (m.homeScore ?? 0)))
+  }
+
   return (
-    <div className="rounded-2xl p-5" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+    <div className="rounded-2xl p-5 cursor-pointer transition-all hover:opacity-90"
+      style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
+      onClick={onClick}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4 text-sm font-semibold">
-          <span style={{ color: 'var(--text-primary)' }}>{tn(m.homeTeamId)}</span>
+          <span style={{ color: 'var(--text-primary)', fontWeight: isWinner(m.homeTeamId) ? 800 : 600 }}>{tn(m.homeTeamId)}</span>
           {m.status === 'completed'
             ? <span className="rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2 text-lg font-bold text-[var(--btn-solid-color)] tabular-nums">{m.homeScore} : {m.awayScore}</span>
             : <span style={{ color: 'var(--text-muted)' }}>vs</span>}
-          <span style={{ color: 'var(--text-primary)' }}>{tn(m.awayTeamId)}</span>
+          <span style={{ color: 'var(--text-primary)', fontWeight: isWinner(m.awayTeamId) ? 800 : 600 }}>{tn(m.awayTeamId)}</span>
         </div>
         <div className="flex items-center gap-2">
+          {m.status === 'completed' && goalCount > 0 && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{goalCount} 골</span>
+          )}
+          {m.status === 'completed' && cardCount > 0 && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{cardCount} 카드</span>
+          )}
           <StatusBadge status={m.status} />
           {isOrganizer && leagueStatus !== 'finished' && m.status !== 'completed' && (
-            <button onClick={onDelete} className="hover:text-red-500 transition-colors" style={{ color: 'var(--text-muted)' }} title="경기 삭제">
+            <button onClick={e => { e.stopPropagation(); onDelete() }} className="hover:text-red-500 transition-colors" style={{ color: 'var(--text-muted)' }} title="경기 삭제">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
               </svg>
@@ -855,21 +950,296 @@ function MatchCard({ match: m, isOrganizer, leagueStatus, scores, setScores, onS
           )}
         </div>
       </div>
-      <div className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>{new Date(m.scheduledAt).toLocaleString('ko-KR')} · {m.venue}</div>
+      <div className="mt-2 flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+        <span>{new Date(m.scheduledAt).toLocaleString('ko-KR')}</span>
+        <span>·</span>
+        <span>{m.venue}</span>
+        {isOrganizer && m.status !== 'completed' && leagueStatus === 'ongoing' && (
+          <span className="ml-auto text-xs font-medium" style={{ color: 'var(--btn-solid-bg)' }}>클릭하여 결과 입력 →</span>
+        )}
+      </div>
+    </div>
+  )
+}
 
-      {m.status !== 'completed' && isOrganizer && leagueStatus === 'ongoing' && (
-        <div className="mt-4 flex items-center gap-3 pt-4" style={{ borderTop: '1px solid var(--card-border)' }}>
-          <input type="number" placeholder="홈" value={scores[m.id]?.home ?? ''} onChange={e => setScores(s => ({ ...s, [m.id]: { ...s[m.id], home: e.target.value } }))}
-            className="w-16 rounded-xl px-3 py-2 text-center text-sm outline-none" style={{ border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)' }} />
-          <span style={{ color: 'var(--text-muted)' }}>:</span>
-          <input type="number" placeholder="원정" value={scores[m.id]?.away ?? ''} onChange={e => setScores(s => ({ ...s, [m.id]: { ...s[m.id], away: e.target.value } }))}
-            className="w-16 rounded-xl px-3 py-2 text-center text-sm outline-none" style={{ border: '1px solid var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-primary)' }} />
-          <button onClick={onSave}
-            className="rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2 text-xs font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85">
-            결과 저장
-          </button>
-        </div>
-      )}
+// ── Standings ────────────────────────────────────────────────────────────────
+
+function StandingsTable({ standings, tn, currentTeamId }: {
+  standings: Array<{ teamId: string; w: number; d: number; l: number; gf: number; ga: number; gd: number; pts: number; form: string[] }>
+  tn: (id: string) => string; currentTeamId: string
+}) {
+  if (standings.length === 0) return <Empty text="완료된 경기가 없습니다" />
+
+  const medalBg = (i: number) => {
+    if (i === 0) return 'rgba(16,185,129,0.1)'
+    if (i === 1) return 'rgba(148,163,184,0.1)'
+    if (i === 2) return 'rgba(245,158,11,0.1)'
+    return undefined
+  }
+
+  return (
+    <div className="overflow-hidden rounded-2xl" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--card-border)' }}>
+              {['#', '팀', '경기', '승', '무', '패', '득', '실', '득실', '폼', '승점'].map(h => (
+                <th key={h} className="px-3 py-3.5 text-center text-xs font-semibold uppercase tracking-wide first:text-left" style={{ color: 'var(--text-muted)' }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {standings.map((s, i) => (
+              <tr key={s.teamId} style={{ borderBottom: '1px solid var(--card-border)', background: medalBg(i) }}>
+                <td className="px-3 py-3.5">
+                  <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                    i === 0 ? 'bg-emerald-500 text-white' : i === 1 ? 'bg-slate-300 text-slate-700' : i === 2 ? 'bg-amber-400 text-white' : ''
+                  }`} style={i > 2 ? { color: 'var(--text-muted)' } : undefined}>{i + 1}</span>
+                </td>
+                <td className="px-3 py-3.5 font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {s.teamId === currentTeamId
+                    ? <span className="text-emerald-600 font-semibold">{tn(s.teamId)} ★</span>
+                    : tn(s.teamId)}
+                </td>
+                <td className="px-3 py-3.5 text-center" style={{ color: 'var(--text-muted)' }}>{s.w + s.d + s.l}</td>
+                <td className="px-3 py-3.5 text-center font-semibold text-emerald-600">{s.w}</td>
+                <td className="px-3 py-3.5 text-center" style={{ color: 'var(--text-muted)' }}>{s.d}</td>
+                <td className="px-3 py-3.5 text-center text-red-500">{s.l}</td>
+                <td className="px-3 py-3.5 text-center" style={{ color: 'var(--text-muted)' }}>{s.gf}</td>
+                <td className="px-3 py-3.5 text-center" style={{ color: 'var(--text-muted)' }}>{s.ga}</td>
+                <td className="px-3 py-3.5 text-center font-semibold" style={{ color: s.gd > 0 ? '#10b981' : s.gd < 0 ? '#ef4444' : 'var(--text-muted)' }}>
+                  {s.gd > 0 ? `+${s.gd}` : s.gd}
+                </td>
+                <td className="px-3 py-3.5 text-center">
+                  <div className="flex items-center justify-center gap-0.5">
+                    {s.form.map((f, fi) => (
+                      <span key={fi} className={`inline-block h-4 w-4 rounded-full text-[9px] font-bold leading-4 text-center text-white ${
+                        f === 'W' ? 'bg-emerald-500' : f === 'D' ? 'bg-slate-400' : 'bg-red-500'
+                      }`}>{f}</span>
+                    ))}
+                  </div>
+                </td>
+                <td className="px-3 py-3.5 text-center text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{s.pts}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ── Tournament Bracket ──────────────────────────────────────────────────────
+
+const ROUND_ORDER = ['1라운드', '16강', '8강', '준결승', '결승']
+
+function BracketView({ matches, tn, onMatchClick }: {
+  matches: LeagueMatch[]; tn: (id: string) => string; onMatchClick: (m: LeagueMatch) => void
+}) {
+  // 라운드별 그룹핑 (ROUND_ORDER 순서대로)
+  const roundGroups: Array<{ round: string; matches: LeagueMatch[] }> = []
+  const used = new Set<string>()
+
+  for (const r of ROUND_ORDER) {
+    const ms = matches.filter(m => m.round === r)
+    if (ms.length > 0) {
+      roundGroups.push({ round: r, matches: ms })
+      ms.forEach(m => used.add(m.id))
+    }
+  }
+  // 기타 라운드 (커스텀 이름)
+  const remaining = matches.filter(m => m.round && !used.has(m.id))
+  const otherRounds = Array.from(new Set(remaining.map(m => m.round!)))
+  for (const r of otherRounds) {
+    roundGroups.push({ round: r, matches: remaining.filter(m => m.round === r) })
+  }
+
+  if (roundGroups.length === 0) return <Empty text="대진표가 없습니다" />
+
+  const getWinner = (m: LeagueMatch): string | null => {
+    if (m.status !== 'completed') return null
+    if (m.winner) return m.winner
+    if ((m.homeScore ?? 0) > (m.awayScore ?? 0)) return m.homeTeamId
+    if ((m.awayScore ?? 0) > (m.homeScore ?? 0)) return m.awayTeamId
+    return null
+  }
+
+  return (
+    <div className="overflow-x-auto pb-4">
+      <div className="flex gap-8 min-w-max">
+        {roundGroups.map(({ round, matches: rMatches }) => (
+          <div key={round} className="flex flex-col">
+            <div className="mb-4 text-center">
+              <span className="rounded-lg px-3 py-1 text-xs font-bold" style={{ background: 'var(--text-primary)', color: 'var(--card-bg)' }}>{round}</span>
+            </div>
+            <div className="flex flex-col justify-around flex-1 gap-4">
+              {rMatches.map(m => {
+                const winner = getWinner(m)
+                return (
+                  <div key={m.id} onClick={() => onMatchClick(m)}
+                    className="w-56 rounded-xl cursor-pointer transition-all hover:opacity-90"
+                    style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                    <div className="flex items-center justify-between px-3 py-2.5"
+                      style={{ borderBottom: '1px solid var(--card-border)', fontWeight: winner === m.homeTeamId ? 700 : 400 }}>
+                      <span className="text-sm truncate" style={{ color: winner === m.homeTeamId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        {tn(m.homeTeamId)}
+                      </span>
+                      <span className="text-sm font-mono tabular-nums" style={{ color: 'var(--text-primary)' }}>
+                        {m.status === 'completed' ? m.homeScore : '-'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2.5"
+                      style={{ fontWeight: winner === m.awayTeamId ? 700 : 400 }}>
+                      <span className="text-sm truncate" style={{ color: winner === m.awayTeamId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        {tn(m.awayTeamId)}
+                      </span>
+                      <span className="text-sm font-mono tabular-nums" style={{ color: 'var(--text-primary)' }}>
+                        {m.status === 'completed' ? m.awayScore : '-'}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Stats Tab ────────────────────────────────────────────────────────────────
+
+function StatsTab({ matches }: { matches: LeagueMatch[] }) {
+  const completed = matches.filter(m => m.status === 'completed')
+
+  // 멤버 이름 로드
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({})
+  const [loadedTeams, setLoadedTeams] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    const teamIds = new Set<string>()
+    completed.forEach(m => { teamIds.add(m.homeTeamId); teamIds.add(m.awayTeamId) })
+    const toLoad = Array.from(teamIds).filter(id => !loadedTeams.has(id))
+    if (toLoad.length === 0) return
+
+    Promise.all(toLoad.map(async tid => {
+      try {
+        const members: TeamMember[] = await manageFetch(`/team/${tid}/members`)
+        return members.map(m => [m.userId, m.name] as [string, string])
+      } catch { return [] }
+    })).then(results => {
+      const names: Record<string, string> = { ...memberNames }
+      results.flat().forEach(([id, name]) => { names[id] = name })
+      setMemberNames(names)
+      setLoadedTeams(new Set([...loadedTeams, ...toLoad]))
+    })
+  }, [completed.length])
+
+  const mn = (id: string) => memberNames[id] ?? id.slice(0, 8)
+
+  // 득점 집계
+  type ScorerEntry = { id: string; teamId: string; goals: number; assists: number }
+  const scorerMap = new Map<string, ScorerEntry>()
+  completed.forEach(m => {
+    (m.goals ?? []).forEach(g => {
+      if (g.scorer) {
+        const existing = scorerMap.get(g.scorer) ?? { id: g.scorer, teamId: '', goals: 0, assists: 0 }
+        existing.goals++
+        scorerMap.set(g.scorer, existing)
+      }
+      if (g.assist) {
+        const existing = scorerMap.get(g.assist) ?? { id: g.assist, teamId: '', goals: 0, assists: 0 }
+        existing.assists++
+        scorerMap.set(g.assist, existing)
+      }
+    })
+  })
+  const scorers = Array.from(scorerMap.values()).sort((a, b) => b.goals - a.goals || b.assists - a.assists)
+
+  // 카드 집계
+  type CardEntry = { id: string; teamId: string; yellow: number; red: number }
+  const cardMap = new Map<string, CardEntry>()
+  completed.forEach(m => {
+    (m.cards ?? []).forEach(c => {
+      if (c.playerId) {
+        const existing = cardMap.get(c.playerId) ?? { id: c.playerId, teamId: '', yellow: 0, red: 0 }
+        if (c.type === 'yellow') existing.yellow++
+        else existing.red++
+        cardMap.set(c.playerId, existing)
+      }
+    })
+  })
+  const cardList = Array.from(cardMap.values()).sort((a, b) => (b.yellow + b.red * 2) - (a.yellow + a.red * 2))
+
+  if (completed.length === 0) return <Empty text="완료된 경기가 없습니다" />
+
+  return (
+    <div className="space-y-8">
+      {/* 득점 순위 */}
+      <div>
+        <h3 className="mb-3 text-sm font-bold" style={{ color: 'var(--text-primary)' }}>득점 순위</h3>
+        {scorers.length === 0 ? (
+          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>골 기록이 없습니다. 경기 상세에서 골을 기록해주세요.</div>
+        ) : (
+          <div className="overflow-hidden rounded-2xl" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--card-border)' }}>
+                  {['#', '선수', '골', '도움'].map(h => (
+                    <th key={h} className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide first:text-left" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {scorers.slice(0, 10).map((s, i) => (
+                  <tr key={s.id} style={{ borderBottom: '1px solid var(--card-border)' }}>
+                    <td className="px-4 py-3 font-medium" style={{ color: i < 3 ? '#10b981' : 'var(--text-muted)' }}>{i + 1}</td>
+                    <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{mn(s.id)}</td>
+                    <td className="px-4 py-3 text-center font-bold text-emerald-600">{s.goals}</td>
+                    <td className="px-4 py-3 text-center" style={{ color: 'var(--text-muted)' }}>{s.assists}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* 카드 현황 */}
+      <div>
+        <h3 className="mb-3 text-sm font-bold" style={{ color: 'var(--text-primary)' }}>카드 현황</h3>
+        {cardList.length === 0 ? (
+          <div className="text-xs" style={{ color: 'var(--text-muted)' }}>카드 기록이 없습니다.</div>
+        ) : (
+          <div className="overflow-hidden rounded-2xl" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--card-border)' }}>
+                  {['선수', '옐로', '레드'].map(h => (
+                    <th key={h} className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide first:text-left" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {cardList.map(c => (
+                  <tr key={c.id} style={{ borderBottom: '1px solid var(--card-border)' }}>
+                    <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{mn(c.id)}</td>
+                    <td className="px-4 py-3 text-center">
+                      {c.yellow > 0 && <span className="inline-flex items-center gap-1"><span className="inline-block h-4 w-3 rounded-sm bg-yellow-400" />{c.yellow}</span>}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {c.red > 0 && <span className="inline-flex items-center gap-1"><span className="inline-block h-4 w-3 rounded-sm bg-red-500" />{c.red}</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -911,6 +1281,35 @@ function Empty({ text }: { text: string }) {
   )
 }
 
+function Spinner() {
+  return (
+    <div className="flex h-32 items-center justify-center">
+      <div className="h-6 w-6 animate-spin rounded-full border-2"
+        style={{ borderColor: 'var(--card-border)', borderTopColor: 'var(--text-primary)' }} />
+    </div>
+  )
+}
+
+function BackBtn({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:opacity-70"
+      style={{ color: 'var(--text-muted)' }}>
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+      </svg>
+    </button>
+  )
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-5">
+      <h3 className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>{title}</h3>
+      {children}
+    </div>
+  )
+}
+
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div>
@@ -934,43 +1333,27 @@ function TeamSearchInvite({ onInvite }: { onInvite: (teamId: string) => Promise<
     }).catch(() => {})
   }, [])
 
-  const results = query.trim()
-    ? allTeams.filter(t => t.name?.toLowerCase().includes(query.toLowerCase()))
-    : []
-
+  const results = query.trim() ? allTeams.filter(t => t.name?.toLowerCase().includes(query.toLowerCase())) : []
   const showDropdown = focused && query.trim().length > 0
 
   const handleInvite = async (team: { id: string; name: string }) => {
     setInviting(team.id)
-    try {
-      await onInvite(team.id)
-      setQuery('')
-      setFocused(false)
-    } catch (e) {
-      alert(e instanceof Error ? e.message : '초대 실패')
-    } finally { setInviting(null) }
+    try { await onInvite(team.id); setQuery(''); setFocused(false) }
+    catch (e) { alert(e instanceof Error ? e.message : '초대 실패') }
+    finally { setInviting(null) }
   }
 
   return (
     <div className="relative max-w-xs">
-      <input
-        value={query}
-        onChange={e => setQuery(e.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setTimeout(() => setFocused(false), 150)}
-        className={inp}
-        style={inpStyle}
-        placeholder="팀 이름으로 검색"
-      />
+      <input value={query} onChange={e => setQuery(e.target.value)}
+        onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 150)}
+        className={inp} style={inpStyle} placeholder="팀 이름으로 검색" />
       {showDropdown && results.length > 0 && (
-        <div className="absolute z-10 mt-1 w-full rounded-xl shadow-lg"
-          style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+        <div className="absolute z-10 mt-1 w-full rounded-xl shadow-lg" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
           {results.map(t => (
             <div key={t.id} className="flex items-center justify-between px-4 py-2.5 hover:opacity-80">
               <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{t.name}</span>
-              <button
-                onClick={() => handleInvite(t)}
-                disabled={inviting === t.id}
+              <button onClick={() => handleInvite(t)} disabled={inviting === t.id}
                 className="rounded-lg bg-[var(--btn-solid-bg)] px-3 py-1 text-xs font-semibold text-[var(--btn-solid-color)] hover:opacity-85 disabled:opacity-50">
                 {inviting === t.id ? '초대 중...' : '초대'}
               </button>

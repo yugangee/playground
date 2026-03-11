@@ -71,3 +71,67 @@
 1. **`sub` vs `username`**: Cognito `Username`은 이메일, `sub`는 UUID. 백엔드는 `sub`를 `organizerId`로 저장하므로 프론트에서 `user.sub` 사용 필수.
 2. **서버 동기화**: 로컬 상태 대신 `GET /league?participantTeamId=`로 참가 현황을 서버에서 조회. 새로고침/재방문 시에도 정확한 상태 유지.
 3. **권한 분리**: "만들기" 버튼은 `isLeader` (팀 리더만 리그 생성 가능), LeagueDetail 내 CRUD는 `isOrganizer` (실제 주최자만 수정/삭제 가능).
+
+---
+
+## Phase 2: 리그 기능 종합 디벨롭
+
+**작업일:** 2026-03-11
+
+### 1. 타입 확장 (`types/manage.ts`)
+
+- `LeagueMatch.winner?: string` 추가 — 토너먼트 PK/동점 시 수동 지정용
+- `LeaguePlayerStats` 인터페이스 추가 — 프론트 통계 표시용 (playerId, name, teamId, goals, assists, yellowCards, redCards, gamesPlayed)
+
+### 2. 백엔드 — 토너먼트 진출 + 통계 API (`league/index.ts`)
+
+**토너먼트 자동 진출 로직:**
+- `ROUND_ORDER`: 1라운드 → 16강 → 8강 → 준결승 → 결승
+- `PATCH /league/:id/matches/:matchId`에서 `status='completed'` 감지 시:
+  - 같은 라운드 전체 경기 조회
+  - 모두 완료 시 winners 추출 → 다음 라운드 매치 자동 생성
+- `getWinner()`: homeScore vs awayScore 비교, 동점 시 `winner` 필드 사용
+
+**통계 API (신규):**
+- `GET /league/:id/stats` — 모든 completed 매치의 goals[]/cards[]를 서버에서 집계
+- 반환: `{ scorers[], cards[], teamStats[] }` (득점 순위, 카드 현황, 팀 순위)
+
+### 3. 프론트엔드 — `/manage/league` 대규모 개편
+
+#### 3-A: MatchDetailModal (경기 상세 모달)
+- MatchCard 클릭 → 모달 열림
+- 골 기록: scorer/assist 드롭다운 (팀 멤버 자동 로드), minute 입력, 추가/삭제
+- 카드 기록: player 드롭다운, type (yellow/red), minute 입력
+- 용병(Guest) 등록: comma-separated 텍스트 입력
+- 스코어 입력 + "임시 저장" / "결과 확정" 버튼
+- 비주최자: 읽기 전용 모드
+
+#### 3-B: BracketView (토너먼트 대진표)
+- matches를 round별로 그룹핑 → 수평 레이아웃
+- 각 매치: 두 팀명 + 스코어, 승리팀 하이라이트 (볼드)
+- 클릭 → MatchDetailModal 연동
+- tournament 타입일 때만 탭 표시
+
+#### 3-C: StatsTab (통계 대시보드)
+- 득점 순위 테이블: 순위, 선수명, 골, 도움 (상위 10명)
+- 카드 현황 테이블: 선수명, 옐로카드(노랑), 레드카드(빨강) 아이콘
+- 팀 멤버 이름 자동 로드 (memberNames 캐싱)
+- 프론트 집계 방식 (추가 API 호출 없이 기존 매치 데이터로 계산)
+
+#### 3-D: StandingsTable 개선 (순위표)
+- 추가 컬럼: 경기 수, 득점(GF), 실점(GA), 득실차(GD, +/- 색상), 폼 가이드
+- 폼 가이드: 최근 5경기 W/D/L 원형 표시 (emerald/yellow/red)
+- 상위 3위 메달 배경색 (다크모드 호환)
+- 정렬: 승점 → 득실차 → 다득점
+
+#### 3-E: MatchCard 개선
+- 인라인 스코어 입력 제거 → 카드 클릭으로 모달 열기
+- completed 매치: 골/카드 아이콘 + 카운트 배지
+- 토너먼트: winner 팀명 볼드 처리
+- 주최자용 "클릭하여 결과 입력 →" 힌트
+
+#### 3-F: 동적 탭 시스템
+- `['teams', 'matches', 'standings', 'bracket', 'stats']`
+- standings: league 타입에만 표시
+- bracket: tournament 타입 + 경기 존재 시만 표시
+- stats: completed 경기 존재 시만 표시
