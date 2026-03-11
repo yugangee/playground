@@ -212,4 +212,16 @@ export interface LeagueTeam {
 export interface LeagueMatch extends Match {
   leagueId: string
   round?: string
+  winner?: string  // 토너먼트: 승리팀 ID (PK 등 동점 시 수동 지정)
+}
+
+export interface LeaguePlayerStats {
+  playerId: string
+  name: string
+  teamId: string
+  goals: number
+  assists: number
+  yellowCards: number
+  redCards: number
+  gamesPlayed: number
 }

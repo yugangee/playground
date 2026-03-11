@@ -6,6 +6,7 @@ import { tryRefreshTokens, clearTokens, isTokenExpiredOrNearExpiry } from "@/lib
 const API = process.env.NEXT_PUBLIC_API_URL;
 
 interface User {
+  sub?: string;
   username: string;
   name: string;
   email: string;

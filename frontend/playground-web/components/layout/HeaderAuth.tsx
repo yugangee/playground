@@ -15,7 +15,7 @@ const navItems = [
 
 const desktopNavItems = [
   { href: "/clubs", label: "클럽 탐색", icon: Shield },
-  { href: "/league", label: "리그 탐색", icon: Trophy },
+  { href: "/manage/league", label: "대회", icon: Trophy },
   { href: "/schedule", label: "일정", icon: Calendar },
   { href: "/team", label: "팀 관리", icon: Users },
   { href: "/community", label: "커뮤니티", icon: MessageSquare },
