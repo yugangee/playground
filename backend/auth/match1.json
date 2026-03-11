@@ -1,0 +1,11 @@
+{
+  "matchId": {"S": "match-seokyung-001"},
+  "homeClubId": {"S": "3dcafab5-867a-4028-9049-808ab273c236"},
+  "awayClubId": {"S": "fc-blue-001"},
+  "sport": {"S": "축구"},
+  "date": {"S": "2026-03-15"},
+  "venue": {"S": "강남 풋살장"},
+  "status": {"S": "scheduled"},
+  "goals": {"L": []},
+  "createdAt": {"S": "2026-03-10T10:00:00.000Z"}
+}

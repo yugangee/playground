@@ -1,0 +1,17 @@
+{
+  "matchId": {"S": "match-seokyung-003"},
+  "homeClubId": {"S": "3dcafab5-867a-4028-9049-808ab273c236"},
+  "awayClubId": {"S": "golden-striker-001"},
+  "sport": {"S": "축구"},
+  "date": {"S": "2026-03-01"},
+  "venue": {"S": "강남 체육관"},
+  "status": {"S": "confirmed"},
+  "homeScore": {"N": "2"},
+  "awayScore": {"N": "2"},
+  "confirmedAt": {"S": "2026-03-01T17:00:00.000Z"},
+  "goals": {"L": [
+    {"M": {"scorer": {"S": "player1@test.com"}, "club": {"S": "3dcafab5-867a-4028-9049-808ab273c236"}, "count": {"N": "1"}}},
+    {"M": {"scorer": {"S": "player3@test.com"}, "club": {"S": "3dcafab5-867a-4028-9049-808ab273c236"}, "count": {"N": "1"}}}
+  ]},
+  "createdAt": {"S": "2026-02-20T10:00:00.000Z"}
+}

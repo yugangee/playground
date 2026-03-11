@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout main)",
+      "Bash(git merge feature/capacitor-android-app --no-edit)",
+      "Bash(git merge:*)",
+      "Bash(GIT_MERGE_AUTOEDIT=no git pull origin main --no-edit)",
+      "Bash(find /c/sedaily/now/Playground -name .env* -type f)",
+      "Bash(find /c/sedaily/now/Playground/backend/chatbot -maxdepth 1 -type f \\\\\\(-name requirements*.txt -o -name *.md -o -name *.sh \\\\\\))",
+      "Bash(powershell -Command \"Compress-Archive -Path lambda_chatbot.py -DestinationPath chatbot-lambda.zip -Force\")",
+      "Bash(aws lambda:*)",
+      "Bash(aws iam:*)",
+      "Bash(curl -s -X POST \"https://2kvgg7mga7mugvobybs2x33bvu0kdebj.lambda-url.us-east-1.on.aws/\" -H \"Content-Type: application/json\" -d '{\"\"\"\"messages\"\"\"\":[{\"\"\"\"role\"\"\"\":\"\"\"\"user\"\"\"\",\"\"\"\"content\"\"\"\":\"\"\"\"안녕\"\"\"\"}]}')",
+      "Bash(grep -r \"ranking\\\\|stats\\\\|leaderboard\" c:/sedaily/now/Playground/backend --include=*.ts --include=*.mjs)"
+    ]
+  }
+}

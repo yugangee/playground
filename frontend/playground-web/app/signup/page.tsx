@@ -10,6 +10,7 @@ const API = process.env.NEXT_PUBLIC_API_URL;
 function SignupInner() {
   const searchParams = useSearchParams();
   const kakaoId = searchParams.get("kakaoId") || "";
+  const googleId = searchParams.get("googleId") || "";
 
   const [form, setForm] = useState({
     name: searchParams.get("name") || "",
@@ -77,18 +78,24 @@ function SignupInner() {
     if (form.password !== form.passwordConfirm) { setError("비밀번호가 일치하지 않습니다"); return; }
     setLoading(true);
     try {
+      // 소셜 로그인 비밀번호 생성
+      let password = form.password;
+      if (kakaoId) password = `Kakao#${kakaoId}`;
+      else if (googleId) password = `Google#${googleId}`;
+
       const res = await fetch(`${API}/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: form.id,
-          password: kakaoId ? `Kakao#${kakaoId}` : form.password,
+          password,
           name: form.name,
           gender: form.gender === "남성" ? "male" : "female",
           birthdate: form.birth,
           regionSido: form.regionSido,
           regionSigungu: form.regionSigungu,
           kakaoId: kakaoId || undefined,
+          googleId: googleId || undefined,
         }),
       });
       const data = await res.json();

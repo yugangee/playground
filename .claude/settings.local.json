@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build)",
+      "Bash(for f in \"C:\\\\sedaily\\\\now\\\\Playground\\\\frontend\\\\playground-web\\\\app\\\\clubs\\\\page.tsx\" \"C:\\\\sedaily\\\\now\\\\Playground\\\\frontend\\\\playground-web\\\\app\\\\manage\\\\league\\\\page.tsx\" \"C:\\\\sedaily\\\\now\\\\Playground\\\\frontend\\\\playground-web\\\\app\\\\team\\\\page.tsx\")",
+      "Bash(do echo \"=== $f ===\")",
+      "Read(//c/sedaily/now/Playground/**)",
+      "Bash(done)",
+      "Bash(npx cap add android)",
+      "Bash(npm run dev)",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(rm -rf .next)"
+    ]
+  }
+}

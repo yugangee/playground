@@ -1,0 +1,17 @@
+{
+  "matchId": {"S": "match-seokyung-002"},
+  "homeClubId": {"S": "3dcafab5-867a-4028-9049-808ab273c236"},
+  "awayClubId": {"S": "red-impact-001"},
+  "sport": {"S": "축구"},
+  "date": {"S": "2026-03-08"},
+  "venue": {"S": "서초 운동장"},
+  "status": {"S": "confirmed"},
+  "homeScore": {"N": "3"},
+  "awayScore": {"N": "1"},
+  "confirmedAt": {"S": "2026-03-08T18:00:00.000Z"},
+  "goals": {"L": [
+    {"M": {"scorer": {"S": "player1@test.com"}, "club": {"S": "3dcafab5-867a-4028-9049-808ab273c236"}, "count": {"N": "2"}}},
+    {"M": {"scorer": {"S": "player2@test.com"}, "club": {"S": "3dcafab5-867a-4028-9049-808ab273c236"}, "count": {"N": "1"}}}
+  ]},
+  "createdAt": {"S": "2026-03-01T10:00:00.000Z"}
+}

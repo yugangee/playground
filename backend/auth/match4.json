@@ -1,0 +1,16 @@
+{
+  "matchId": {"S": "match-seokyung-004"},
+  "homeClubId": {"S": "blue-storm-001"},
+  "awayClubId": {"S": "3dcafab5-867a-4028-9049-808ab273c236"},
+  "sport": {"S": "축구"},
+  "date": {"S": "2026-02-22"},
+  "venue": {"S": "송파 구장"},
+  "status": {"S": "confirmed"},
+  "homeScore": {"N": "2"},
+  "awayScore": {"N": "1"},
+  "confirmedAt": {"S": "2026-02-22T16:00:00.000Z"},
+  "goals": {"L": [
+    {"M": {"scorer": {"S": "player2@test.com"}, "club": {"S": "3dcafab5-867a-4028-9049-808ab273c236"}, "count": {"N": "1"}}}
+  ]},
+  "createdAt": {"S": "2026-02-15T10:00:00.000Z"}
+}

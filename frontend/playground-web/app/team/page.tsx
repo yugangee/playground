@@ -682,6 +682,8 @@ export default function TeamPage() {
       joinRequests={joinRequests}
       acceptJoinRequest={acceptJoinRequest}
       rejectJoinRequest={rejectJoinRequest}
+      confirmModal={confirmModal}
+      setConfirmModal={setConfirmModal}
     />
   );
 }
@@ -726,6 +728,8 @@ function TeamPageContent({
   joinRequests = [] as JoinRequest[],
   acceptJoinRequest = (_id: string, _name: string) => {},
   rejectJoinRequest = (_id: string, _name: string) => {},
+  confirmModal = { open: false, title: '', message: '', onConfirm: () => {} } as ConfirmModalState,
+  setConfirmModal = (_: any) => {},
 }: any) {
   if (!club) {
     return (

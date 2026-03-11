@@ -73,6 +73,7 @@ async function signup(body) {
       teamIds: teamIds || (teamId ? [teamId] : []),
       position: body.position || "",
       kakaoId: body.kakaoId || null,
+      googleId: body.googleId || null,
       avatar: "",
       number: 0,
       teamNumbers: {},
@@ -1041,6 +1042,76 @@ async function kakaoAuth(body) {
   });
 }
 
+async function googleAuth(body) {
+  const { code, redirectUri } = body;
+  if (!code) return res(400, { message: "code가 필요합니다" });
+
+  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "23338190756-l80tu785d13afpapjkb1fmsfnaa3hio1.apps.googleusercontent.com";
+  const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+
+  // 1. 구글 토큰 교환
+  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
+      redirect_uri: redirectUri,
+      code,
+    }),
+  });
+  const tokenData = await tokenRes.json();
+  if (!tokenData.access_token) return res(400, { message: "구글 토큰 발급 실패: " + (tokenData.error_description || tokenData.error) });
+
+  // 2. 구글 사용자 정보 조회
+  const userRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+    headers: { Authorization: `Bearer ${tokenData.access_token}` },
+  });
+  const googleUser = await userRes.json();
+  const googleId = String(googleUser.id);
+  const googleEmail = googleUser.email || `google_${googleId}@playground.app`;
+  const googleName = googleUser.name || "구글유저";
+
+  // 3. DynamoDB에서 기존 회원 확인 (googleId로)
+  const existing = await ddb.send(new ScanCommand({
+    TableName: USERS_TABLE,
+    FilterExpression: "googleId = :g",
+    ExpressionAttributeValues: { ":g": googleId },
+    Limit: 1,
+  }));
+
+  if (existing.Items && existing.Items.length > 0) {
+    // 기존 회원 → Cognito 로그인
+    const user = existing.Items[0];
+    const email = user.email;
+    try {
+      const authResult = await cognito.send(new InitiateAuthCommand({
+        AuthFlow: "USER_PASSWORD_AUTH",
+        ClientId: CLIENT_ID,
+        AuthParameters: { USERNAME: email, PASSWORD: `Google#${googleId}` },
+      }));
+      const auth = authResult.AuthenticationResult;
+      return res(200, {
+        accessToken: auth.AccessToken,
+        idToken: auth.IdToken,
+        refreshToken: auth.RefreshToken,
+        isNewUser: false,
+      });
+    } catch (e) {
+      return res(500, { message: "로그인 처리 실패: " + e.message });
+    }
+  }
+
+  // 4. 신규 회원 → 임시 정보 반환 (프론트에서 회원가입 페이지로 이동)
+  return res(200, {
+    isNewUser: true,
+    googleId,
+    email: googleEmail,
+    name: googleName,
+  });
+}
+
 export const handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return res(200, {});
 
@@ -1050,6 +1121,9 @@ export const handler = async (event) => {
   try {
     if (method === "POST" && path === "/auth/kakao") {
       return await kakaoAuth(JSON.parse(event.body));
+    }
+    if (method === "POST" && path === "/auth/google") {
+      return await googleAuth(JSON.parse(event.body));
     }
     if (method === "POST" && path === "/auth/signup") {
       return await signup(JSON.parse(event.body));
