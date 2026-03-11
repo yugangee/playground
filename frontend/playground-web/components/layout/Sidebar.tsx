@@ -33,7 +33,7 @@ const generalNavItems = [
 const manageNavItems = [
   { href: "/manage/team", label: "팀 관리", icon: Users },
   { href: "/manage/schedule", label: "경기 일정", icon: Calendar },
-  { href: "/manage/league", label: "리그 & 토너먼트", icon: Trophy },
+  { href: "/manage/league", label: "대회", icon: Trophy },
   { href: "/manage/finance", label: "재정 관리", icon: Landmark },
   { href: "/manage/social", label: "소셜", icon: Star },
   { href: "/manage/discover", label: "탐색", icon: Search },

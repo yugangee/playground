@@ -9,7 +9,7 @@ export default function MobileBottomNav() {
   
   const navItems = [
     { href: "/m/clubs", icon: Shield, label: "클럽" },
-    { href: "/m/league", icon: Trophy, label: "리그" },
+    { href: "/m/league", icon: Trophy, label: "대회" },
     { href: "/m/schedule", icon: Calendar, label: "일정" },
     { href: "/m/team", icon: Users, label: "팀" },
     { href: "/m/mypage", icon: User, label: "MY" },

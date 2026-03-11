@@ -105,21 +105,21 @@ export default function LeaguePage() {
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>리그 탐색</h1>
+          <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>대회 탐색</h1>
         </div>
         <Link
           href="/manage/league"
           className="text-xs px-3 py-1.5 rounded-lg transition-colors"
           style={{ color: "var(--text-muted)", background: "var(--card-bg)", border: "1px solid var(--card-border)" }}
         >
-          대회 탐색 →
+          대회 관리 →
         </Link>
       </div>
 
       {/* 참가 중인 리그 */}
       {currentTeam && (loadingParticipated || participatedLeagues.length > 0) && (
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>참가 중인 리그</h2>
+          <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>참가 중인 대회</h2>
           {loadingParticipated ? (
             <div className="flex justify-center py-4">
               <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
@@ -159,7 +159,7 @@ export default function LeaguePage() {
 
       {/* 필터 */}
       <div className="space-y-2">
-        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>공개 리그</h2>
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>공개 대회</h2>
         <div className="flex gap-2 flex-wrap">
           {types.map((t) => (
             <button key={t} onClick={() => setFilterType(t)} className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors" style={chipStyle(filterType === t)}>
@@ -260,10 +260,10 @@ export default function LeaguePage() {
         <div className="text-center py-16">
           <Trophy size={32} className="mx-auto mb-2" style={{ color: "var(--text-muted)" }} />
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-            {leagues.length === 0 ? "아직 개설된 리그가 없습니다" : "조건에 맞는 리그가 없습니다"}
+            {leagues.length === 0 ? "아직 개설된 대회가 없습니다" : "조건에 맞는 대회가 없습니다"}
           </p>
           <Link href="/manage/league" className="mt-4 inline-block text-xs hover:underline" style={{ color: "var(--text-primary)" }}>
-            리그 만들기 →
+            대회 만들기 →
           </Link>
         </div>
       )}

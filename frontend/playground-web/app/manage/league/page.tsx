@@ -192,14 +192,15 @@ function LeaguePageInner() {
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>리그 관리</h1>
-          <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>주최하거나 참가한 리그를 관리하세요</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>대회 관리</h1>
+          <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>주최하거나 참가한 대회를 관리하세요</p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/league" className="rounded-xl px-4 py-2.5 text-sm font-medium transition-colors hover:opacity-80"
             style={{ color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
             대회 탐색 →
           </Link>
+
           {isLeader && (
             <button onClick={() => setView('create')}
               className="flex items-center gap-1.5 rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85">
@@ -213,7 +214,7 @@ function LeaguePageInner() {
       </div>
 
       <div className="flex gap-1 rounded-xl p-1 w-fit" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-        {([['mine', '주최한 리그'], ['participated', '참가 중인 리그']] as const).map(([k, label]) => (
+        {([['mine', '주최한 대회'], ['participated', '참가 중인 대회']] as const).map(([k, label]) => (
           <button key={k} onClick={() => setMainTab(k)}
             className="rounded-lg px-5 py-2 text-sm font-medium transition-all"
             style={mainTab === k
@@ -227,13 +228,13 @@ function LeaguePageInner() {
 
       {mainTab === 'mine' && (
         loading ? <Spinner /> : leagues.length === 0
-          ? <Empty text={isLeader ? '아직 주최한 리그가 없습니다' : '팀 리더만 리그를 만들 수 있습니다'} />
+          ? <Empty text={isLeader ? '아직 주최한 대회가 없습니다' : '팀 리더만 대회를 만들 수 있습니다'} />
           : <LeagueGrid leagues={leagues} onSelect={l => { setSelected(l); setView('detail') }} currentTeamId={teamId} />
       )}
 
       {mainTab === 'participated' && (
         loadingParticipated ? <Spinner /> : participatedLeagues.length === 0
-          ? <Empty text="참가 중인 리그가 없습니다" />
+          ? <Empty text="참가 중인 대회가 없습니다" />
           : <LeagueGrid leagues={participatedLeagues} onSelect={l => { setSelected(l); setView('detail') }} currentTeamId={teamId} />
       )}
     </div>
@@ -260,7 +261,7 @@ function LeagueGrid({ leagues, onSelect, currentTeamId }: { leagues: League[]; o
             </div>
           )}
           {l.organizerTeamId === currentTeamId && (
-            <div className="mt-2 text-xs font-medium text-emerald-600">주최</div>
+            <div className="mt-2 text-xs font-medium" style={{ color: '#10b981' }}>주최</div>
           )}
           <div className="mt-4 flex items-center gap-1 text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100"
             style={{ color: 'var(--btn-solid-bg)' }}>
@@ -296,8 +297,8 @@ function CreateForm({ teamId, onSuccess, onCancel }: { teamId: string; onSuccess
       <div className="mb-8 flex items-center gap-3">
         <BackBtn onClick={onCancel} />
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>리그 만들기</h1>
-          <p className="mt-0.5 text-sm" style={{ color: 'var(--text-muted)' }}>새로운 리그나 토너먼트를 개설하세요</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>대회 만들기</h1>
+          <p className="mt-0.5 text-sm" style={{ color: 'var(--text-muted)' }}>새로운 대회를 개설하세요</p>
         </div>
       </div>
 
@@ -329,9 +330,9 @@ function CreateForm({ teamId, onSuccess, onCancel }: { teamId: string; onSuccess
         <label className="flex items-center gap-2.5 text-sm" style={{ color: 'var(--text-primary)' }}>
           <input type="checkbox" checked={form.isPublic} onChange={e => set('isPublic', e.target.checked)}
             className="h-4 w-4 rounded accent-emerald-600" />
-          공개 리그로 설정 (다른 팀이 탐색·참가 신청 가능)
+          공개 대회로 설정 (다른 팀이 탐색·참가 신청 가능)
         </label>
-        {error && <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>}
+        {error && <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444' }}>{error}</div>}
         <button type="submit" disabled={loading}
           className="w-full rounded-xl bg-[var(--btn-solid-bg)] py-3 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50">
           {loading ? '생성 중...' : '만들기'}
@@ -356,38 +357,52 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
   const [generating, setGenerating] = useState(false)
   const [detailMatch, setDetailMatch] = useState<LeagueMatch | null>(null)
 
-  const fetchTeamNames = async (leagueTeams: LeagueTeam[]) => {
+  const fetchTeamNames = async (teamIds: string[]) => {
     const names: Record<string, string> = {}
-    await Promise.all(leagueTeams.map(async t => {
+    const uniqueIds = Array.from(new Set(teamIds))
+    await Promise.all(uniqueIds.map(async tid => {
       try {
-        const data = await manageFetch(`/team/${t.teamId}`)
-        names[t.teamId] = data?.name ?? t.teamId
-      } catch { names[t.teamId] = t.teamId }
+        const data = await manageFetch(`/team/${tid}`)
+        names[tid] = data?.name ?? tid
+      } catch { names[tid] = tid }
     }))
-    setTeamNames(names)
+    setTeamNames(prev => ({ ...prev, ...names }))
   }
 
   const loadTeams = async () => {
     try {
       const data: LeagueTeam[] = await manageFetch(`/league/${league.id}/teams`)
       setTeams(data)
-      fetchTeamNames(data)
-    } catch {}
+      return data
+    } catch { return [] }
   }
-  const loadMatches = async () => { try { setMatches(await manageFetch(`/league/${league.id}/matches`)) } catch {} }
+  const loadMatches = async () => {
+    try {
+      const data: LeagueMatch[] = await manageFetch(`/league/${league.id}/matches`)
+      setMatches(data)
+      return data
+    } catch { return [] }
+  }
 
-  useEffect(() => { loadTeams(); loadMatches() }, [league.id])
+  useEffect(() => {
+    Promise.all([loadTeams(), loadMatches()]).then(([teamsData, matchesData]) => {
+      const allIds = new Set<string>()
+      teamsData.forEach(t => allIds.add(t.teamId))
+      matchesData.forEach(m => { allIds.add(m.homeTeamId); allIds.add(m.awayTeamId) })
+      if (allIds.size > 0) fetchTeamNames(Array.from(allIds))
+    })
+  }, [league.id])
 
   const tn = (id: string) => teamNames[id] ?? id
 
   const deleteLeague = async () => {
-    if (!confirm(`"${league.name}" 리그를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return
+    if (!confirm(`"${league.name}" 대회를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return
     try { await manageFetch(`/league/${league.id}`, { method: 'DELETE' }); onBack() }
     catch (e) { alert(e instanceof Error ? e.message : '삭제 실패') }
   }
 
   const removeTeam = async (rmTeamId: string) => {
-    if (!confirm('이 팀을 리그에서 제거하시겠습니까?')) return
+    if (!confirm('이 팀을 대회에서 제거하시겠습니까?')) return
     try { await manageFetch(`/league/${league.id}/teams/${rmTeamId}`, { method: 'DELETE' }); loadTeams() }
     catch (e) { alert(e instanceof Error ? e.message : '제거 실패') }
   }
@@ -426,7 +441,11 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
 
       setLeague(l => ({ ...l, status: 'ongoing' }))
       setTab('matches')
-      await loadMatches()
+      const newMatches = await loadMatches()
+      const newIds = new Set<string>()
+      newMatches.forEach(m => { newIds.add(m.homeTeamId); newIds.add(m.awayTeamId) })
+      const missingIds = Array.from(newIds).filter(id => !teamNames[id])
+      if (missingIds.length > 0) fetchTeamNames(missingIds)
     } catch (e) {
       alert(e instanceof Error ? e.message : '대회 시작 실패')
     } finally { setGenerating(false) }
@@ -479,7 +498,14 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
           leagueType={league.type}
           teamNames={teamNames}
           onClose={() => setDetailMatch(null)}
-          onSave={() => { loadMatches(); setDetailMatch(null) }}
+          onSave={async () => {
+            const newMatches = await loadMatches()
+            const missingIds = Array.from(new Set(
+              newMatches.flatMap(m => [m.homeTeamId, m.awayTeamId])
+            )).filter(id => !teamNames[id])
+            if (missingIds.length > 0) fetchTeamNames(missingIds)
+            setDetailMatch(null)
+          }}
         />
       )}
 
@@ -517,7 +543,7 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
       </div>
 
       {isOrganizer && league.status === 'recruiting' && (
-        <div className="mb-6 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+        <div className="mb-6 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#d97706' }}>
           <span className="font-semibold">모집중</span> — 팀을 초대한 후 <span className="font-semibold">&quot;대회 시작&quot;</span> 버튼을 누르면
           {league.type === 'tournament' ? ' 토너먼트 대진표가 자동으로 생성' : ' 라운드 로빈 일정이 자동으로 생성'}됩니다.
         </div>
@@ -567,7 +593,7 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
                         {t.teamId === currentTeamId ? (
                           <span className="inline-flex items-center gap-1.5">
                             {tn(t.teamId)}
-                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">우리팀</span>
+                            <span className="rounded-full px-2 py-0.5 text-xs font-medium" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>우리팀</span>
                           </span>
                         ) : tn(t.teamId)}
                       </td>
@@ -672,8 +698,11 @@ function MatchDetailModal({ match, leagueId, isOrganizer, leagueStatus, leagueTy
   const canEdit = editable || editableCompleted
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl p-6" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl p-6 shadow-2xl"
+        onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--card-border)' }}>
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
@@ -1030,10 +1059,10 @@ function MatchCard({ match: m, isOrganizer, leagueStatus, onClick, onDelete, tea
         </div>
         <div className="flex items-center gap-2">
           {m.status === 'completed' && goalCount > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{goalCount} 골</span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>{goalCount} 골</span>
           )}
           {m.status === 'completed' && cardCount > 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{cardCount} 카드</span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>{cardCount} 카드</span>
           )}
           <StatusBadge status={m.status} />
           {isOrganizer && leagueStatus !== 'finished' && m.status !== 'completed' && (
@@ -1069,9 +1098,9 @@ function StandingsTable({ standings, tn, currentTeamId, matches }: {
   if (standings.length === 0) return <Empty text="완료된 경기가 없습니다" />
 
   const medalBg = (i: number) => {
-    if (i === 0) return 'rgba(16,185,129,0.1)'
-    if (i === 1) return 'rgba(148,163,184,0.1)'
-    if (i === 2) return 'rgba(245,158,11,0.1)'
+    if (i === 0) return 'rgba(16,185,129,0.12)'
+    if (i === 1) return 'rgba(148,163,184,0.12)'
+    if (i === 2) return 'rgba(245,158,11,0.12)'
     return undefined
   }
 
@@ -1125,9 +1154,11 @@ function StandingsTable({ standings, tn, currentTeamId, matches }: {
                       style={{ borderBottom: '1px solid var(--card-border)', background: medalBg(i), borderLeft: zoneBorder(i) }}
                       onClick={() => setExpandedTeam(expandedTeam === s.teamId ? null : s.teamId)}>
                       <td className="px-3 py-3.5">
-                        <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                          i === 0 ? 'bg-emerald-500 text-white' : i === 1 ? 'bg-slate-300 text-slate-700' : i === 2 ? 'bg-amber-400 text-white' : ''
-                        }`} style={i > 2 ? { color: 'var(--text-muted)' } : undefined}>{i + 1}</span>
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold"
+                          style={i === 0 ? { background: '#10b981', color: '#fff' }
+                            : i === 1 ? { background: '#94a3b8', color: '#fff' }
+                            : i === 2 ? { background: '#f59e0b', color: '#fff' }
+                            : { color: 'var(--text-muted)' }}>{i + 1}</span>
                       </td>
                       <td className="px-3 py-3.5 font-medium" style={{ color: 'var(--text-primary)' }}>
                         <span className="cursor-pointer hover:underline" onClick={e => { e.stopPropagation(); setDetailTeamId(s.teamId) }}>
@@ -1148,9 +1179,8 @@ function StandingsTable({ standings, tn, currentTeamId, matches }: {
                       <td className="px-3 py-3.5 text-center">
                         <div className="flex items-center justify-center gap-0.5">
                           {s.form.map((f, fi) => (
-                            <span key={fi} className={`inline-block h-4 w-4 rounded-full text-[9px] font-bold leading-4 text-center text-white ${
-                              f === 'W' ? 'bg-emerald-500' : f === 'D' ? 'bg-slate-400' : 'bg-red-500'
-                            }`}>{f}</span>
+                            <span key={fi} className="inline-block h-4 w-4 rounded-full text-[9px] font-bold leading-4 text-center"
+                              style={{ color: '#fff', background: f === 'W' ? '#10b981' : f === 'D' ? '#94a3b8' : '#ef4444' }}>{f}</span>
                           ))}
                         </div>
                       </td>
@@ -1158,7 +1188,7 @@ function StandingsTable({ standings, tn, currentTeamId, matches }: {
                     </tr>
                     {/* 홈/원정 확장 행 */}
                     {expandedTeam === s.teamId && ha && (
-                      <tr style={{ background: 'rgba(0,0,0,0.02)' }}>
+                      <tr style={{ background: 'rgba(128,128,128,0.06)' }}>
                         <td colSpan={11} className="px-6 py-3">
                           <div className="flex gap-6 text-xs" style={{ color: 'var(--text-muted)' }}>
                             <div><span className="font-semibold mr-2" style={{ color: 'var(--text-primary)' }}>홈</span> {ha.hw}승 {ha.hd}무 {ha.hl}패 (득 {ha.hgf} / 실 {ha.hga})</div>
@@ -1212,8 +1242,11 @@ function TeamDetailModal({ teamId, teamName, matches, tn, onClose }: {
   })
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
-      <div className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl p-6" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}
+      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
+      <div className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl p-6 shadow-2xl"
+        onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--card-border)' }}>
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{teamName}</h2>
           <button onClick={onClose} className="rounded-lg p-1.5 transition-colors hover:opacity-70" style={{ color: 'var(--text-muted)' }}>
@@ -1235,9 +1268,8 @@ function TeamDetailModal({ teamId, teamName, matches, tn, onClose }: {
                 <div key={m.id} className="flex items-center justify-between rounded-lg px-3 py-2 text-sm"
                   style={{ background: result === 'W' ? 'rgba(16,185,129,0.06)' : result === 'L' ? 'rgba(239,68,68,0.06)' : 'rgba(148,163,184,0.06)' }}>
                   <div className="flex items-center gap-2">
-                    <span className={`inline-block h-5 w-5 rounded-full text-[10px] font-bold leading-5 text-center text-white ${
-                      result === 'W' ? 'bg-emerald-500' : result === 'D' ? 'bg-slate-400' : 'bg-red-500'
-                    }`}>{result}</span>
+                    <span className="inline-block h-5 w-5 rounded-full text-[10px] font-bold leading-5 text-center"
+                      style={{ color: '#fff', background: result === 'W' ? '#10b981' : result === 'D' ? '#94a3b8' : '#ef4444' }}>{result}</span>
                     <span style={{ color: 'var(--text-muted)' }}>{isHome ? 'vs' : '@'}</span>
                     <span style={{ color: 'var(--text-primary)' }}>{tn(oppId)}</span>
                   </div>
@@ -1289,30 +1321,6 @@ const ROUND_ORDER = ['1라운드', '16강', '8강', '준결승', '결승']
 function BracketView({ matches, tn, onMatchClick, leagueStatus }: {
   matches: LeagueMatch[]; tn: (id: string) => string; onMatchClick: (m: LeagueMatch) => void; leagueStatus?: string
 }) {
-  // 라운드별 그룹핑 (메인 트리: 3/4위전 제외)
-  const mainGroups: Array<{ round: string; matches: LeagueMatch[] }> = []
-  const used = new Set<string>()
-
-  for (const r of ROUND_ORDER) {
-    const ms = matches.filter(m => m.round === r)
-    if (ms.length > 0) {
-      mainGroups.push({ round: r, matches: ms })
-      ms.forEach(m => used.add(m.id))
-    }
-  }
-  // 기타 라운드 (커스텀 이름, 3/4위전 제외)
-  const remaining = matches.filter(m => m.round && !used.has(m.id) && m.round !== '3/4위전')
-  const otherRounds = Array.from(new Set(remaining.map(m => m.round!)))
-  for (const r of otherRounds) {
-    const ms = remaining.filter(m => m.round === r)
-    mainGroups.push({ round: r, matches: ms })
-    ms.forEach(m => used.add(m.id))
-  }
-
-  const thirdPlaceMatch = matches.find(m => m.round === '3/4위전')
-
-  if (mainGroups.length === 0) return <Empty text="대진표가 없습니다" />
-
   const getWinner = (m: LeagueMatch): string | null => {
     if (m.status !== 'completed') return null
     if (m.winner) return m.winner
@@ -1321,46 +1329,149 @@ function BracketView({ matches, tn, onMatchClick, leagueStatus }: {
     return null
   }
 
-  // 결승 우승팀
+  // 라운드별 그룹핑
+  const roundGroups: Array<{ round: string; matches: LeagueMatch[] }> = []
+  const used = new Set<string>()
+
+  for (const r of ROUND_ORDER) {
+    const ms = matches.filter(m => m.round === r)
+    if (ms.length > 0) {
+      roundGroups.push({ round: r, matches: ms })
+      ms.forEach(m => used.add(m.id))
+    }
+  }
+  const remaining = matches.filter(m => m.round && !used.has(m.id) && m.round !== '3/4위전')
+  const otherRounds = Array.from(new Set(remaining.map(m => m.round!)))
+  for (const r of otherRounds) {
+    const ms = remaining.filter(m => m.round === r)
+    roundGroups.push({ round: r, matches: ms })
+    ms.forEach(m => used.add(m.id))
+  }
+
+  const thirdPlaceMatch = matches.find(m => m.round === '3/4위전')
+
+  if (roundGroups.length === 0) return <Empty text="대진표가 없습니다" />
+
   const finalMatch = matches.find(m => m.round === '결승' && m.status === 'completed')
   const champion = finalMatch ? getWinner(finalMatch) : null
 
-  const renderBracketMatch = (m: LeagueMatch, isChampionHighlight?: boolean) => {
+  // Match card dimensions
+  const MATCH_W = 200
+  const MATCH_H = 72
+  const COL_GAP = 48
+  const ROUND_LABEL_H = 36
+
+  // Calculate vertical spacing for each round (doubles per round from first)
+  const firstRoundMatchCount = roundGroups[0]?.matches.length ?? 1
+  const totalHeight = firstRoundMatchCount * (MATCH_H + 24) - 24 + ROUND_LABEL_H
+
+  const renderMatchCard = (m: LeagueMatch, x: number, y: number) => {
     const winner = getWinner(m)
-    const borderStyle = isChampionHighlight
-      ? '2px solid #f59e0b'
-      : '1px solid var(--card-border)'
+    const isFinal = m.round === '결승'
+    const borderColor = isFinal && champion ? '#f59e0b' : 'var(--card-border)'
+    const borderWidth = isFinal && champion ? 2 : 1
+
     return (
-      <div key={m.id} onClick={() => onMatchClick(m)}
-        className="w-52 rounded-xl cursor-pointer transition-all hover:opacity-90"
-        style={{ background: 'var(--card-bg)', border: borderStyle }}>
-        <div className="flex items-center justify-between px-3 py-2"
-          style={{ borderBottom: '1px solid var(--card-border)', fontWeight: winner === m.homeTeamId ? 700 : 400 }}>
-          <span className="text-sm truncate flex-1" style={{ color: winner === m.homeTeamId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-            {champion === m.homeTeamId && <span className="mr-1">🏆</span>}
-            {tn(m.homeTeamId)}
-          </span>
-          <span className="text-sm font-mono tabular-nums ml-2" style={{ color: 'var(--text-primary)' }}>
-            {m.status === 'completed' ? m.homeScore : '-'}
-          </span>
-        </div>
-        <div className="flex items-center justify-between px-3 py-2"
-          style={{ fontWeight: winner === m.awayTeamId ? 700 : 400 }}>
-          <span className="text-sm truncate flex-1" style={{ color: winner === m.awayTeamId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-            {champion === m.awayTeamId && <span className="mr-1">🏆</span>}
-            {tn(m.awayTeamId)}
-          </span>
-          <span className="text-sm font-mono tabular-nums ml-2" style={{ color: 'var(--text-primary)' }}>
-            {m.status === 'completed' ? m.awayScore : '-'}
-          </span>
-        </div>
-        {m.pkScore && (
-          <div className="px-3 py-1 text-[10px] text-center" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--card-border)' }}>
-            PK {m.pkScore.home}:{m.pkScore.away}
-          </div>
+      <g key={m.id} onClick={() => onMatchClick(m)} className="cursor-pointer" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.06))' }}>
+        {/* Card background */}
+        <rect x={x} y={y} width={MATCH_W} height={MATCH_H} rx={10}
+          fill="var(--card-bg)" stroke={borderColor} strokeWidth={borderWidth} />
+
+        {/* Divider */}
+        <line x1={x} y1={y + MATCH_H / 2} x2={x + MATCH_W} y2={y + MATCH_H / 2}
+          stroke="var(--card-border)" strokeWidth={1} />
+
+        {/* Home team row */}
+        <text x={x + 12} y={y + 23} fontSize={13}
+          fontWeight={winner === m.homeTeamId ? 700 : 400}
+          fill={winner === m.homeTeamId ? 'var(--text-primary)' : (m.status === 'completed' && winner && winner !== m.homeTeamId) ? 'var(--text-muted)' : 'var(--text-primary)'}>
+          {champion === m.homeTeamId ? '\u{1F3C6} ' : ''}{tn(m.homeTeamId).length > 12 ? tn(m.homeTeamId).slice(0, 12) + '…' : tn(m.homeTeamId)}
+        </text>
+        <text x={x + MATCH_W - 12} y={y + 23} fontSize={13} fontWeight={600}
+          textAnchor="end" fontFamily="monospace"
+          fill={winner === m.homeTeamId ? 'var(--text-primary)' : 'var(--text-muted)'}>
+          {m.status === 'completed' ? m.homeScore : '-'}
+        </text>
+
+        {/* Home team winner indicator */}
+        {winner === m.homeTeamId && (
+          <rect x={x} y={y} width={3} height={MATCH_H / 2} rx={1} fill="#10b981" />
         )}
-      </div>
+
+        {/* Away team row */}
+        <text x={x + 12} y={y + MATCH_H / 2 + 23} fontSize={13}
+          fontWeight={winner === m.awayTeamId ? 700 : 400}
+          fill={winner === m.awayTeamId ? 'var(--text-primary)' : (m.status === 'completed' && winner && winner !== m.awayTeamId) ? 'var(--text-muted)' : 'var(--text-primary)'}>
+          {champion === m.awayTeamId ? '\u{1F3C6} ' : ''}{tn(m.awayTeamId).length > 12 ? tn(m.awayTeamId).slice(0, 12) + '…' : tn(m.awayTeamId)}
+        </text>
+        <text x={x + MATCH_W - 12} y={y + MATCH_H / 2 + 23} fontSize={13} fontWeight={600}
+          textAnchor="end" fontFamily="monospace"
+          fill={winner === m.awayTeamId ? 'var(--text-primary)' : 'var(--text-muted)'}>
+          {m.status === 'completed' ? m.awayScore : '-'}
+        </text>
+
+        {/* Away team winner indicator */}
+        {winner === m.awayTeamId && (
+          <rect x={x} y={y + MATCH_H / 2} width={3} height={MATCH_H / 2} rx={1} fill="#10b981" />
+        )}
+
+        {/* PK indicator */}
+        {m.pkScore && (
+          <text x={x + MATCH_W / 2} y={y + MATCH_H + 14} fontSize={10} textAnchor="middle" fill="var(--text-muted)">
+            PK {m.pkScore.home}:{m.pkScore.away}
+          </text>
+        )}
+
+        {/* Hover overlay */}
+        <rect x={x} y={y} width={MATCH_W} height={MATCH_H} rx={10}
+          fill="transparent" className="hover:fill-[rgba(0,0,0,0.03)] transition-colors" />
+      </g>
     )
+  }
+
+  // Calculate positions for each match
+  const positions: Array<{ match: LeagueMatch; x: number; y: number }> = []
+  const colWidth = MATCH_W + COL_GAP
+
+  roundGroups.forEach((group, gi) => {
+    const x = gi * colWidth
+    const matchCount = group.matches.length
+    const availableHeight = totalHeight - ROUND_LABEL_H
+    const spacing = matchCount > 1 ? availableHeight / matchCount : availableHeight
+    const startY = ROUND_LABEL_H + (spacing - MATCH_H) / 2
+
+    group.matches.forEach((m, mi) => {
+      const y = startY + mi * spacing
+      positions.push({ match: m, x, y })
+    })
+  })
+
+  const svgWidth = roundGroups.length * colWidth - COL_GAP + 20
+  const svgHeight = totalHeight + 30
+
+  // Generate connector lines between rounds
+  const connectors: Array<{ x1: number; y1: number; x2: number; y2: number; key: string }> = []
+
+  for (let gi = 0; gi < roundGroups.length - 1; gi++) {
+    const currentRound = positions.filter(p => p.x === gi * colWidth)
+    const nextRound = positions.filter(p => p.x === (gi + 1) * colWidth)
+
+    // Connect pairs of current round matches to next round
+    for (let ni = 0; ni < nextRound.length; ni++) {
+      const nextMatch = nextRound[ni]
+      const pair = currentRound.slice(ni * 2, ni * 2 + 2)
+
+      pair.forEach((curr, pi) => {
+        const fromX = curr.x + MATCH_W
+        const fromY = curr.y + MATCH_H / 2
+        const toX = nextMatch.x
+        const toY = nextMatch.y + (pi === 0 ? MATCH_H * 0.25 : MATCH_H * 0.75)
+        connectors.push({
+          x1: fromX, y1: fromY, x2: toX, y2: toY,
+          key: `conn-${gi}-${ni}-${pi}`
+        })
+      })
+    }
   }
 
   return (
@@ -1373,32 +1484,32 @@ function BracketView({ matches, tn, onMatchClick, leagueStatus }: {
         </div>
       )}
 
-      {/* 메인 대진표 */}
+      {/* 메인 대진표 (SVG) */}
       <div className="overflow-x-auto pb-4">
-        <div className="flex min-w-max items-stretch">
-          {mainGroups.map(({ round, matches: rMatches }, gi) => (
-            <div key={round} className="flex items-stretch">
-              {/* 연결선 (첫 라운드 제외) */}
-              {gi > 0 && (
-                <div className="flex flex-col justify-around w-8 py-4">
-                  {rMatches.map((_, mi) => (
-                    <div key={mi} className="flex-1 flex items-center">
-                      <div className="w-full h-px" style={{ background: 'var(--card-border)' }} />
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="flex flex-col">
-                <div className="mb-4 text-center">
-                  <span className="rounded-lg px-3 py-1 text-xs font-bold" style={{ background: 'var(--text-primary)', color: 'var(--card-bg)' }}>{round}</span>
-                </div>
-                <div className="flex flex-col justify-around flex-1 gap-4">
-                  {rMatches.map(m => renderBracketMatch(m, m.round === '결승' && !!champion))}
-                </div>
-              </div>
-            </div>
+        <svg width={svgWidth} height={svgHeight} className="min-w-max">
+          {/* Round labels */}
+          {roundGroups.map((group, gi) => (
+            <g key={`label-${group.round}`}>
+              <rect x={gi * colWidth + (MATCH_W - group.round.length * 14) / 2 - 8} y={2}
+                width={group.round.length * 14 + 16} height={24} rx={6}
+                fill="var(--text-primary)" />
+              <text x={gi * colWidth + MATCH_W / 2} y={19}
+                textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--card-bg)">
+                {group.round}
+              </text>
+            </g>
           ))}
-        </div>
+
+          {/* Connector lines */}
+          {connectors.map(c => (
+            <path key={c.key}
+              d={`M ${c.x1} ${c.y1} C ${c.x1 + (c.x2 - c.x1) * 0.5} ${c.y1}, ${c.x2 - (c.x2 - c.x1) * 0.5} ${c.y2}, ${c.x2} ${c.y2}`}
+              fill="none" stroke="var(--card-border)" strokeWidth={1.5} />
+          ))}
+
+          {/* Match cards */}
+          {positions.map(p => renderMatchCard(p.match, p.x, p.y))}
+        </svg>
       </div>
 
       {/* 3/4위전 */}
@@ -1408,7 +1519,41 @@ function BracketView({ matches, tn, onMatchClick, leagueStatus }: {
             <span className="rounded-lg px-3 py-1 text-xs font-bold" style={{ background: 'var(--text-primary)', color: 'var(--card-bg)' }}>3/4위전</span>
             <div className="h-px flex-1" style={{ background: 'var(--card-border)' }} />
           </div>
-          {renderBracketMatch(thirdPlaceMatch)}
+          <div onClick={() => onMatchClick(thirdPlaceMatch)}
+            className="w-52 rounded-xl cursor-pointer transition-all hover:opacity-90"
+            style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+            {(() => {
+              const m = thirdPlaceMatch
+              const winner = getWinner(m)
+              return (
+                <>
+                  <div className="flex items-center justify-between px-3 py-2"
+                    style={{ borderBottom: '1px solid var(--card-border)', fontWeight: winner === m.homeTeamId ? 700 : 400 }}>
+                    <span className="text-sm truncate flex-1" style={{ color: winner === m.homeTeamId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                      {tn(m.homeTeamId)}
+                    </span>
+                    <span className="text-sm font-mono tabular-nums ml-2" style={{ color: 'var(--text-primary)' }}>
+                      {m.status === 'completed' ? m.homeScore : '-'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between px-3 py-2"
+                    style={{ fontWeight: winner === m.awayTeamId ? 700 : 400 }}>
+                    <span className="text-sm truncate flex-1" style={{ color: winner === m.awayTeamId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                      {tn(m.awayTeamId)}
+                    </span>
+                    <span className="text-sm font-mono tabular-nums ml-2" style={{ color: 'var(--text-primary)' }}>
+                      {m.status === 'completed' ? m.awayScore : '-'}
+                    </span>
+                  </div>
+                  {m.pkScore && (
+                    <div className="px-3 py-1 text-[10px] text-center" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--card-border)' }}>
+                      PK {m.pkScore.home}:{m.pkScore.away}
+                    </div>
+                  )}
+                </>
+              )
+            })()}
+          </div>
         </div>
       )}
     </div>
@@ -1754,26 +1899,28 @@ function LeagueInfoCard({ league, teams, matches }: {
 // ── Shared ────────────────────────────────────────────────────────────────────
 
 function TypeBadge({ type }: { type: string }) {
+  const style: React.CSSProperties = type === 'tournament'
+    ? { background: 'rgba(147,51,234,0.12)', color: '#a855f7' }
+    : { background: 'rgba(59,130,246,0.12)', color: '#3b82f6' }
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${
-      type === 'tournament' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-    }`}>
+    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium" style={style}>
       {type === 'tournament' ? '토너먼트' : '리그'}
     </span>
   )
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    recruiting: 'bg-amber-100 text-amber-700',
-    ongoing: 'bg-emerald-100 text-emerald-700',
-    finished: 'bg-slate-100 text-slate-500',
-    pending: 'bg-amber-100 text-amber-700',
-    completed: 'bg-slate-100 text-slate-500',
+  const styles: Record<string, React.CSSProperties> = {
+    recruiting: { background: 'rgba(245,158,11,0.15)', color: '#f59e0b' },
+    ongoing: { background: 'rgba(16,185,129,0.15)', color: '#10b981' },
+    finished: { background: 'rgba(148,163,184,0.15)', color: '#94a3b8' },
+    pending: { background: 'rgba(245,158,11,0.15)', color: '#f59e0b' },
+    completed: { background: 'rgba(148,163,184,0.15)', color: '#94a3b8' },
   }
   const labels: Record<string, string> = { recruiting: '모집중', ongoing: '진행중', finished: '종료', pending: '대기', completed: '완료' }
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${styles[status] ?? 'bg-slate-100 text-slate-500'}`}>
+    <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium"
+      style={styles[status] ?? { background: 'rgba(148,163,184,0.15)', color: '#94a3b8' }}>
       {labels[status] ?? status}
     </span>
   )
