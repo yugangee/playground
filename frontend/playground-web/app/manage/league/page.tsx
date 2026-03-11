@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import React, { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { manageFetch } from '@/lib/manageFetch'
 import { useTeam } from '@/context/TeamContext'
@@ -26,6 +26,7 @@ interface LeagueMatch {
   cards?: CardRecord[]
   guests?: string[]
   winner?: string
+  pkScore?: { home: number; away: number }
 }
 
 interface LeagueTeam { leagueId: string; teamId: string; joinedAt: string }
@@ -475,6 +476,7 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
           leagueId={league.id}
           isOrganizer={isOrganizer}
           leagueStatus={league.status}
+          leagueType={league.type}
           teamNames={teamNames}
           onClose={() => setDetailMatch(null)}
           onSave={() => { loadMatches(); setDetailMatch(null) }}
@@ -520,6 +522,12 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
           {league.type === 'tournament' ? ' 토너먼트 대진표가 자동으로 생성' : ' 라운드 로빈 일정이 자동으로 생성'}됩니다.
         </div>
       )}
+
+      {league.type === 'tournament' && league.status === 'finished' && (
+        <TournamentResults matches={matches} tn={tn} />
+      )}
+
+      <LeagueInfoCard league={league} teams={teams} matches={matches} />
 
       <div className="mb-6 flex gap-1 rounded-xl p-1 w-fit overflow-x-auto" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
         {detailTabs.filter(t => t.show).map(t => (
@@ -584,22 +592,22 @@ function LeagueDetail({ league: initialLeague, onBack, isOrganizer, currentTeamI
 
       {tab === 'matches' && (
         <MatchesSection leagueId={league.id} matches={matches} onRefresh={loadMatches} isOrganizer={isOrganizer}
-          leagueStatus={league.status} teamNames={teamNames} leagueTeams={teams} onMatchClick={setDetailMatch} />
+          leagueStatus={league.status} leagueType={league.type} teamNames={teamNames} leagueTeams={teams} onMatchClick={setDetailMatch} />
       )}
 
-      {tab === 'standings' && <StandingsTable standings={standings} tn={tn} currentTeamId={currentTeamId} />}
+      {tab === 'standings' && <StandingsTable standings={standings} tn={tn} currentTeamId={currentTeamId} matches={matches} />}
 
-      {tab === 'bracket' && <BracketView matches={matches} tn={tn} onMatchClick={setDetailMatch} />}
+      {tab === 'bracket' && <BracketView matches={matches} tn={tn} onMatchClick={setDetailMatch} leagueStatus={league.status} />}
 
-      {tab === 'stats' && <StatsTab matches={matches} />}
+      {tab === 'stats' && <StatsTab matches={matches} leagueType={league.type} />}
     </div>
   )
 }
 
 // ── Match Detail Modal ───────────────────────────────────────────────────────
 
-function MatchDetailModal({ match, leagueId, isOrganizer, leagueStatus, teamNames, onClose, onSave }: {
-  match: LeagueMatch; leagueId: string; isOrganizer: boolean; leagueStatus: string
+function MatchDetailModal({ match, leagueId, isOrganizer, leagueStatus, leagueType, teamNames, onClose, onSave }: {
+  match: LeagueMatch; leagueId: string; isOrganizer: boolean; leagueStatus: string; leagueType?: string
   teamNames: Record<string, string>; onClose: () => void; onSave: () => void
 }) {
   const tn = (id: string) => teamNames[id] ?? id
@@ -612,6 +620,8 @@ function MatchDetailModal({ match, leagueId, isOrganizer, leagueStatus, teamName
   const [cards, setCards] = useState<CardRecord[]>(match.cards ?? [])
   const [guests, setGuests] = useState(match.guests?.join(', ') ?? '')
   const [saving, setSaving] = useState(false)
+  const [homePk, setHomePk] = useState(String(match.pkScore?.home ?? ''))
+  const [awayPk, setAwayPk] = useState(String(match.pkScore?.away ?? ''))
 
   // 팀 멤버 로드
   const [homeMembers, setHomeMembers] = useState<TeamMember[]>([])
@@ -643,6 +653,11 @@ function MatchDetailModal({ match, leagueId, isOrganizer, leagueStatus, teamName
       }
       if (homeScore !== '') body.homeScore = Number(homeScore)
       if (awayScore !== '') body.awayScore = Number(awayScore)
+      // PK 결과 (토너먼트 동점 시)
+      if (leagueType === 'tournament' && homePk !== '' && awayPk !== '') {
+        body.pkScore = { home: Number(homePk), away: Number(awayPk) }
+        body.winner = Number(homePk) > Number(awayPk) ? match.homeTeamId : match.awayTeamId
+      }
       if (markComplete && homeScore !== '' && awayScore !== '') body.status = 'completed'
 
       await manageFetch(`/league/${leagueId}/matches/${match.id}`, {
@@ -709,6 +724,32 @@ function MatchDetailModal({ match, leagueId, isOrganizer, leagueStatus, teamName
             </div>
           )}
         </div>
+
+        {/* PK (토너먼트 동점 시) */}
+        {leagueType === 'tournament' && homeScore !== '' && awayScore !== '' && homeScore === awayScore && canEdit && (
+          <div className="mb-6 rounded-xl p-4" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+            <div className="text-xs font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--text-muted)' }}>승부차기 (PK)</div>
+            <div className="flex items-center justify-center gap-4">
+              <div className="text-center">
+                <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{tn(match.homeTeamId)}</div>
+                <input type="number" value={homePk} onChange={e => setHomePk(e.target.value)} min={0}
+                  className="w-16 rounded-xl px-2 py-2 text-center text-lg font-bold outline-none" style={{ ...inpStyle }} />
+              </div>
+              <span className="text-lg font-bold" style={{ color: 'var(--text-muted)' }}>:</span>
+              <div className="text-center">
+                <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{tn(match.awayTeamId)}</div>
+                <input type="number" value={awayPk} onChange={e => setAwayPk(e.target.value)} min={0}
+                  className="w-16 rounded-xl px-2 py-2 text-center text-lg font-bold outline-none" style={{ ...inpStyle }} />
+              </div>
+            </div>
+          </div>
+        )}
+        {/* PK 결과 표시 (읽기 전용) */}
+        {leagueType === 'tournament' && match.pkScore && !canEdit && (
+          <div className="mb-6 text-center text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+            승부차기 (PK) {match.pkScore.home} : {match.pkScore.away}
+          </div>
+        )}
 
         {/* Goals */}
         <Section title={`골 기록 (${goals.length})`}>
@@ -812,14 +853,15 @@ function MatchDetailModal({ match, leagueId, isOrganizer, leagueStatus, teamName
 
 // ── Matches Section ──────────────────────────────────────────────────────────
 
-function MatchesSection({ leagueId, matches, onRefresh, isOrganizer, leagueStatus, teamNames, leagueTeams, onMatchClick }: {
-  leagueId: string; matches: LeagueMatch[]; onRefresh: () => void; isOrganizer: boolean; leagueStatus: string
+function MatchesSection({ leagueId, matches, onRefresh, isOrganizer, leagueStatus, leagueType, teamNames, leagueTeams, onMatchClick }: {
+  leagueId: string; matches: LeagueMatch[]; onRefresh: () => void; isOrganizer: boolean; leagueStatus: string; leagueType?: string
   teamNames: Record<string, string>; leagueTeams: LeagueTeam[]; onMatchClick: (m: LeagueMatch) => void
 }) {
   const tn = (id: string) => teamNames[id] ?? id
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ homeTeamId: '', awayTeamId: '', scheduledAt: '', venue: '', round: '' })
   const [loading, setLoading] = useState(false)
+  const [selectedRound, setSelectedRound] = useState<string | null>(null)
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -882,7 +924,60 @@ function MatchesSection({ leagueId, matches, onRefresh, isOrganizer, leagueStatu
         <Empty text={leagueStatus === 'recruiting' ? '대회 시작 시 경기가 자동 생성됩니다' : '경기가 없습니다'} />
       ) : (
         <div className="space-y-6">
-          {rounds.map(round => (
+          {/* 최근 결과 피드 (리그 전용) */}
+          {leagueType === 'league' && (() => {
+            const recent = matches.filter(m => m.status === 'completed')
+              .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
+              .slice(0, 5)
+            if (recent.length === 0) return null
+            return (
+              <div>
+                <h3 className="mb-3 text-sm font-bold" style={{ color: 'var(--text-primary)' }}>최근 결과</h3>
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {recent.map(m => (
+                    <div key={m.id} onClick={() => onMatchClick(m)}
+                      className="flex-shrink-0 w-44 rounded-xl p-3 cursor-pointer transition-all hover:opacity-90"
+                      style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+                      <div className="text-[10px] font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>{m.round ?? ''}</div>
+                      <div className="flex items-center justify-between text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        <span className="truncate flex-1">{tn(m.homeTeamId)}</span>
+                        <span className="mx-1.5 rounded px-1.5 py-0.5 text-xs font-bold tabular-nums"
+                          style={{ background: 'var(--btn-solid-bg)', color: 'var(--btn-solid-color)' }}>
+                          {m.homeScore}:{m.awayScore}
+                        </span>
+                        <span className="truncate flex-1 text-right">{tn(m.awayTeamId)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* 라운드 필터 (리그 전용) */}
+          {leagueType === 'league' && rounds.length > 1 && (
+            <div className="flex gap-1 overflow-x-auto pb-1">
+              <button onClick={() => setSelectedRound(null)}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap"
+                style={selectedRound === null
+                  ? { background: 'var(--btn-solid-bg)', color: 'var(--btn-solid-color)' }
+                  : { color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
+                전체
+              </button>
+              {rounds.map(r => (
+                <button key={r} onClick={() => setSelectedRound(r)}
+                  className="rounded-lg px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap"
+                  style={selectedRound === r
+                    ? { background: 'var(--btn-solid-bg)', color: 'var(--btn-solid-color)' }
+                    : { color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
+                  {r}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* 경기 목록 */}
+          {(selectedRound ? rounds.filter(r => r === selectedRound) : rounds).map(round => (
             <div key={round}>
               <div className="mb-3 flex items-center gap-3">
                 <span className="rounded-lg px-3 py-1 text-xs font-bold" style={{ background: 'var(--text-primary)', color: 'var(--card-bg)' }}>{round}</span>
@@ -896,7 +991,7 @@ function MatchesSection({ leagueId, matches, onRefresh, isOrganizer, leagueStatu
               </div>
             </div>
           ))}
-          {ungrouped.length > 0 && ungrouped.map(m => (
+          {(!selectedRound && ungrouped.length > 0) && ungrouped.map(m => (
             <MatchCard key={m.id} match={m} isOrganizer={isOrganizer} leagueStatus={leagueStatus}
               onClick={() => onMatchClick(m)} onDelete={() => deleteMatch(m.id)} teamNames={teamNames} />
           ))}
@@ -964,10 +1059,13 @@ function MatchCard({ match: m, isOrganizer, leagueStatus, onClick, onDelete, tea
 
 // ── Standings ────────────────────────────────────────────────────────────────
 
-function StandingsTable({ standings, tn, currentTeamId }: {
+function StandingsTable({ standings, tn, currentTeamId, matches }: {
   standings: Array<{ teamId: string; w: number; d: number; l: number; gf: number; ga: number; gd: number; pts: number; form: string[] }>
-  tn: (id: string) => string; currentTeamId: string
+  tn: (id: string) => string; currentTeamId: string; matches?: LeagueMatch[]
 }) {
+  const [expandedTeam, setExpandedTeam] = useState<string | null>(null)
+  const [detailTeamId, setDetailTeamId] = useState<string | null>(null)
+
   if (standings.length === 0) return <Empty text="완료된 경기가 없습니다" />
 
   const medalBg = (i: number) => {
@@ -977,55 +1075,208 @@ function StandingsTable({ standings, tn, currentTeamId }: {
     return undefined
   }
 
+  const zoneBorder = (i: number) => {
+    if (i === 0) return '3px solid #10b981'
+    if (i >= standings.length - 1 && standings.length > 3) return '3px solid #ef4444'
+    return undefined
+  }
+
+  // 홈/원정 분리 성적
+  const getHomeAway = (teamId: string) => {
+    if (!matches) return null
+    const teamMatches = matches.filter(m => (m.homeTeamId === teamId || m.awayTeamId === teamId) && m.status === 'completed')
+    let hw = 0, hd = 0, hl = 0, hgf = 0, hga = 0, aw = 0, ad = 0, al = 0, agf = 0, aga = 0
+    teamMatches.forEach(m => {
+      const isHome = m.homeTeamId === teamId
+      const my = isHome ? (m.homeScore ?? 0) : (m.awayScore ?? 0)
+      const op = isHome ? (m.awayScore ?? 0) : (m.homeScore ?? 0)
+      if (isHome) { hgf += my; hga += op; if (my > op) hw++; else if (my === op) hd++; else hl++ }
+      else { agf += my; aga += op; if (my > op) aw++; else if (my === op) ad++; else al++ }
+    })
+    return { hw, hd, hl, hgf, hga, aw, ad, al, agf, aga }
+  }
+
   return (
-    <div className="overflow-hidden rounded-2xl" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--card-border)' }}>
-              {['#', '팀', '경기', '승', '무', '패', '득', '실', '득실', '폼', '승점'].map(h => (
-                <th key={h} className="px-3 py-3.5 text-center text-xs font-semibold uppercase tracking-wide first:text-left" style={{ color: 'var(--text-muted)' }}>
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {standings.map((s, i) => (
-              <tr key={s.teamId} style={{ borderBottom: '1px solid var(--card-border)', background: medalBg(i) }}>
-                <td className="px-3 py-3.5">
-                  <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                    i === 0 ? 'bg-emerald-500 text-white' : i === 1 ? 'bg-slate-300 text-slate-700' : i === 2 ? 'bg-amber-400 text-white' : ''
-                  }`} style={i > 2 ? { color: 'var(--text-muted)' } : undefined}>{i + 1}</span>
-                </td>
-                <td className="px-3 py-3.5 font-medium" style={{ color: 'var(--text-primary)' }}>
-                  {s.teamId === currentTeamId
-                    ? <span className="text-emerald-600 font-semibold">{tn(s.teamId)} ★</span>
-                    : tn(s.teamId)}
-                </td>
-                <td className="px-3 py-3.5 text-center" style={{ color: 'var(--text-muted)' }}>{s.w + s.d + s.l}</td>
-                <td className="px-3 py-3.5 text-center font-semibold text-emerald-600">{s.w}</td>
-                <td className="px-3 py-3.5 text-center" style={{ color: 'var(--text-muted)' }}>{s.d}</td>
-                <td className="px-3 py-3.5 text-center text-red-500">{s.l}</td>
-                <td className="px-3 py-3.5 text-center" style={{ color: 'var(--text-muted)' }}>{s.gf}</td>
-                <td className="px-3 py-3.5 text-center" style={{ color: 'var(--text-muted)' }}>{s.ga}</td>
-                <td className="px-3 py-3.5 text-center font-semibold" style={{ color: s.gd > 0 ? '#10b981' : s.gd < 0 ? '#ef4444' : 'var(--text-muted)' }}>
-                  {s.gd > 0 ? `+${s.gd}` : s.gd}
-                </td>
-                <td className="px-3 py-3.5 text-center">
-                  <div className="flex items-center justify-center gap-0.5">
-                    {s.form.map((f, fi) => (
-                      <span key={fi} className={`inline-block h-4 w-4 rounded-full text-[9px] font-bold leading-4 text-center text-white ${
-                        f === 'W' ? 'bg-emerald-500' : f === 'D' ? 'bg-slate-400' : 'bg-red-500'
-                      }`}>{f}</span>
-                    ))}
-                  </div>
-                </td>
-                <td className="px-3 py-3.5 text-center text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{s.pts}</td>
+    <div className="space-y-3">
+      {/* 범례 */}
+      <div className="flex gap-4 text-xs" style={{ color: 'var(--text-muted)' }}>
+        <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" /> 우승권</span>
+        {standings.length > 3 && <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" /> 강등권</span>}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--card-border)' }}>
+                {['#', '팀', '경기', '승', '무', '패', '득', '실', '득실', '폼', '승점'].map(h => (
+                  <th key={h} className="px-3 py-3.5 text-center text-xs font-semibold uppercase tracking-wide first:text-left" style={{ color: 'var(--text-muted)' }}>
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {standings.map((s, i) => {
+                const ha = getHomeAway(s.teamId)
+                return (
+                  <React.Fragment key={s.teamId}>
+                    <tr className="cursor-pointer hover:opacity-80"
+                      style={{ borderBottom: '1px solid var(--card-border)', background: medalBg(i), borderLeft: zoneBorder(i) }}
+                      onClick={() => setExpandedTeam(expandedTeam === s.teamId ? null : s.teamId)}>
+                      <td className="px-3 py-3.5">
+                        <span className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                          i === 0 ? 'bg-emerald-500 text-white' : i === 1 ? 'bg-slate-300 text-slate-700' : i === 2 ? 'bg-amber-400 text-white' : ''
+                        }`} style={i > 2 ? { color: 'var(--text-muted)' } : undefined}>{i + 1}</span>
+                      </td>
+                      <td className="px-3 py-3.5 font-medium" style={{ color: 'var(--text-primary)' }}>
+                        <span className="cursor-pointer hover:underline" onClick={e => { e.stopPropagation(); setDetailTeamId(s.teamId) }}>
+                          {s.teamId === currentTeamId
+                            ? <span className="text-emerald-600 font-semibold">{tn(s.teamId)} ★</span>
+                            : tn(s.teamId)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3.5 text-center" style={{ color: 'var(--text-muted)' }}>{s.w + s.d + s.l}</td>
+                      <td className="px-3 py-3.5 text-center font-semibold text-emerald-600">{s.w}</td>
+                      <td className="px-3 py-3.5 text-center" style={{ color: 'var(--text-muted)' }}>{s.d}</td>
+                      <td className="px-3 py-3.5 text-center text-red-500">{s.l}</td>
+                      <td className="px-3 py-3.5 text-center" style={{ color: 'var(--text-muted)' }}>{s.gf}</td>
+                      <td className="px-3 py-3.5 text-center" style={{ color: 'var(--text-muted)' }}>{s.ga}</td>
+                      <td className="px-3 py-3.5 text-center font-semibold" style={{ color: s.gd > 0 ? '#10b981' : s.gd < 0 ? '#ef4444' : 'var(--text-muted)' }}>
+                        {s.gd > 0 ? `+${s.gd}` : s.gd}
+                      </td>
+                      <td className="px-3 py-3.5 text-center">
+                        <div className="flex items-center justify-center gap-0.5">
+                          {s.form.map((f, fi) => (
+                            <span key={fi} className={`inline-block h-4 w-4 rounded-full text-[9px] font-bold leading-4 text-center text-white ${
+                              f === 'W' ? 'bg-emerald-500' : f === 'D' ? 'bg-slate-400' : 'bg-red-500'
+                            }`}>{f}</span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3.5 text-center text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{s.pts}</td>
+                    </tr>
+                    {/* 홈/원정 확장 행 */}
+                    {expandedTeam === s.teamId && ha && (
+                      <tr style={{ background: 'rgba(0,0,0,0.02)' }}>
+                        <td colSpan={11} className="px-6 py-3">
+                          <div className="flex gap-6 text-xs" style={{ color: 'var(--text-muted)' }}>
+                            <div><span className="font-semibold mr-2" style={{ color: 'var(--text-primary)' }}>홈</span> {ha.hw}승 {ha.hd}무 {ha.hl}패 (득 {ha.hgf} / 실 {ha.hga})</div>
+                            <div><span className="font-semibold mr-2" style={{ color: 'var(--text-primary)' }}>원정</span> {ha.aw}승 {ha.ad}무 {ha.al}패 (득 {ha.agf} / 실 {ha.aga})</div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 팀 상세 모달 */}
+      {detailTeamId && matches && (
+        <TeamDetailModal
+          teamId={detailTeamId}
+          teamName={tn(detailTeamId)}
+          matches={matches}
+          tn={tn}
+          onClose={() => setDetailTeamId(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Team Detail Modal ────────────────────────────────────────────────────────
+
+function TeamDetailModal({ teamId, teamName, matches, tn, onClose }: {
+  teamId: string; teamName: string; matches: LeagueMatch[]; tn: (id: string) => string; onClose: () => void
+}) {
+  const teamMatches = matches
+    .filter(m => (m.homeTeamId === teamId || m.awayTeamId === teamId) && m.status === 'completed')
+    .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())
+
+  // 상대별 직접 대결 기록
+  const h2h = new Map<string, { w: number; d: number; l: number; gf: number; ga: number }>()
+  teamMatches.forEach(m => {
+    const isHome = m.homeTeamId === teamId
+    const oppId = isHome ? m.awayTeamId : m.homeTeamId
+    const my = isHome ? (m.homeScore ?? 0) : (m.awayScore ?? 0)
+    const op = isHome ? (m.awayScore ?? 0) : (m.homeScore ?? 0)
+    const rec = h2h.get(oppId) ?? { w: 0, d: 0, l: 0, gf: 0, ga: 0 }
+    rec.gf += my; rec.ga += op
+    if (my > op) rec.w++; else if (my === op) rec.d++; else rec.l++
+    h2h.set(oppId, rec)
+  })
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+      <div className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl p-6" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{teamName}</h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 transition-colors hover:opacity-70" style={{ color: 'var(--text-muted)' }}>
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        {/* 경기 결과 */}
+        <h3 className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>경기 결과</h3>
+        {teamMatches.length === 0 ? <div className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>완료된 경기 없음</div> : (
+          <div className="space-y-2 mb-5">
+            {teamMatches.map(m => {
+              const isHome = m.homeTeamId === teamId
+              const my = isHome ? (m.homeScore ?? 0) : (m.awayScore ?? 0)
+              const op = isHome ? (m.awayScore ?? 0) : (m.homeScore ?? 0)
+              const result = my > op ? 'W' : my === op ? 'D' : 'L'
+              const oppId = isHome ? m.awayTeamId : m.homeTeamId
+              return (
+                <div key={m.id} className="flex items-center justify-between rounded-lg px-3 py-2 text-sm"
+                  style={{ background: result === 'W' ? 'rgba(16,185,129,0.06)' : result === 'L' ? 'rgba(239,68,68,0.06)' : 'rgba(148,163,184,0.06)' }}>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-block h-5 w-5 rounded-full text-[10px] font-bold leading-5 text-center text-white ${
+                      result === 'W' ? 'bg-emerald-500' : result === 'D' ? 'bg-slate-400' : 'bg-red-500'
+                    }`}>{result}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{isHome ? 'vs' : '@'}</span>
+                    <span style={{ color: 'var(--text-primary)' }}>{tn(oppId)}</span>
+                  </div>
+                  <span className="font-mono font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>{my}:{op}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* 상대별 직접 대결 */}
+        {h2h.size > 0 && (
+          <>
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>상대별 전적</h3>
+            <div className="overflow-hidden rounded-xl" style={{ border: '1px solid var(--card-border)' }}>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--card-border)' }}>
+                    {['상대', '승', '무', '패', '득', '실'].map(h => (
+                      <th key={h} className="px-3 py-2 text-center first:text-left" style={{ color: 'var(--text-muted)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from(h2h.entries()).map(([oppId, rec]) => (
+                    <tr key={oppId} style={{ borderBottom: '1px solid var(--card-border)' }}>
+                      <td className="px-3 py-2 font-medium" style={{ color: 'var(--text-primary)' }}>{tn(oppId)}</td>
+                      <td className="px-3 py-2 text-center text-emerald-600 font-semibold">{rec.w}</td>
+                      <td className="px-3 py-2 text-center" style={{ color: 'var(--text-muted)' }}>{rec.d}</td>
+                      <td className="px-3 py-2 text-center text-red-500">{rec.l}</td>
+                      <td className="px-3 py-2 text-center" style={{ color: 'var(--text-muted)' }}>{rec.gf}</td>
+                      <td className="px-3 py-2 text-center" style={{ color: 'var(--text-muted)' }}>{rec.ga}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
@@ -1035,28 +1286,32 @@ function StandingsTable({ standings, tn, currentTeamId }: {
 
 const ROUND_ORDER = ['1라운드', '16강', '8강', '준결승', '결승']
 
-function BracketView({ matches, tn, onMatchClick }: {
-  matches: LeagueMatch[]; tn: (id: string) => string; onMatchClick: (m: LeagueMatch) => void
+function BracketView({ matches, tn, onMatchClick, leagueStatus }: {
+  matches: LeagueMatch[]; tn: (id: string) => string; onMatchClick: (m: LeagueMatch) => void; leagueStatus?: string
 }) {
-  // 라운드별 그룹핑 (ROUND_ORDER 순서대로)
-  const roundGroups: Array<{ round: string; matches: LeagueMatch[] }> = []
+  // 라운드별 그룹핑 (메인 트리: 3/4위전 제외)
+  const mainGroups: Array<{ round: string; matches: LeagueMatch[] }> = []
   const used = new Set<string>()
 
   for (const r of ROUND_ORDER) {
     const ms = matches.filter(m => m.round === r)
     if (ms.length > 0) {
-      roundGroups.push({ round: r, matches: ms })
+      mainGroups.push({ round: r, matches: ms })
       ms.forEach(m => used.add(m.id))
     }
   }
-  // 기타 라운드 (커스텀 이름)
-  const remaining = matches.filter(m => m.round && !used.has(m.id))
+  // 기타 라운드 (커스텀 이름, 3/4위전 제외)
+  const remaining = matches.filter(m => m.round && !used.has(m.id) && m.round !== '3/4위전')
   const otherRounds = Array.from(new Set(remaining.map(m => m.round!)))
   for (const r of otherRounds) {
-    roundGroups.push({ round: r, matches: remaining.filter(m => m.round === r) })
+    const ms = remaining.filter(m => m.round === r)
+    mainGroups.push({ round: r, matches: ms })
+    ms.forEach(m => used.add(m.id))
   }
 
-  if (roundGroups.length === 0) return <Empty text="대진표가 없습니다" />
+  const thirdPlaceMatch = matches.find(m => m.round === '3/4위전')
+
+  if (mainGroups.length === 0) return <Empty text="대진표가 없습니다" />
 
   const getWinner = (m: LeagueMatch): string | null => {
     if (m.status !== 'completed') return null
@@ -1066,53 +1321,103 @@ function BracketView({ matches, tn, onMatchClick }: {
     return null
   }
 
-  return (
-    <div className="overflow-x-auto pb-4">
-      <div className="flex gap-8 min-w-max">
-        {roundGroups.map(({ round, matches: rMatches }) => (
-          <div key={round} className="flex flex-col">
-            <div className="mb-4 text-center">
-              <span className="rounded-lg px-3 py-1 text-xs font-bold" style={{ background: 'var(--text-primary)', color: 'var(--card-bg)' }}>{round}</span>
-            </div>
-            <div className="flex flex-col justify-around flex-1 gap-4">
-              {rMatches.map(m => {
-                const winner = getWinner(m)
-                return (
-                  <div key={m.id} onClick={() => onMatchClick(m)}
-                    className="w-56 rounded-xl cursor-pointer transition-all hover:opacity-90"
-                    style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-                    <div className="flex items-center justify-between px-3 py-2.5"
-                      style={{ borderBottom: '1px solid var(--card-border)', fontWeight: winner === m.homeTeamId ? 700 : 400 }}>
-                      <span className="text-sm truncate" style={{ color: winner === m.homeTeamId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                        {tn(m.homeTeamId)}
-                      </span>
-                      <span className="text-sm font-mono tabular-nums" style={{ color: 'var(--text-primary)' }}>
-                        {m.status === 'completed' ? m.homeScore : '-'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between px-3 py-2.5"
-                      style={{ fontWeight: winner === m.awayTeamId ? 700 : 400 }}>
-                      <span className="text-sm truncate" style={{ color: winner === m.awayTeamId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                        {tn(m.awayTeamId)}
-                      </span>
-                      <span className="text-sm font-mono tabular-nums" style={{ color: 'var(--text-primary)' }}>
-                        {m.status === 'completed' ? m.awayScore : '-'}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+  // 결승 우승팀
+  const finalMatch = matches.find(m => m.round === '결승' && m.status === 'completed')
+  const champion = finalMatch ? getWinner(finalMatch) : null
+
+  const renderBracketMatch = (m: LeagueMatch, isChampionHighlight?: boolean) => {
+    const winner = getWinner(m)
+    const borderStyle = isChampionHighlight
+      ? '2px solid #f59e0b'
+      : '1px solid var(--card-border)'
+    return (
+      <div key={m.id} onClick={() => onMatchClick(m)}
+        className="w-52 rounded-xl cursor-pointer transition-all hover:opacity-90"
+        style={{ background: 'var(--card-bg)', border: borderStyle }}>
+        <div className="flex items-center justify-between px-3 py-2"
+          style={{ borderBottom: '1px solid var(--card-border)', fontWeight: winner === m.homeTeamId ? 700 : 400 }}>
+          <span className="text-sm truncate flex-1" style={{ color: winner === m.homeTeamId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+            {champion === m.homeTeamId && <span className="mr-1">🏆</span>}
+            {tn(m.homeTeamId)}
+          </span>
+          <span className="text-sm font-mono tabular-nums ml-2" style={{ color: 'var(--text-primary)' }}>
+            {m.status === 'completed' ? m.homeScore : '-'}
+          </span>
+        </div>
+        <div className="flex items-center justify-between px-3 py-2"
+          style={{ fontWeight: winner === m.awayTeamId ? 700 : 400 }}>
+          <span className="text-sm truncate flex-1" style={{ color: winner === m.awayTeamId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+            {champion === m.awayTeamId && <span className="mr-1">🏆</span>}
+            {tn(m.awayTeamId)}
+          </span>
+          <span className="text-sm font-mono tabular-nums ml-2" style={{ color: 'var(--text-primary)' }}>
+            {m.status === 'completed' ? m.awayScore : '-'}
+          </span>
+        </div>
+        {m.pkScore && (
+          <div className="px-3 py-1 text-[10px] text-center" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--card-border)' }}>
+            PK {m.pkScore.home}:{m.pkScore.away}
           </div>
-        ))}
+        )}
       </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 우승팀 배너 */}
+      {champion && leagueStatus === 'finished' && (
+        <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)' }}>
+          <span className="text-lg">🏆</span>
+          <span className="ml-2 text-sm font-bold" style={{ color: 'var(--text-primary)' }}>우승: {tn(champion)}</span>
+        </div>
+      )}
+
+      {/* 메인 대진표 */}
+      <div className="overflow-x-auto pb-4">
+        <div className="flex min-w-max items-stretch">
+          {mainGroups.map(({ round, matches: rMatches }, gi) => (
+            <div key={round} className="flex items-stretch">
+              {/* 연결선 (첫 라운드 제외) */}
+              {gi > 0 && (
+                <div className="flex flex-col justify-around w-8 py-4">
+                  {rMatches.map((_, mi) => (
+                    <div key={mi} className="flex-1 flex items-center">
+                      <div className="w-full h-px" style={{ background: 'var(--card-border)' }} />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-col">
+                <div className="mb-4 text-center">
+                  <span className="rounded-lg px-3 py-1 text-xs font-bold" style={{ background: 'var(--text-primary)', color: 'var(--card-bg)' }}>{round}</span>
+                </div>
+                <div className="flex flex-col justify-around flex-1 gap-4">
+                  {rMatches.map(m => renderBracketMatch(m, m.round === '결승' && !!champion))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 3/4위전 */}
+      {thirdPlaceMatch && (
+        <div>
+          <div className="mb-3 flex items-center gap-3">
+            <span className="rounded-lg px-3 py-1 text-xs font-bold" style={{ background: 'var(--text-primary)', color: 'var(--card-bg)' }}>3/4위전</span>
+            <div className="h-px flex-1" style={{ background: 'var(--card-border)' }} />
+          </div>
+          {renderBracketMatch(thirdPlaceMatch)}
+        </div>
+      )}
     </div>
   )
 }
 
 // ── Stats Tab ────────────────────────────────────────────────────────────────
 
-function StatsTab({ matches }: { matches: LeagueMatch[] }) {
+function StatsTab({ matches, leagueType }: { matches: LeagueMatch[]; leagueType?: string }) {
   const completed = matches.filter(m => m.status === 'completed')
 
   // 멤버 이름 로드
@@ -1240,6 +1545,208 @@ function StatsTab({ matches }: { matches: LeagueMatch[] }) {
           </div>
         )}
       </div>
+
+      {/* 징계 현황 (토너먼트) */}
+      {leagueType === 'tournament' && cardList.length > 0 && (() => {
+        // KJA 규칙: 옐로 2장 누적(다른 경기) → 1경기 정지, 레드 → 2경기 정지
+        // 4강 진출 시 옐로 1장은 초기화
+        const hasReachedSemis = completed.some(m => m.round === '준결승' || m.round === '결승' || m.round === '3/4위전')
+
+        const suspensions: Array<{ id: string; reason: string; banned: number }> = []
+        const warnings: Array<{ id: string }> = []
+
+        cardList.forEach(c => {
+          let effectiveYellows = c.yellow
+          // 4강 진출 시 옐로 1장만 보유 → 초기화
+          if (hasReachedSemis && c.yellow === 1 && c.red === 0) {
+            effectiveYellows = 0
+          }
+
+          if (c.red > 0) {
+            suspensions.push({ id: c.id, reason: '레드카드', banned: c.red * 2 })
+          }
+          if (effectiveYellows >= 2) {
+            const bans = Math.floor(effectiveYellows / 2)
+            suspensions.push({ id: c.id, reason: `옐로 ${effectiveYellows}장 누적`, banned: bans })
+          } else if (effectiveYellows === 1) {
+            warnings.push({ id: c.id })
+          }
+        })
+
+        if (suspensions.length === 0 && warnings.length === 0) return null
+
+        return (
+          <div>
+            <h3 className="mb-3 text-sm font-bold" style={{ color: 'var(--text-primary)' }}>징계 현황</h3>
+            {hasReachedSemis && (
+              <div className="mb-3 rounded-lg px-3 py-2 text-xs" style={{ background: 'rgba(16,185,129,0.08)', color: '#10b981' }}>
+                4강 진출 — 옐로카드 1장 보유 선수는 경고 초기화됨
+              </div>
+            )}
+            <div className="space-y-2">
+              {suspensions.map(s => (
+                <div key={`sus-${s.id}-${s.reason}`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+                  style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                  <span className="text-red-500 font-bold text-xs">출전정지</span>
+                  <span style={{ color: 'var(--text-primary)' }}>{mn(s.id)}</span>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>({s.reason}, {s.banned}경기)</span>
+                </div>
+              ))}
+              {warnings.map(w => (
+                <div key={`warn-${w.id}`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+                  style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                  <span className="text-amber-500 font-bold text-xs">경고</span>
+                  <span style={{ color: 'var(--text-primary)' }}>{mn(w.id)}</span>
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>(옐로 1장 — 추가 시 출전정지)</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
+    </div>
+  )
+}
+
+// ── Tournament Results ────────────────────────────────────────────────────────
+
+function TournamentResults({ matches, tn }: {
+  matches: LeagueMatch[]; tn: (id: string) => string
+}) {
+  const completed = matches.filter(m => m.status === 'completed')
+
+  const getWinner = (m: LeagueMatch): string | null => {
+    if (m.winner) return m.winner
+    if ((m.homeScore ?? 0) > (m.awayScore ?? 0)) return m.homeTeamId
+    if ((m.awayScore ?? 0) > (m.homeScore ?? 0)) return m.awayTeamId
+    return null
+  }
+
+  const finalMatch = matches.find(m => m.round === '결승' && m.status === 'completed')
+  const thirdMatch = matches.find(m => m.round === '3/4위전' && m.status === 'completed')
+
+  if (!finalMatch) return null
+
+  const first = getWinner(finalMatch)
+  const second = first === finalMatch.homeTeamId ? finalMatch.awayTeamId : finalMatch.homeTeamId
+  const third = thirdMatch ? getWinner(thirdMatch) : null
+
+  // 득점왕/도움왕
+  const scorerMap = new Map<string, { goals: number; assists: number }>()
+  completed.forEach(m => {
+    (m.goals ?? []).forEach(g => {
+      if (g.scorer) {
+        const e = scorerMap.get(g.scorer) ?? { goals: 0, assists: 0 }
+        e.goals++
+        scorerMap.set(g.scorer, e)
+      }
+      if (g.assist) {
+        const e = scorerMap.get(g.assist) ?? { goals: 0, assists: 0 }
+        e.assists++
+        scorerMap.set(g.assist, e)
+      }
+    })
+  })
+  const topScorer = Array.from(scorerMap.entries()).sort((a, b) => b[1].goals - a[1].goals)[0]
+  const topAssist = Array.from(scorerMap.entries()).sort((a, b) => b[1].assists - a[1].assists)[0]
+
+  const totalGoals = completed.reduce((sum, m) => sum + (m.goals?.length ?? 0), 0)
+  const totalCards = completed.reduce((sum, m) => sum + (m.cards?.length ?? 0), 0)
+
+  return (
+    <div className="mb-6 rounded-2xl p-5" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(16,185,129,0.08))', border: '1px solid rgba(245,158,11,0.2)' }}>
+      <h3 className="text-sm font-bold mb-4" style={{ color: 'var(--text-primary)' }}>대회 결과</h3>
+
+      {/* 시상대 */}
+      <div className="flex items-end justify-center gap-4 mb-5">
+        {second && (
+          <div className="text-center">
+            <div className="text-xl mb-1">🥈</div>
+            <div className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{tn(second)}</div>
+            <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>준우승</div>
+          </div>
+        )}
+        {first && (
+          <div className="text-center -mt-2">
+            <div className="text-2xl mb-1">🏆</div>
+            <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{tn(first)}</div>
+            <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>우승</div>
+          </div>
+        )}
+        {third && (
+          <div className="text-center">
+            <div className="text-xl mb-1">🥉</div>
+            <div className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{tn(third)}</div>
+            <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>3위</div>
+          </div>
+        )}
+      </div>
+
+      {/* 개인상 + 통계 */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-center text-xs">
+        {topScorer && topScorer[1].goals > 0 && (
+          <div className="rounded-lg p-2" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+            <div className="font-bold" style={{ color: 'var(--text-primary)' }}>득점왕</div>
+            <div style={{ color: 'var(--text-muted)' }}>{topScorer[0].slice(0, 8)}… ({topScorer[1].goals}골)</div>
+          </div>
+        )}
+        {topAssist && topAssist[1].assists > 0 && (
+          <div className="rounded-lg p-2" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+            <div className="font-bold" style={{ color: 'var(--text-primary)' }}>도움왕</div>
+            <div style={{ color: 'var(--text-muted)' }}>{topAssist[0].slice(0, 8)}… ({topAssist[1].assists}도움)</div>
+          </div>
+        )}
+        <div className="rounded-lg p-2" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+          <div className="font-bold" style={{ color: 'var(--text-primary)' }}>총 경기</div>
+          <div style={{ color: 'var(--text-muted)' }}>{completed.length}경기</div>
+        </div>
+        <div className="rounded-lg p-2" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+          <div className="font-bold" style={{ color: 'var(--text-primary)' }}>총 골/카드</div>
+          <div style={{ color: 'var(--text-muted)' }}>{totalGoals}골 / {totalCards}카드</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── League Info Card ──────────────────────────────────────────────────────────
+
+function LeagueInfoCard({ league, teams, matches }: {
+  league: League; teams: LeagueTeam[]; matches: LeagueMatch[]
+}) {
+  const completed = matches.filter(m => m.status === 'completed').length
+  const total = matches.length
+  const currentRound = (() => {
+    if (matches.length === 0) return '-'
+    const pending = matches.filter(m => m.status !== 'completed')
+    if (pending.length === 0) return '완료'
+    const rounds = pending.map(m => m.round).filter(Boolean)
+    if (rounds.length === 0) return '-'
+    const order = [...ROUND_ORDER, '3/4위전']
+    const sorted = [...new Set(rounds)].sort((a, b) => {
+      const ai = order.indexOf(a!); const bi = order.indexOf(b!)
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+    })
+    return sorted[0] ?? '-'
+  })()
+
+  const cards = [
+    { label: '대회 형식', value: league.type === 'tournament' ? '토너먼트' : '리그', icon: league.type === 'tournament' ? '🏆' : '📊' },
+    { label: '참가팀', value: `${teams.length}팀`, icon: '👥' },
+    { label: '경기 진행', value: total > 0 ? `${completed}/${total}` : '-', icon: '⚽' },
+    { label: league.type === 'tournament' ? '현재 라운드' : '진행률', value: league.type === 'tournament' ? currentRound : (total > 0 ? `${Math.round((completed / total) * 100)}%` : '-'), icon: '📍' },
+  ]
+
+  return (
+    <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {cards.map(c => (
+        <div key={c.label} className="rounded-xl p-4 text-center"
+          style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+          <div className="text-lg mb-1">{c.icon}</div>
+          <div className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>{c.label}</div>
+          <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{c.value}</div>
+        </div>
+      ))}
     </div>
   )
 }
