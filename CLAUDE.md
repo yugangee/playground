@@ -16,7 +16,7 @@ sedaily-playground/
 │   ├── chat/                  # WebSocket chat Lambda
 │   ├── functions/             # CDK-managed Lambdas (team, finance, league, schedule, notifications, reminder, seasonReset)
 │   └── infra/                 # AWS CDK stack definition (cdk.json lives here)
-└── docs: README.md, PROGRESS.md, DEPLOY.md, CHAT-PIPELINE.md, RATING-SYSTEM.md, VIDEO-ANALYSIS.md
+└── docs/                      # README.md, PROGRESS.md, DEPLOY.md, CHAT-PIPELINE.md, RATING-SYSTEM.md, VIDEO-ANALYSIS.md, DB-CONNECTIONS.md
 ```
 
 ## Frontend Commands
@@ -26,7 +26,7 @@ cd frontend/playground-web
 
 npm run dev      # Dev server → http://127.0.0.1:3000
 npm run build    # Static export → ./out/
-npm run lint     # ESLint check
+npm run lint     # ESLint check (React Compiler rules enabled)
 npm run deploy   # Build + sync to S3 + invalidate CloudFront (Linux/Mac)
 npm run deploy:win  # Same for Windows
 ```
@@ -57,31 +57,24 @@ npm run build    # TypeScript → dist/
 - **API calls:**
   - `lib/manageFetch.ts` — wraps fetch for the **Manage API** (CDK stack); uses idToken; includes 401 auto-refresh + retry
   - `lib/tokenRefresh.ts` — shared token utilities: `tryRefreshTokens()` (singleton pattern), `clearTokens()`, `isTokenExpiredOrNearExpiry()`
-  - `lib/useWebSocket.ts` — manages WebSocket lifecycle for real-time chat
+  - `lib/useWebSocket.ts` — manages WebSocket lifecycle for real-time chat; uses ref-sync pattern (optionsRef/connectRef updated in useEffect, not during render)
+  - `app/team/page.tsx` defines a local `authFetch()` — wraps fetch for the **Auth API**; uses accessToken; same 401 → refresh → retry pattern
 - **Path alias:** `@/` maps to the `frontend/playground-web/` root
+- **React Compiler** is enabled — ESLint enforces `react-hooks/refs` (no ref access during render), `react-hooks/immutability`, `react-hooks/preserve-manual-memoization`
 
-## Backend Architecture
+## Dual API System — Critical Architecture
 
-- **Compute:** AWS Lambda (Node.js) + one EC2 FastAPI server for video analysis
-- **Auth:** AWS Cognito + custom Lambda (`backend/auth/index.mjs`) — handles signup, login, profile, ratings, token refresh
-- **Database:** DynamoDB — Auth API tables: `playground-users`, `playground-clubs`, `playground-matches`, `playground-activities`, `playground-chat-messages`, `playground-ws-connections`; CDK tables: `pg-teams`, `pg-leagues`, `pg-finance`, `pg-dues`, `pg-fines`, and ~20 others
-- **Real-time chat:** API Gateway WebSocket → `backend/chat/index.mjs`; three room types: Team, Match Captain, 1:1 DM
-- **Infrastructure as Code:** AWS CDK in `backend/infra/` — `playground-stack.ts` defines all resources (7 Lambda functions, ~24 DynamoDB tables, API Gateway, EventBridge rules)
-- **Video Analysis:** EC2 FastAPI (`backend/ec2-api.py`) with YOLO-based detection; async job processing polled by frontend; results stored in S3
+The project uses **two separate APIs** that share one Cognito pool but serve different data:
 
-## Production Endpoints
+| | Auth API (`ayeyr9vgsc`) | Manage API (`91iv3etr0h`) |
+|---|---|---|
+| **Deployment** | Manual (zip + aws cli) | CDK (`npx cdk deploy`) |
+| **Token** | `accessToken` | `idToken` (CognitoUserPoolsAuthorizer) |
+| **Fetch wrapper** | `authFetch()` in team/page.tsx | `manageFetch()` in lib/manageFetch.ts |
+| **Endpoints** | `/auth/*`, `/clubs`, `/matches`, `/activities`, `/join-requests`, `/users` | `/team`, `/finance`, `/league`, `/schedule`, `/social`, `/discover`, `/notifications` |
+| **Tables** | `playground-*` (users, clubs, matches, activities, chat-messages, ws-connections) | `pg-*` (~24 tables: teams, leagues, finance, dues, fines, etc.) |
 
-| Resource | Value |
-|---|---|
-| Auth API (`NEXT_PUBLIC_API_URL`) | `https://ayeyr9vgsc.execute-api.us-east-1.amazonaws.com/prod` |
-| Manage API (`NEXT_PUBLIC_MANAGE_API_URL`) | `https://91iv3etr0h.execute-api.us-east-1.amazonaws.com/prod` |
-| WebSocket | `wss://s2b7iclwcj.execute-api.us-east-1.amazonaws.com/prod` |
-| Frontend | `fun.sedaily.ai` → S3 bucket `playground-web-sedaily-us` via CloudFront `E1U8HJ0871GR0O` |
-
-**두 API의 역할 구분:**
-- **Auth API** (`ayeyr9vgsc`): `/auth/login`, `/auth/signup`, `/auth/refresh`, `/auth/me`, `/clubs`, `/matches`, `/activities` — 수동 배포된 별도 Lambda
-- **Manage API** (`91iv3etr0h`, CDK PlaygroundStack): `/team`, `/finance`, `/league`, `/schedule`, `/social`, `/discover` — CDK로 관리
-- **Cognito Pool**: `us-east-1_dolZhFZDJ` — 두 API 모두 이 풀 사용
+**Club ↔ Team data mapping:** Auth API "clubs" and Manage API "teams" represent the same real-world entity. `TeamContext` converts club data from Auth API into the Team interface. When both APIs return data for the same entity, the frontend merges them (see `team/page.tsx` and `team/matches/page.tsx`).
 
 ## Token / Auth Flow
 
@@ -91,7 +84,7 @@ npm run build    # TypeScript → dist/
 
 **Token refresh flow:**
 1. `tokenRefresh.ts` → POST `/auth/refresh` with refreshToken → Cognito `REFRESH_TOKEN_AUTH` → new accessToken + idToken
-2. Both `manageFetch` and `authFetch` (in `team/page.tsx`) implement 401 → refresh → retry pattern
+2. Both `manageFetch` and `authFetch` implement 401 → refresh → retry pattern
 3. `AuthContext` checks expiry on mount and every 30 minutes (5-minute buffer before actual expiry)
 
 **localStorage keys:** `accessToken`, `idToken`, `refreshToken`
@@ -110,14 +103,32 @@ npm run build    # TypeScript → dist/
 - `playground-reminder` Lambda — hourly check for D-2/D-1/same-day match reminders
 - `playground-season-reset` Lambda — Dec 31 15:00 UTC (= Jan 1 KST) with 50% point decay
 
+## Production Endpoints
+
+| Resource | Value |
+|---|---|
+| Auth API (`NEXT_PUBLIC_API_URL`) | `https://ayeyr9vgsc.execute-api.us-east-1.amazonaws.com/prod` |
+| Manage API (`NEXT_PUBLIC_MANAGE_API_URL`) | `https://91iv3etr0h.execute-api.us-east-1.amazonaws.com/prod` |
+| WebSocket | `wss://s2b7iclwcj.execute-api.us-east-1.amazonaws.com/prod` |
+| Frontend | `fun.sedaily.ai` → S3 bucket `playground-web-sedaily-us` via CloudFront `E1U8HJ0871GR0O` |
+| Cognito Pool | `us-east-1_dolZhFZDJ` (both APIs use this pool) |
+
+## Important Gotchas
+
+- **Hooks before early returns:** `TeamPageContent` in `team/page.tsx` has an `if (!club) return` guard. All `useState`/`useEffect` must be declared **before** this guard or React will crash when hook count changes between renders.
+- **No ref access during render:** React Compiler enforces this. Use `useEffect` to sync refs (see `useWebSocket.ts` pattern: `optionsRef.current` assigned inside `useEffect`, not in the render body).
+- **No impure functions during render:** `Math.random()`, `Date.now()`, etc. in render bodies cause different values on each re-render. Use `useMemo` or deterministic seed-based values.
+- **Build ignores errors:** `ignoreBuildErrors: true` in `next.config.ts` means the build will pass even with TypeScript/ESLint errors. Always run `npm run lint` explicitly.
+- **CDK GSI limit:** DynamoDB does not allow adding more than one GSI in a single CloudFormation update — deploy GSI additions in separate steps.
+- **S3 deploy exclusion:** Always use `--exclude "uploads/*"` when syncing to S3 to preserve user-uploaded files.
+
 ## Deployment Notes
 
-- **S3 sync**: Always use `--exclude "uploads/*"` to preserve user-uploaded files (see `DEPLOY.md`)
-- **CDK deploy**: Run `npx cdk deploy` from `backend/infra/` (not `backend/`). DynamoDB does not allow adding more than one GSI in a single CloudFormation update — if adding multiple GSIs, deploy in separate steps.
-- **Auth Lambda**: Not in CDK — deploy manually via `aws lambda update-function-code`
+- **Frontend:** `npm run deploy` from `frontend/playground-web/` — builds, syncs to S3, invalidates CloudFront
+- **CDK stack:** `npx cdk deploy` from `backend/infra/` (not `backend/`)
+- **Auth Lambda:** Not in CDK — deploy manually via `aws lambda update-function-code`
 
 ## TypeScript Config Notes
 
 - Frontend: `strict: true`, path alias `@/*`, targets ES2017
 - Backend: `strict: true`, outputs to `dist/`, targets ES2020
-- Next.js build ignores TypeScript and ESLint errors (`ignoreBuildErrors: true` in `next.config.ts`) — don't rely on build failures; run `npm run lint` explicitly

@@ -35,14 +35,39 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   const userId = getUserId(event)
 
   try {
-    // GET /league?organizerTeamId=xxx  or  GET /league (public)
+    // GET /league?organizerTeamId=xxx  or  GET /league?participantTeamId=xxx  or  GET /league (public)
     if (method === 'GET' && parts.length === 0) {
-      const teamId = event.queryStringParameters?.organizerTeamId
-      const result = await db.send(new QueryCommand(
-        teamId
-          ? { TableName: LEAGUES, IndexName: 'organizerTeamId-index', KeyConditionExpression: 'organizerTeamId = :tid', ExpressionAttributeValues: { ':tid': teamId } }
-          : { TableName: LEAGUES, IndexName: 'isPublic-createdAt-index', KeyConditionExpression: 'isPublic = :t', ExpressionAttributeValues: { ':t': 'true' }, ScanIndexForward: false }
-      ))
+      const organizerTeamId = event.queryStringParameters?.organizerTeamId
+      const participantTeamId = event.queryStringParameters?.participantTeamId
+
+      if (organizerTeamId) {
+        const result = await db.send(new QueryCommand({
+          TableName: LEAGUES, IndexName: 'organizerTeamId-index',
+          KeyConditionExpression: 'organizerTeamId = :tid',
+          ExpressionAttributeValues: { ':tid': organizerTeamId },
+        }))
+        return res(200, result.Items ?? [])
+      }
+
+      if (participantTeamId) {
+        const membershipResult = await db.send(new QueryCommand({
+          TableName: LEAGUE_TEAMS, IndexName: 'teamId-index',
+          KeyConditionExpression: 'teamId = :tid',
+          ExpressionAttributeValues: { ':tid': participantTeamId },
+        }))
+        const leagueIds = (membershipResult.Items ?? []).map(item => item.leagueId as string)
+        if (leagueIds.length === 0) return res(200, [])
+        const leagues = await Promise.all(
+          leagueIds.map(id => db.send(new GetCommand({ TableName: LEAGUES, Key: { id } })).then(r => r.Item).catch(() => undefined))
+        )
+        return res(200, leagues.filter(Boolean))
+      }
+
+      const result = await db.send(new QueryCommand({
+        TableName: LEAGUES, IndexName: 'isPublic-createdAt-index',
+        KeyConditionExpression: 'isPublic = :t',
+        ExpressionAttributeValues: { ':t': 'true' }, ScanIndexForward: false,
+      }))
       return res(200, result.Items ?? [])
     }
 
