@@ -181,6 +181,30 @@ export class PlaygroundStack extends cdk.Stack {
         billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
       }),
+      // 경기 이벤트 (골, 카드, 교체 등 타임라인)
+      matchEvents: new dynamodb.Table(this, 'MatchEventsTable', {
+        tableName: 'pg-match-events',
+        partitionKey: { name: 'matchId', type: dynamodb.AttributeType.STRING },
+        sortKey: { name: 'eventId', type: dynamodb.AttributeType.STRING },
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      }),
+      // 경기 라인업 (쿼터별)
+      matchLineups: new dynamodb.Table(this, 'MatchLineupsTable', {
+        tableName: 'pg-match-lineups',
+        partitionKey: { name: 'matchId', type: dynamodb.AttributeType.STRING },
+        sortKey: { name: 'quarter', type: dynamodb.AttributeType.STRING },
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      }),
+      // MOM 투표
+      matchMom: new dynamodb.Table(this, 'MatchMomTable', {
+        tableName: 'pg-match-mom',
+        partitionKey: { name: 'matchId', type: dynamodb.AttributeType.STRING },
+        sortKey: { name: 'voterId', type: dynamodb.AttributeType.STRING },
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      }),
     }
 
     // GSI for team-members userId queries (for GET /team endpoint)
@@ -260,6 +284,10 @@ export class PlaygroundStack extends cdk.Stack {
       indexName: 'teamId-index',
       partitionKey: { name: 'teamId', type: dynamodb.AttributeType.STRING },
     })
+    tables.matchEvents.addGlobalSecondaryIndex({
+      indexName: 'leagueId-index',
+      partitionKey: { name: 'leagueId', type: dynamodb.AttributeType.STRING },
+    })
 
     // ─── S3 Bucket ───────────────────────────────────────────────────
     const assetsBucket = new s3.Bucket(this, 'AssetsBucket', {
@@ -319,6 +347,10 @@ export class PlaygroundStack extends cdk.Stack {
       PLAYER_PERFORMANCE_TABLE: tables.playerPerformance.tableName,
       // M5-D: 팀 공동구매
       GROUP_PURCHASES_TABLE: tables.groupPurchases.tableName,
+      // 경기 상세 테이블
+      MATCH_EVENTS_TABLE: tables.matchEvents.tableName,
+      MATCH_LINEUPS_TABLE: tables.matchLineups.tableName,
+      MATCH_MOM_TABLE: tables.matchMom.tableName,
     }
 
     const lambdaDefaults = {
