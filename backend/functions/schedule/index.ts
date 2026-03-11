@@ -102,6 +102,55 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         UpdateExpression: expr, ExpressionAttributeNames: names, ExpressionAttributeValues: values,
       }))
 
+      // 경기 완료 시 클럽 전적(record, winRate) 업데이트
+      if (body.status === 'completed') {
+        const CLUBS_TABLE = 'playground-clubs'
+        const matchData = await db.send(new GetCommand({ TableName: MATCHES, Key: { id: parts[1] } }))
+        const match = matchData.Item
+        if (match?.homeTeamId) {
+          const homeResult = body.result || (body.ourScore > body.theirScore ? 'win' : body.ourScore < body.theirScore ? 'loss' : 'draw')
+          // homeTeamId(경기 생성 팀) 전적 업데이트
+          try {
+            const clubRes = await db.send(new GetCommand({ TableName: CLUBS_TABLE, Key: { clubId: match.homeTeamId } }))
+            const club = clubRes.Item
+            if (club) {
+              const rm = (club.record || '0승 0무 0패').match(/(\d+)승\s*(\d+)무\s*(\d+)패/)
+              let w = rm ? parseInt(rm[1]) : 0, d = rm ? parseInt(rm[2]) : 0, l = rm ? parseInt(rm[3]) : 0
+              if (homeResult === 'win') w++; else if (homeResult === 'draw') d++; else l++
+              const games = w + d + l
+              const winRate = games > 0 ? Math.round((w / games) * 100) : 0
+              await db.send(new UpdateCommand({
+                TableName: CLUBS_TABLE, Key: { clubId: match.homeTeamId },
+                UpdateExpression: 'SET #rec = :rec, winRate = :wr',
+                ExpressionAttributeNames: { '#rec': 'record' },
+                ExpressionAttributeValues: { ':rec': `${w}승 ${d}무 ${l}패`, ':wr': winRate },
+              }))
+            }
+          } catch (e) { console.error('Failed to update home club record:', e) }
+          // awayTeamId 전적 업데이트 (반대 결과)
+          if (match.awayTeamId) {
+            try {
+              const awayRes = await db.send(new GetCommand({ TableName: CLUBS_TABLE, Key: { clubId: match.awayTeamId } }))
+              const away = awayRes.Item
+              if (away) {
+                const awayResult = homeResult === 'win' ? 'loss' : homeResult === 'loss' ? 'win' : 'draw'
+                const rm = (away.record || '0승 0무 0패').match(/(\d+)승\s*(\d+)무\s*(\d+)패/)
+                let w = rm ? parseInt(rm[1]) : 0, d = rm ? parseInt(rm[2]) : 0, l = rm ? parseInt(rm[3]) : 0
+                if (awayResult === 'win') w++; else if (awayResult === 'draw') d++; else l++
+                const games = w + d + l
+                const winRate = games > 0 ? Math.round((w / games) * 100) : 0
+                await db.send(new UpdateCommand({
+                  TableName: CLUBS_TABLE, Key: { clubId: match.awayTeamId },
+                  UpdateExpression: 'SET #rec = :rec, winRate = :wr',
+                  ExpressionAttributeNames: { '#rec': 'record' },
+                  ExpressionAttributeValues: { ':rec': `${w}승 ${d}무 ${l}패`, ':wr': winRate },
+                }))
+              }
+            } catch (e) { console.error('Failed to update away club record:', e) }
+          }
+        }
+      }
+
       // 경기 완료 시 선수 골 기록 업데이트
       if (body.status === 'completed' && Array.isArray(body.scorers) && body.scorers.length > 0) {
         const USERS_TABLE = 'playground-users'

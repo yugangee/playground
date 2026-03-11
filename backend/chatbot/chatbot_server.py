@@ -121,6 +121,7 @@ analysis_results = {}
 class ChatRequest(BaseModel):
     messages: List[dict]
     analysis_id: Optional[str] = None  # 경기 분석 결과 ID
+    userContext: Optional[str] = None  # 유저 팀/경기/일정 데이터
 
 class ChatResponse(BaseModel):
     reply: str
@@ -131,6 +132,7 @@ class ChatState(TypedDict):
     context: str
     analysis_data: str
     web_search_results: str
+    user_context: str
     response: str
 
 # ─── LangGraph 노드 ───
@@ -138,6 +140,13 @@ def classify_intent(state: ChatState) -> ChatState:
     """사용자 의도 분류: RAG 검색, 웹 검색, 일반 대화 판단"""
     last_msg = state["messages"][-1]["content"]
     
+    # 플랫폼 데이터 질문이면 바로 generate로
+    platform_keywords = ["우리 팀", "우리팀", "다음 경기", "지난 경기", "경기 언제", "경기 결과",
+                         "누가 이겼", "몇 대 몇", "팀원", "멤버", "일정", "출석", "참석",
+                         "득점", "골", "어시스트", "승률", "전적", "상대 전적"]
+    if state["user_context"] and any(k in last_msg for k in platform_keywords):
+        return state
+
     # 분석 데이터가 있으면 분석 기반 대화
     if state["analysis_data"]:
         return state
@@ -192,8 +201,9 @@ def generate_response(state: ChatState) -> ChatState:
     """LLM으로 응답 생성"""
     system_parts = [
         "# Role\n"
-        "너는 축구 전문 AI 어시스턴트야. 축구에 관한 모든 주제(규칙, 전술, 선수, 리그, 월드컵, 이적, 역사 등)에 대해 한국어로 친절하고 전문적으로 답변해.\n\n"
+        "너는 PLAYGROUND 아마추어 스포츠 플랫폼의 AI 어시스턴트야. 축구뿐 아니라 사용자의 팀, 경기 일정, 경기 결과 등 플랫폼 데이터에 대한 질문에도 답변할 수 있어. 한국어로 친절하고 전문적으로 답변해.\n\n"
         "# Task\n"
+        "0. 플랫폼 데이터 질문: [유저 플랫폼 데이터]가 제공되면 이를 기반으로 팀 정보, 경기 일정, 경기 결과, 팀원 정보 등에 대해 정확하게 답변한다.\n"
         "1. 축구 규칙/판정 관련 질문: 제공된 [Context]의 축구 규칙 데이터(FIFA Laws of the Game)를 최우선으로 참고하여 정확하게 답변한다.\n"
         "   - 규칙이 모호한 상황에서는 IFAB 가이드라인에 따라 '심판의 재량'임을 언급하되, 판단 근거가 되는 규칙 조항을 설명한다.\n"
         "   - 최신 개정 사항(예: 핸드볼 규정 변화, 오프사이드 판정 기준 등)이 있다면 강조해서 설명한다.\n"
@@ -220,16 +230,19 @@ def generate_response(state: ChatState) -> ChatState:
     if state["analysis_data"]:
         system_parts.append(f"\n[경기 분석 데이터]\n{state['analysis_data']}\n이 데이터를 참고하여 경기에 대한 질문에 답변해.")
 
-<<<<<<< HEAD
-    if state["context"] and state["context"] != "rag":
-        system_parts.append(f"\n[Context]\n{state['context']}")
-=======
+    if state.get("user_context"):
+        system_parts.append(
+            f"\n[유저 플랫폼 데이터]\n{state['user_context']}\n"
+            "이 데이터는 사용자의 실제 팀, 경기 일정, 경기 결과 등 플랫폼 데이터야. "
+            "사용자가 '우리 팀', '다음 경기', '지난 경기' 등을 물어보면 이 데이터를 기반으로 정확하게 답변해. "
+            "날짜, 상대팀, 점수 등 구체적인 정보를 포함해서 답변해."
+        )
+
     if state.get("web_search_results"):
         system_parts.append(f"\n[웹 검색 결과]\n{state['web_search_results']}\n최신 정보를 바탕으로 답변하고, 출처 링크를 포함해.")
 
     if state["context"] and state["context"] not in ["rag", "web"]:
         system_parts.append(f"\n[참고 자료]\n{state['context']}\n이 자료를 바탕으로 답변해.")
->>>>>>> 3a56648fe97aabd89a299735a258b59d57fcf981
 
     msgs = [SystemMessage(content="\n".join(system_parts))]
     for m in state["messages"]:
@@ -249,11 +262,6 @@ def build_graph():
     graph.add_node("web_search", search_web)
     graph.add_node("retrieve", retrieve_knowledge)
     graph.add_node("generate", generate_response)
-    graph.add_edge(START, "classify")
-    graph.add_edge("classify", "web_search")
-    graph.add_edge("web_search", "retrieve")
-    graph.add_edge("retrieve", "generate")
-    graph.add_edge("generate", END)
     graph.add_edge(START, "classify")
     graph.add_edge("classify", "web_search")
     graph.add_edge("web_search", "retrieve")
@@ -282,6 +290,7 @@ async def chat_endpoint(req: ChatRequest):
         "context": "",
         "analysis_data": analysis_data,
         "web_search_results": "",
+        "user_context": req.userContext or "",
         "response": "",
     }
     result = chat_graph.invoke(state)

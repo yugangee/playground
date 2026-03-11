@@ -234,7 +234,7 @@ export default function Home() {
       .then(d => setRecentTeams(d.clubs || []))
       .catch(() => { });
 
-    fetch(`${API}/clubs?limit=3&sort=matchCount&order=desc`)
+    fetch(`${API}/clubs`)
       .then(r => r.json())
       .then(d => setTopMatchTeams(d.clubs || []))
       .catch(() => { });
@@ -449,26 +449,25 @@ function LoggedInHome({ name, recentTeams: initialRecent, topMatchTeams: initial
                   <th className="text-left py-2 px-2 font-medium" style={{ color: "var(--text-muted)" }}>팀</th>
                   <th className="text-center py-2 px-1 font-medium" style={{ color: "var(--text-primary)" }}>승점</th>
                   <th className="text-center py-2 px-1 font-medium" style={{ color: "var(--text-muted)" }}>경기</th>
-                  <th className="text-center py-2 px-1 font-medium" style={{ color: "var(--text-muted)" }}>승</th>
-                  <th className="text-center py-2 px-1 font-medium" style={{ color: "var(--text-muted)" }}>무</th>
-                  <th className="text-center py-2 px-1 font-medium" style={{ color: "var(--text-muted)" }}>패</th>
-                  <th className="text-center py-2 px-1 font-medium" style={{ color: "var(--text-muted)" }}>득실차</th>
+                  <th className="text-center py-2 px-1 font-medium" style={{ color: "var(--text-muted)" }}>전적</th>
                 </tr>
               </thead>
               <tbody>
                 {topMatchTeams
                   .filter(club => club.sport === rankingSport)
+                  .sort((a, b) => {
+                    const pts = (c: any) => { const m = (c.record || "").match(/(\d+)승\s*(\d+)무\s*(\d+)패/); return m ? parseInt(m[1]) * 2 + parseInt(m[2]) : 0; };
+                    return pts(b) - pts(a);
+                  })
                   .slice(0, 5)
                   .map((club, index) => {
-                    const wins = Math.floor(Math.random() * 3) + 1;
-                    const draws = Math.floor(Math.random() * 2);
-                    const losses = Math.floor(Math.random() * 2);
+                    const recordMatch = (club.record || "").match(/(\d+)승\s*(\d+)무\s*(\d+)패/);
+                    const wins = recordMatch ? parseInt(recordMatch[1]) : 0;
+                    const draws = recordMatch ? parseInt(recordMatch[2]) : 0;
+                    const losses = recordMatch ? parseInt(recordMatch[3]) : 0;
                     const games = wins + draws + losses;
-                    const points = wins * 3 + draws;
-                    const goals = wins * 2 + draws + Math.floor(Math.random() * 3);
-                    const conceded = losses * 2 + Math.floor(Math.random() * 2);
-                    const diff = goals - conceded;
-                    
+                    const points = wins * 2 + draws;
+
                     return (
                       <tr key={club.clubId} className="transition-colors" style={{ borderBottom: "1px solid var(--card-border)" }}>
                         <td className="py-2 px-2">
@@ -490,20 +489,13 @@ function LoggedInHome({ name, recentTeams: initialRecent, topMatchTeams: initial
                           <span className="font-bold" style={{ color: "var(--text-primary)" }}>{points}</span>
                         </td>
                         <td className="py-2 px-1 text-center" style={{ color: "var(--text-secondary)" }}>{games}</td>
-                        <td className="py-2 px-1 text-center" style={{ color: "var(--text-secondary)" }}>{wins}</td>
-                        <td className="py-2 px-1 text-center" style={{ color: "var(--text-secondary)" }}>{draws}</td>
-                        <td className="py-2 px-1 text-center" style={{ color: "var(--text-secondary)" }}>{losses}</td>
-                        <td className="py-2 px-1 text-center">
-                          <span style={{ color: "var(--text-secondary)" }}>
-                            {diff > 0 ? `+${diff}` : diff}
-                          </span>
-                        </td>
+                        <td className="py-2 px-1 text-center" style={{ color: "var(--text-secondary)" }}>{wins}승 {draws}무 {losses}패</td>
                       </tr>
                     );
                   })}
                 {topMatchTeams.filter(club => club.sport === rankingSport).length === 0 && (
                   <tr>
-                    <td colSpan={8} className="py-4 text-center text-xs" style={{ color: "var(--text-muted)" }}>
+                    <td colSpan={5} className="py-4 text-center text-xs" style={{ color: "var(--text-muted)" }}>
                       해당 종목의 클럽이 없습니다
                     </td>
                   </tr>
@@ -543,46 +535,59 @@ function LoggedInHome({ name, recentTeams: initialRecent, topMatchTeams: initial
                 <tr style={{ borderBottom: "1px solid var(--card-border)" }}>
                   <th className="text-left py-2 px-2 font-medium" style={{ color: "var(--text-muted)" }}>순위</th>
                   <th className="text-left py-2 px-2 font-medium" style={{ color: "var(--text-muted)" }}>팀</th>
+                  <th className="text-center py-2 px-1 font-medium" style={{ color: "var(--text-primary)" }}>승점</th>
+                  <th className="text-center py-2 px-1 font-medium" style={{ color: "var(--text-muted)" }}>경기</th>
+                  <th className="text-center py-2 px-1 font-medium" style={{ color: "var(--text-muted)" }}>전적</th>
                   <th className="text-center py-2 px-1 font-medium" style={{ color: "var(--text-muted)" }}>종목</th>
-                  <th className="text-center py-2 px-1 font-medium" style={{ color: "var(--text-muted)" }}>경기수</th>
                 </tr>
               </thead>
               <tbody>
-                {topMatchTeams.slice(0, 5).map((club, index) => {
-                  const wins = Math.floor(Math.random() * 3) + 1;
-                  const draws = Math.floor(Math.random() * 2);
-                  const losses = Math.floor(Math.random() * 2);
-                  const games = wins + draws + losses;
-                  
-                  return (
-                    <tr key={club.clubId} className="transition-colors" style={{ borderBottom: "1px solid var(--card-border)" }}>
-                      <td className="py-2 px-2">
-                        <span style={{ color: "var(--text-primary)" }} className="font-semibold">{index + 1}</span>
-                      </td>
-                      <td className="py-2 px-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
-                            {club.image ? (
-                              <img src={club.image} alt={club.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>{club.name.charAt(0)}</span>
-                            )}
+                {topMatchTeams
+                  .filter(club => (club.areas || []).some((a: any) => a.sido?.startsWith(rankingRegion)))
+                  .sort((a, b) => {
+                    const pts = (c: any) => { const m = (c.record || "").match(/(\d+)승\s*(\d+)무\s*(\d+)패/); return m ? parseInt(m[1]) * 2 + parseInt(m[2]) : 0; };
+                    return pts(b) - pts(a);
+                  })
+                  .slice(0, 5)
+                  .map((club, index) => {
+                    const recordMatch = (club.record || "").match(/(\d+)승\s*(\d+)무\s*(\d+)패/);
+                    const wins = recordMatch ? parseInt(recordMatch[1]) : 0;
+                    const draws = recordMatch ? parseInt(recordMatch[2]) : 0;
+                    const losses = recordMatch ? parseInt(recordMatch[3]) : 0;
+                    const games = wins + draws + losses;
+                    const points = wins * 2 + draws;
+
+                    return (
+                      <tr key={club.clubId} className="transition-colors" style={{ borderBottom: "1px solid var(--card-border)" }}>
+                        <td className="py-2 px-2">
+                          <span style={{ color: "var(--text-primary)" }} className="font-semibold">{index + 1}</span>
+                        </td>
+                        <td className="py-2 px-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+                              {club.image ? (
+                                <img src={club.image} alt={club.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-xs font-bold" style={{ color: "var(--text-muted)" }}>{club.name.charAt(0)}</span>
+                              )}
+                            </div>
+                            <span className="font-medium truncate" style={{ color: "var(--text-primary)" }}>{club.name}</span>
                           </div>
-                          <span className="font-medium truncate" style={{ color: "var(--text-primary)" }}>{club.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-2 px-1 text-center">
-                        <span style={{ color: "var(--text-secondary)" }}>{club.sport}</span>
-                      </td>
-                      <td className="py-2 px-1 text-center">
-                        <span style={{ color: "var(--text-secondary)" }}>{games}</span>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {topMatchTeams.length === 0 && (
+                        </td>
+                        <td className="py-2 px-1 text-center">
+                          <span className="font-bold" style={{ color: "var(--text-primary)" }}>{points}</span>
+                        </td>
+                        <td className="py-2 px-1 text-center" style={{ color: "var(--text-secondary)" }}>{games}</td>
+                        <td className="py-2 px-1 text-center" style={{ color: "var(--text-secondary)" }}>{wins}승 {draws}무 {losses}패</td>
+                        <td className="py-2 px-1 text-center">
+                          <span style={{ color: "var(--text-secondary)" }}>{club.sport}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                {topMatchTeams.filter(club => (club.areas || []).some((a: any) => a.sido?.startsWith(rankingRegion))).length === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-4 text-center text-xs" style={{ color: "var(--text-muted)" }}>
+                    <td colSpan={6} className="py-4 text-center text-xs" style={{ color: "var(--text-muted)" }}>
                       해당 지역의 클럽이 없습니다
                     </td>
                   </tr>
@@ -703,357 +708,3 @@ function GuestLoginBanner() {
   );
 }
 
-function LandingHome({ recentTeams, topMatchTeams }: { recentTeams: any[]; topMatchTeams: any[] }) {
-  // 사진 있는 팀만 필터링
-  const teamsWithImages = recentTeams.filter(t => t.image);
-  
-  // 3행을 위해 팀 분배 (사진 있는 팀만)
-  const row1Teams = teamsWithImages.length > 0 ? [...teamsWithImages, ...teamsWithImages, ...teamsWithImages] : [];
-  const row2Teams = teamsWithImages.length > 2 
-    ? [...teamsWithImages.slice(2), ...teamsWithImages.slice(0, 2), ...teamsWithImages.slice(2), ...teamsWithImages.slice(0, 2), ...teamsWithImages]
-    : [...teamsWithImages, ...teamsWithImages, ...teamsWithImages];
-  const row3Teams = teamsWithImages.length > 4 
-    ? [...teamsWithImages.slice(4), ...teamsWithImages.slice(0, 4), ...teamsWithImages.slice(4), ...teamsWithImages.slice(0, 4)]
-    : [...teamsWithImages, ...teamsWithImages, ...teamsWithImages];
-
-  return (
-    <div className="min-h-screen flex flex-col">
-      {/* 헤더 */}
-      <header className="absolute top-0 left-0 right-0 z-50 px-8 py-5">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-black tracking-tight uppercase" style={{ color: "#ffffff" }}>Playground</h1>
-          <Link
-            href="/login"
-            className="px-4 py-2 rounded text-sm font-semibold transition-colors border"
-            style={{ background: "#000000", color: "#ffffff", borderColor: "rgba(255,255,255,0.3)" }}
-          >
-            로그인
-          </Link>
-        </div>
-      </header>
-
-      {/* 히어로 섹션 */}
-      <div className="relative min-h-[55vh] flex items-start justify-center overflow-hidden pt-32" style={{ backgroundColor: "#000000" }}>
-        {/* 배경 검정 */}
-        
-        {/* 배경 팀 동그라미 3행 마키 (일렬, 느리게) */}
-        <div className="absolute inset-0 opacity-50 overflow-hidden" style={{ filter: "blur(3px)" }}>
-          <div className="absolute inset-0 flex flex-col justify-center gap-8">
-            {/* 1행 - 오른쪽으로 → (위쪽) */}
-            <div 
-              className="flex gap-6"
-              style={{ 
-                width: "max-content",
-                animation: "scrollRight 300s linear infinite",
-                transform: "translateY(-30px)"
-              }}
-            >
-              {row1Teams.map((t, i) => (
-                <div key={`row1-${t?.clubId || i}-${i}`} className="w-42 h-42 rounded-full border border-fuchsia-500/30 overflow-hidden flex items-center justify-center shrink-0">
-                  {t?.image && (
-                    <img src={t.image} alt={t.name} className="w-full h-full object-cover" />
-                  )}
-                </div>
-              ))}
-            </div>
-            
-            {/* 2행 - 왼쪽으로 ← (중간) */}
-            <div 
-              className="flex gap-6"
-              style={{ 
-                width: "max-content",
-                animation: "scrollLeft 310s linear infinite",
-                transform: "translateY(-10px)"
-              }}
-            >
-              {row2Teams.map((t, i) => (
-                <div key={`row2-${t?.clubId || i}-${i}`} className="w-42 h-42 rounded-full border border-violet-500/30 overflow-hidden flex items-center justify-center shrink-0">
-                  {t?.image && (
-                    <img src={t.image} alt={t.name} className="w-full h-full object-cover" />
-                  )}
-                </div>
-              ))}
-            </div>
-            
-            {/* 3행 - 오른쪽으로 → (약간 위) */}
-            <div 
-              className="flex gap-6"
-              style={{ 
-                width: "max-content",
-                animation: "scrollRight 320s linear infinite",
-                transform: "translateY(10px)"
-              }}
-            >
-              {row3Teams.map((t, i) => (
-                <div key={`row3-${t?.clubId || i}-${i}`} className="w-42 h-42 rounded-full border border-emerald-500/30 overflow-hidden flex items-center justify-center shrink-0">
-                  {t?.image && (
-                    <img src={t.image} alt={t.name} className="w-full h-full object-cover" />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        
-        {/* 애니메이션 스타일 */}
-        <style jsx>{`
-          @keyframes scrollRight {
-            0% { transform: translateX(-50%); }
-            100% { transform: translateX(0%); }
-          }
-          @keyframes scrollLeft {
-            0% { transform: translateX(0%); }
-            100% { transform: translateX(-50%); }
-          }
-        `}</style>
-
-        {/* 그라데이션 오버레이 - 전체 약간 어둡게 */}
-        <div className="absolute inset-0 bg-black/35" />
-
-        {/* 메인 콘텐츠 */}
-        <div className="relative z-10 flex flex-col items-center text-center px-4 max-w-3xl mx-auto space-y-4 sm:space-y-6">
-          {/* 메인 헤드라인 */}
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black leading-tight" style={{ textShadow: "0 4px 20px rgba(0,0,0,0.8)" }}>
-            <span style={{ color: "#ffffff" }}>클럽 매칭, 팀 관리,</span><br />
-            <span className="bg-gradient-to-r from-fuchsia-400 to-violet-400 bg-clip-text text-transparent">
-              AI 분석
-            </span>
-            <span style={{ color: "#ffffff" }}>을 한 곳에서</span>
-          </h2>
-
-          {/* 서브 텍스트 */}
-          <p className="text-base sm:text-lg md:text-xl text-gray-200 drop-shadow-lg">
-            <span className="text-fuchsia-400 font-bold">₩1,000</span>으로 시작하세요.<br className="sm:hidden" />멤버십은 언제든지 해지 가능합니다.
-          </p>
-
-          {/* 추가 안내 */}
-          <p className="text-sm sm:text-base drop-shadow" style={{ color: "white" }}>
-            지금 바로 시작할 준비가 되셨나요?<br className="sm:hidden" />회원가입 후 플레이그라운드를 경험하세요.
-          </p>
-
-          {/* 회원가입 버튼 */}
-          <Link
-            href="/signup"
-            className="inline-flex items-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 rounded-lg text-base sm:text-lg font-bold transition-all hover:scale-105 border"
-            style={{ background: "#000000", color: "#ffffff", borderColor: "rgba(255,255,255,0.3)" }}
-          >
-            회원가입 <ArrowRight size={18} className="sm:w-[20px] sm:h-[20px]" />
-          </Link>
-        </div>
-      </div>
-
-      {/* Trending Now - 클럽 랭킹 */}
-      <div className="bg-black py-16 px-8">
-        <div className="max-w-7xl mx-auto">
-          {/* 전체 클럽 랭킹 */}
-          <div className="mb-12">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-white text-2xl font-bold">전체 클럽 랭킹</h2>
-              <Link 
-                href="/clubs"
-                className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors text-sm font-medium"
-              >
-                더보기 <ArrowRight size={14} />
-              </Link>
-            </div>
-            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-              {topMatchTeams.slice(0, 6).map((club, index) => (
-                <Link
-                  key={club.clubId}
-                  href={`/clubs/${club.clubId}`}
-                  className="relative flex-shrink-0 w-36 h-52 sm:w-40 sm:h-60 md:w-44 md:h-64 lg:w-48 lg:h-72 rounded-lg overflow-hidden group cursor-pointer"
-                >
-                  {/* 배경 이미지 */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-gray-400/40">
-                    {club.image && (
-                      <img src={club.image} alt={club.name} className="w-full h-full object-cover opacity-30 group-hover:opacity-50 transition-opacity" />
-                    )}
-                  </div>
-
-                  {/* 클럽 정보 - 상단 왼쪽 */}
-                  <div className="absolute top-3 left-3 right-3">
-                    <h3 className="text-white font-bold text-sm sm:text-base mb-1 truncate">
-                      {club.name}
-                    </h3>
-                    <div className="flex items-center gap-2 text-sm sm:text-base">
-                      <span className="px-2 py-0.5 rounded-md border font-semibold text-xs sm:text-sm" style={{ background: "rgba(192,38,211,0.15)", color: "#c026d3", borderColor: "rgba(192,38,211,0.3)" }}>
-                        {club.sport}
-                      </span>
-                      {club.location && (
-                        <span className="text-gray-200 text-xs sm:text-sm">
-                          {club.location}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* 카테고리별 랭킹 (축구) */}
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-white text-2xl font-bold">축구 클럽 랭킹</h2>
-              <Link 
-                href="/clubs?sport=축구"
-                className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors text-sm font-medium"
-              >
-                더보기 <ArrowRight size={14} />
-              </Link>
-            </div>
-            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-              {recentTeams.filter(club => club.sport === "축구").slice(0, 6).map((club, index) => (
-                <Link
-                  key={club.clubId}
-                  href={`/clubs/${club.clubId}`}
-                  className="relative flex-shrink-0 w-36 h-52 sm:w-40 sm:h-60 md:w-44 md:h-64 lg:w-48 lg:h-72 rounded-lg overflow-hidden group cursor-pointer"
-                >
-                  {/* 배경 이미지 */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-gray-400/40">
-                    {club.image && (
-                      <img src={club.image} alt={club.name} className="w-full h-full object-cover opacity-30 group-hover:opacity-50 transition-opacity" />
-                    )}
-                  </div>
-
-                  {/* 클럽 정보 - 상단 왼쪽 */}
-                  <div className="absolute top-3 left-3 right-3">
-                    <h3 className="text-white font-bold text-sm sm:text-base mb-1 truncate">
-                      {club.name}
-                    </h3>
-                    <div className="flex items-center gap-2 text-sm sm:text-base">
-                      <span className="px-2 py-0.5 rounded-md border font-semibold text-xs sm:text-sm" style={{ background: "rgba(192,38,211,0.15)", color: "#c026d3", borderColor: "rgba(192,38,211,0.3)" }}>
-                        {club.sport}
-                      </span>
-                      {club.location && (
-                        <span className="text-gray-200 text-xs sm:text-sm">
-                          {club.location}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* More Reasons to Join - 넷플릭스 스타일 */}
-      <div className="relative py-16 sm:py-24 px-6 sm:px-12 pb-40 overflow-hidden" style={{ background: "linear-gradient(180deg, #000000 0%, #1a0a2e 50%, #0f0f0f 100%)" }}>
-        <div className="relative max-w-6xl mx-auto">
-          {/* 메인 타이틀 */}
-          <div className="text-left sm:text-center mb-8 sm:mb-16">
-            <h2 className="text-xl sm:text-3xl md:text-4xl font-bold mb-2" style={{ color: "#ffffff" }}>
-              가입해야 하는 또 다른 이유
-            </h2>
-          </div>
-
-          {/* 카드 리스트 - 모바일: 세로, 데스크탑: 가로 */}
-          <div className="flex flex-col lg:grid lg:grid-cols-4 gap-4 sm:gap-6">
-            {/* 카드 1 */}
-            <div 
-              className="rounded-xl p-5 sm:p-6 relative overflow-hidden"
-              style={{ 
-                background: "linear-gradient(135deg, rgba(139, 69, 19, 0.4) 0%, rgba(75, 0, 130, 0.3) 100%)",
-              }}
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex-1 pr-4">
-                  <h3 className="text-lg sm:text-xl font-bold mb-2" style={{ color: "#ffffff" }}>
-                    올인원 팀 관리
-                  </h3>
-                  <p className="text-xs sm:text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>
-                    단톡방에 흩어진 팀원 명단과 회비, 경기 결과를 한곳에 모아 관리하세요.
-                  </p>
-                </div>
-                <div className="text-4xl sm:text-5xl">📋</div>
-              </div>
-            </div>
-
-            {/* 카드 2 */}
-            <div 
-              className="rounded-xl p-5 sm:p-6 relative overflow-hidden"
-              style={{ 
-                background: "linear-gradient(135deg, rgba(255, 20, 147, 0.3) 0%, rgba(138, 43, 226, 0.3) 100%)",
-              }}
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex-1 pr-4">
-                  <h3 className="text-lg sm:text-xl font-bold mb-2" style={{ color: "#ffffff" }}>
-                    스마트 팀 매칭
-                  </h3>
-                  <p className="text-xs sm:text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>
-                    내 위치와 실력 데이터에 딱 맞는 최적의 팀을 추천받고 바로 합류하세요.
-                  </p>
-                </div>
-                <div className="text-4xl sm:text-5xl">👥</div>
-              </div>
-            </div>
-
-            {/* 카드 3 */}
-            <div 
-              className="rounded-xl p-5 sm:p-6 relative overflow-hidden"
-              style={{ 
-                background: "linear-gradient(135deg, rgba(0, 100, 0, 0.3) 0%, rgba(0, 128, 128, 0.3) 100%)",
-              }}
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex-1 pr-4">
-                  <h3 className="text-lg sm:text-xl font-bold mb-2" style={{ color: "#ffffff" }}>
-                    한눈에 보는 일정
-                  </h3>
-                  <p className="text-xs sm:text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>
-                    캘린더 연동으로 모든 경기 일정을 체크하고 멤버들의 참석 여부를 확인하세요.
-                  </p>
-                </div>
-                <div className="text-4xl sm:text-5xl">📅</div>
-              </div>
-            </div>
-
-            {/* 카드 4 */}
-            <div 
-              className="rounded-xl p-5 sm:p-6 relative overflow-hidden"
-              style={{ 
-                background: "linear-gradient(135deg, rgba(25, 25, 112, 0.4) 0%, rgba(72, 61, 139, 0.3) 100%)",
-              }}
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex-1 pr-4">
-                  <h3 className="text-lg sm:text-xl font-bold mb-2" style={{ color: "#ffffff" }}>
-                    다양한 종목의 스포츠
-                  </h3>
-                  <p className="text-xs sm:text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.7)" }}>
-                    종목과 실력에 상관없이 운동을 사랑하는 플레이어라면 누구나 환영합니다.
-                  </p>
-                </div>
-                <div className="text-4xl sm:text-5xl">⚙️</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 하단 띠 배너 - 고정 */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 py-5 px-4" style={{ background: "linear-gradient(0deg, rgba(0,0,0,0.98) 0%, rgba(0,0,0,0.95) 70%, rgba(0,0,0,0) 100%)" }}>
-        <div className="max-w-sm mx-auto flex flex-col items-center text-center gap-3">
-          <div>
-            <p className="font-bold text-base sm:text-lg" style={{ color: "#ffffff" }}>
-              <span style={{ color: "#ffffff" }}>₩1,000</span>으로 만날 수 있는 플레이그라운드.
-            </p>
-            <p className="text-xs sm:text-sm mt-1" style={{ color: "rgba(255,255,255,0.6)" }}>
-              가장 경제적인 아마추어 스포츠 플랫폼을 이용해 보세요.
-            </p>
-          </div>
-          <Link
-            href="/payment"
-            className="px-6 py-2.5 rounded-md text-sm font-semibold transition-colors hover:bg-white/10 border"
-            style={{ color: "rgba(255,255,255,0.9)", borderColor: "rgba(255,255,255,0.4)" }}
-          >
-            자세히 알아보기
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
