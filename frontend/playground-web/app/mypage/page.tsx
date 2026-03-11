@@ -292,6 +292,8 @@ export default function MyPage() {
       const newTeamIds = teamDraft.teamId && !existingTeamIds.includes(teamDraft.teamId)
         ? [...existingTeamIds, teamDraft.teamId]
         : existingTeamIds;
+      // 등번호 저장: editingTeamId가 있으면 그걸 사용, 없으면 teamDraft.teamId 사용
+      const teamIdForNumber = editingTeamId || teamDraft.teamId;
       const r = await fetch(`${API}/auth/profile`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -301,7 +303,7 @@ export default function MyPage() {
           teamId: teamDraft.teamId,
           teamIds: newTeamIds,
           position: teamDraft.position,
-          teamNumbers: { ...(user?.teamNumbers || {}), ...(editingTeamId ? { [editingTeamId]: teamDraft.number || null } : {}) },
+          teamNumbers: { ...(user?.teamNumbers || {}), ...(teamIdForNumber ? { [teamIdForNumber]: teamDraft.number || null } : {}) },
         }),
       });
       if (!r.ok) {

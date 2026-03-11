@@ -316,7 +316,7 @@ async function updateClubMember(body) {
   const exprNames = {};
   const exprValues = {};
   let idx = 0;
-  for (const key of ["name", "position"]) {
+  for (const key of ["name", "position", "role"]) {
     if (body[key] !== undefined) {
       exprParts.push(`#f${idx} = :v${idx}`);
       exprNames[`#f${idx}`] = key;
@@ -1080,7 +1080,10 @@ export const handler = async (event) => {
       return await listClubs(event.queryStringParameters);
     }
     if (method === "POST" && path === "/club-members") {
-      return await addClubMember(JSON.parse(event.body));
+      const body = JSON.parse(event.body);
+      // action: "update" → 수정, 그 외 → 등록
+      if (body.action === "update") return await updateClubMember(body);
+      return await addClubMember(body);
     }
     if (method === "PUT" && path === "/club-members") {
       return await updateClubMember(JSON.parse(event.body));

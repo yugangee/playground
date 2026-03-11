@@ -137,9 +137,11 @@ export default function TeamPage() {
         const membersList = data.members || data || [];
         // Auth API 형식을 TeamMember 형식으로 변환
         // 알려진 역할만 허용 (알 수 없는 역할은 member로 처리)
-        const knownRoles = ['leader', 'manager', 'treasurer', 'member'];
+        const knownRoles = ['leader', 'manager', 'treasurer', 'owner', 'coach', 'member'];
         const converted = membersList.map((m: any) => {
-          const role = knownRoles.includes(m.role) ? m.role : 'member';
+          const rawRoles = m.role ? m.role.split(',').map((r: string) => r.trim()) : ['member'];
+          const roles = rawRoles.filter((r: string) => knownRoles.includes(r));
+          if (roles.length === 0) roles.push('member');
           // 알려진 포지션만 허용 (positionColor에 있는 값)
           const knownPositions = ['GK', 'DF', 'MF', 'FW', 'C', 'PG', 'SG', 'SF', 'PF'];
           const position = knownPositions.includes(m.position) ? m.position : '';
@@ -148,9 +150,9 @@ export default function TeamPage() {
             name: m.name || m.email?.split('@')[0] || '-',
             email: m.email,
             position,
-            jerseyNumber: m.jerseyNumber || m.number || null, // 등번호
-            roles: [role],
-            role,
+            jerseyNumber: m.jerseyNumber || m.number || null,
+            roles,
+            role: roles.join(','),
           };
         });
         setMembers(converted);
@@ -161,21 +163,32 @@ export default function TeamPage() {
 
   // 멤버 이름 매핑 (Auth API의 /users에서 가져옴)
   const [memberNames, setMemberNames] = useState<Record<string, string>>({});
+  const [memberNumbers, setMemberNumbers] = useState<Record<string, number>>({});
   useEffect(() => {
-    if (members.length === 0) return;
+    if (members.length === 0 || !currentTeam) return;
     fetch(`${AUTH_API}/users`)
       .then(r => r.json())
       .then(data => {
         const users = data.users || [];
         const nameMap: Record<string, string> = {};
+        const numberMap: Record<string, number> = {};
         users.forEach((u: any) => {
-          if (u.username) nameMap[u.username] = u.name;
-          if (u.sub) nameMap[u.sub] = u.name;
+          const key = u.email || u.username || u.sub;
+          if (key && u.name) nameMap[key] = u.name;
+          // 등번호: teamNumbers[clubId]
+          if (key && u.teamNumbers && u.teamNumbers[currentTeam.id]) {
+            numberMap[key] = u.teamNumbers[currentTeam.id];
+          }
         });
         setMemberNames(nameMap);
+        setMemberNumbers(numberMap);
       })
       .catch(() => {});
-  }, [members.length]);
+  }, [members.length, currentTeam?.id]);
+
+  // 모집중 상태
+  const [recruiting, setRecruiting] = useState(false);
+  const [recruitingLoading, setRecruitingLoading] = useState(false);
 
   // Auth API — 매치·활동 (G-1b: 레이팅 시스템 의존성으로 Auth API 유지)
   const [matches, setMatches] = useState<any[]>([]);
@@ -186,17 +199,38 @@ export default function TeamPage() {
   const [activityForm, setActivityForm] = useState({ date: "", venue: "" });
   const [scoreModal, setScoreModal] = useState<any>(null);
   const [scoreForm, setScoreForm] = useState({ ourScore: "", theirScore: "" });
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const router = useRouter();
 
   useEffect(() => {
     if (!authClubId) return;
     authFetch(`/matches?clubId=${authClubId}`).then(d => setMatches(d.matches || [])).catch(() => {});
     authFetch(`/activities?clubId=${authClubId}`).then(d => setActivities(d.activities || [])).catch(() => {});
-    authFetch('/clubs').then(d => setAllClubs(d.clubs || [])).catch(() => {});
+    fetch(`${AUTH_API}/join-requests?clubId=${authClubId}`).then(r => r.json()).then(d => setJoinRequests((d.requests || d || []).filter((r: any) => r.status === 'pending'))).catch(() => {});
+    authFetch('/clubs').then(d => {
+      const clubs = d.clubs || [];
+      setAllClubs(clubs);
+      const myClub = clubs.find((c: any) => c.clubId === authClubId);
+      if (myClub) setRecruiting(!!myClub.recruiting);
+    }).catch(() => {});
   }, [authClubId]);
 
   const clubNameMap: Record<string, string> = {};
   allClubs.forEach((c: any) => { clubNameMap[c.clubId] = c.name; });
+
+  const toggleRecruiting = async () => {
+    if (!authClubId) return;
+    setRecruitingLoading(true);
+    try {
+      await fetch(`${AUTH_API}/clubs`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clubId: authClubId, recruiting: !recruiting }),
+      });
+      setRecruiting(!recruiting);
+    } catch (e) { console.error('모집 상태 변경 실패', e); }
+    setRecruitingLoading(false);
+  };
 
   const isCompetitive = currentTeam ? COMPETITIVE_SPORT_TYPES.has(currentTeam.sportType ?? '') : false;
   const isCasual = currentTeam ? CASUAL_SPORT_TYPES.has(currentTeam.sportType ?? '') : false;
@@ -292,11 +326,17 @@ export default function TeamPage() {
   async function saveEditMember() {
     if (!editingMember || !currentTeam) return;
     try {
-      await manageFetch(`/team/${currentTeam.id}/members/${editingMember.userId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ position: editForm.position, roles: editForm.roles }),
+      const member = members.find(m => m.userId === editingMember.userId);
+      const email = member?.email || editingMember.userId;
+      const roles = editForm.roles?.length ? editForm.roles : ['member'];
+      const role = roles.join(',');
+      // Auth API (playground-club-members)에 저장
+      await fetch(`${AUTH_API}/club-members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update", clubId: currentTeam.id, email, role, position: editForm.position }),
       });
-      setMembers(prev => prev.map(m => m.userId === editingMember.userId ? { ...m, position: editForm.position, roles: editForm.roles } : m));
+      setMembers(prev => prev.map(m => m.userId === editingMember.userId ? { ...m, position: editForm.position, roles, role } : m));
       setEditingMember(null);
     } catch { alert("멤버 수정에 실패했습니다"); }
   }
@@ -311,6 +351,46 @@ export default function TeamPage() {
     } catch (e) {
       alert(e instanceof Error ? e.message : '멤버 삭제에 실패했습니다');
     }
+  }
+
+  // 가입 신청 수락
+  async function acceptJoinRequest(requestId: string) {
+    try {
+      await fetch(`${AUTH_API}/join-requests/${requestId}/accept`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clubId: authClubId }),
+      });
+      setJoinRequests(prev => prev.filter(r => r.requestId !== requestId));
+      // 멤버 목록 새로고침
+      if (currentTeam) {
+        const res = await fetch(`${AUTH_API}/club-members/${currentTeam.id}`);
+        const data = await res.json();
+        const membersList = data.members || data || [];
+        const knownRoles = ['leader', 'manager', 'treasurer', 'owner', 'coach', 'member'];
+        const converted = membersList.map((m: any) => {
+          const rawRoles = m.role ? m.role.split(',').map((r: string) => r.trim()) : ['member'];
+          const roles = rawRoles.filter((r: string) => knownRoles.includes(r));
+          if (roles.length === 0) roles.push('member');
+          const knownPositions = ['GK', 'DF', 'MF', 'FW', 'C', 'PG', 'SG', 'SF', 'PF'];
+          const position = knownPositions.includes(m.position) ? m.position : '';
+          return { userId: m.email || m.userId, name: m.name || m.email?.split('@')[0] || '-', email: m.email, position, jerseyNumber: m.jerseyNumber || m.number || null, roles, role: roles.join(',') };
+        });
+        setMembers(converted);
+      }
+    } catch { alert('수락에 실패했습니다'); }
+  }
+
+  // 가입 신청 거절
+  async function rejectJoinRequest(requestId: string) {
+    try {
+      await fetch(`${AUTH_API}/join-requests/${requestId}/reject`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clubId: authClubId }),
+      });
+      setJoinRequests(prev => prev.filter(r => r.requestId !== requestId));
+    } catch { alert('거절에 실패했습니다'); }
   }
 
   // 초대 링크 (Manage API)
@@ -387,8 +467,8 @@ export default function TeamPage() {
       <div className="max-w-4xl mx-auto pt-20 text-center space-y-4">
         <Shield size={40} className="text-gray-600 mx-auto" />
         <p className="text-gray-400 text-sm">소속된 팀이 없습니다</p>
-        <Link href="/manage/team" className="inline-block px-6 py-2 rounded-xl text-sm font-semibold border" style={{ background: "rgba(255,255,255,0.08)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.15)" }}>
-          팀 만들기
+        <Link href="/clubs" className="inline-block px-6 py-2 rounded-xl text-sm font-semibold border" style={{ background: "rgba(255,255,255,0.08)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.15)" }}>
+          클럽 탐색
         </Link>
       </div>
     );
@@ -487,6 +567,13 @@ export default function TeamPage() {
       teams={teams}
       onTeamChange={setCurrentTeam}
       memberNames={memberNames}
+      memberNumbers={memberNumbers}
+      recruiting={recruiting}
+      recruitingLoading={recruitingLoading}
+      toggleRecruiting={toggleRecruiting}
+      joinRequests={joinRequests}
+      acceptJoinRequest={acceptJoinRequest}
+      rejectJoinRequest={rejectJoinRequest}
     />
   );
 }
@@ -524,14 +611,21 @@ function TeamPageContent({
   teams = [],
   onTeamChange = null,
   memberNames = {} as Record<string, string>,
+  memberNumbers = {} as Record<string, number>,
+  recruiting = false,
+  recruitingLoading = false,
+  toggleRecruiting = () => {},
+  joinRequests = [] as JoinRequest[],
+  acceptJoinRequest = (_: string) => {},
+  rejectJoinRequest = (_: string) => {},
 }: any) {
   if (!club) {
     return (
       <div className="max-w-4xl mx-auto pt-20 text-center space-y-4">
         <Shield size={40} className="text-gray-600 mx-auto" />
         <p className="text-gray-400 text-sm">소속된 팀이 없습니다</p>
-        <Link href="/manage/team" className="inline-block px-6 py-2 rounded-xl text-sm font-semibold border" style={{ background: "rgba(255,255,255,0.08)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.15)" }}>
-          팀 만들기
+        <Link href="/clubs" className="inline-block px-6 py-2 rounded-xl text-sm font-semibold border" style={{ background: "rgba(255,255,255,0.08)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.15)" }}>
+          클럽 탐색
         </Link>
       </div>
     );
@@ -675,8 +769,8 @@ function TeamPageContent({
       const result = our > their ? "win" : our < their ? "loss" : "draw";
       const resultMatch = manageMatches.find(m => m.id === resultMatchId);
       const attendees = (resultMatch?.attendances ?? [])
-        .filter((a: any) => a.status === "attending")
-        .map((a: any) => ({ userId: a.userId, userName: a.userName }));
+        .filter((a: any) => a.status === "accepted")
+        .map((a: any) => ({ oderId: a.userId, userName: a.userName }));
       await manageFetch(`/schedule/matches/${resultMatchId}`, {
         method: "PATCH",
         body: JSON.stringify({ status: "completed", ourScore: our, theirScore: their, scorers: resultForm.scorers, result, attendees }),
@@ -809,7 +903,7 @@ function TeamPageContent({
         </div>
       )}
       <div>
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto px-2 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">팀 관리</h1>
         {!isDemo && teams && teams.length > 1 && (
@@ -832,12 +926,41 @@ function TeamPageContent({
       {/* 우리 팀 정보 */}
       <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            {/* 팀 로고 */}
+            <div className="relative group">
+              {club.image ? (
+                <img src={club.image} alt={club.name} className="w-16 h-16 rounded-xl object-cover border border-white/10" />
+              ) : (
+                <div className="w-16 h-16 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center">
+                  <Shield size={24} className="text-gray-500" />
+                </div>
+              )}
+              {!isDemo && hasFullEditPermission && (
+                <label className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+                  <Pencil size={16} className="text-white" />
+                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !currentTeam?.id) return;
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                      const base64 = reader.result as string;
+                      try {
+                        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clubs`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ clubId: currentTeam.id, logoUrl: base64 }),
+                        });
+                        window.location.reload();
+                      } catch { alert("로고 변경에 실패했습니다"); }
+                    };
+                    reader.readAsDataURL(file);
+                  }} />
+                </label>
+              )}
+            </div>
             <div>
-              <div className="flex items-center gap-2">
-                <Shield size={18} style={{ color: 'var(--text-primary)' }} />
-                <h2 className="text-lg font-bold text-white">{club.name}</h2>
-              </div>
+              <h2 className="text-lg font-bold text-white">{club.name}</h2>
               <p className="text-xs text-gray-500 mt-0.5">
                 {finalAreas}{finalStyles ? ` · ${finalStyles}` : ""}
                 {club.description ? ` · ${club.description}` : ""}
@@ -845,13 +968,25 @@ function TeamPageContent({
             </div>
           </div>
           {!isDemo && (
-            <button
-              onClick={() => onInviteClick()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border"
-              style={{ background: "rgba(255,255,255,0.08)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.15)" }}
-            >
-              <UserPlus size={13} />선수 초대
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleRecruiting}
+                disabled={recruitingLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border disabled:opacity-50"
+                style={recruiting
+                  ? { background: "#000000", color: "#ffffff", borderColor: "#000000" }
+                  : { background: "rgba(255,255,255,0.08)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.15)" }}
+              >
+                <Users size={13} />{recruiting ? "모집중" : "모집 시작"}
+              </button>
+              <button
+                onClick={() => onInviteClick()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border"
+                style={{ background: "#ffffff", color: "#000000", borderColor: "#ffffff" }}
+              >
+                <UserPlus size={13} />선수 초대
+              </button>
+            </div>
           )}
         </div>
 
@@ -862,8 +997,8 @@ function TeamPageContent({
             { label: "전적", value: finalRecord },
             { label: "멤버", value: `${club.members || members.length}명` },
           ].map(({ label, value }) => (
-            <div key={label} className="bg-white/5 rounded-lg p-3 text-center">
-              <p style={{ color: 'var(--text-primary)' }} className="font-bold text-sm">{value}</p>
+            <div key={label} className="bg-white rounded-lg p-3 text-center">
+              <p className="font-bold text-sm text-black">{value}</p>
               <p className="text-gray-500 text-xs mt-1">{label}</p>
             </div>
           ))}
@@ -888,65 +1023,97 @@ function TeamPageContent({
             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-          {members.map((m: any, i: number) => {
-            const memberRoles = m.role ? [m.role] : [];
+
+        {/* 운영진 */}
+        {(() => {
+          const staffRoles = ['leader', 'manager', 'treasurer', 'owner', 'coach'];
+          const staffMembers = members.filter((m: any) => {
+            const roles = m.roles?.length ? m.roles : (m.role ? [m.role] : []);
+            return roles.some((r: string) => staffRoles.includes(r));
+          });
+          if (staffMembers.length === 0) return null;
+          return (
+            <div className="space-y-2">
+              <span className="text-xs text-gray-500 uppercase tracking-wider">운영진</span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {staffMembers.map((m: any, i: number) => {
+                  const memberRoles = m.roles?.length ? m.roles : (m.role ? [m.role] : []);
+                  const isLeaderMember = memberRoles.includes('leader');
+                  const isManagerMember = memberRoles.includes('manager');
+                  const displayName = memberNames[m.userId] || memberNames[m.email] || m.name || (m.userId ? m.userId.slice(0, 8) + '…' : m.email || '-');
+                  const roleLabels = memberRoles
+                    .filter((r: string) => staffRoles.includes(r))
+                    .map((r: string) => r === 'leader' ? '주장' : r === 'manager' ? '관리자' : r === 'treasurer' ? '총무' : r === 'owner' ? '단장' : r === 'coach' ? '감독' : '');
+                  return (
+                    <div key={m.userId || m.email || i}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 bg-white"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {isLeaderMember && <Crown size={12} className="text-yellow-500 shrink-0" />}
+                        <span className="text-black text-sm font-medium truncate">{displayName}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {roleLabels.map((label: string, idx: number) => (
+                          <span key={idx} className="text-xs px-2 py-0.5 rounded-full font-semibold bg-black text-white">{label}</span>
+                        ))}
+                        {memberEditing && !isDemo && hasFullEditPermission && (
+                          <button onClick={(e) => { e.stopPropagation(); setEditingMember(m); setEditForm({ position: m.position || "", roles: m.roles || (m.role ? [m.role] : ['member']) }); }}
+                            className="text-gray-500 hover:text-white transition-colors ml-1"><Pencil size={11} /></button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* 전체 명단 */}
+        <div className="space-y-2">
+          <span className="text-xs text-gray-500 uppercase tracking-wider">전체 명단</span>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          {[...members].sort((a, b) => {
+            const numA = a.jerseyNumber ?? 9999;
+            const numB = b.jerseyNumber ?? 9999;
+            return numA - numB;
+          }).map((m: any, i: number) => {
+            const memberRoles = m.roles?.length ? m.roles : (m.role ? [m.role] : []);
             const isLeaderMember = memberRoles.includes('leader');
-            const displayName = memberNames[m.userId] || m.name || (m.userId ? m.userId.slice(0, 8) + '…' : m.email || '-');
-            const roleLabels = memberRoles
-              .filter((r: string) => r !== 'member')
-              .map((r: string) => r === 'leader' ? '주장' : r === 'manager' ? '관리자' : r === 'treasurer' ? '총무' : '')
-              .filter(Boolean);
+            const isManagerMember = memberRoles.includes('manager');
+            const displayName = memberNames[m.userId] || memberNames[m.email] || m.name || (m.userId ? m.userId.slice(0, 8) + '…' : m.email || '-');
+            const jerseyNum = memberNumbers[m.userId] || memberNumbers[m.email] || m.jerseyNumber;
             return (
               <div key={m.userId || m.email || i}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isLeaderMember ? "bg-white/10 border border-white/20" : "bg-white/5"}`}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isLeaderMember ? "bg-white border border-white/50" : "bg-white"}`}
               >
-                <div className="flex items-center gap-2">
-                  {isLeaderMember && <Crown size={12} className="text-yellow-400 shrink-0" />}
-                  {m.jerseyNumber && (
-                    <span className="text-xs font-bold text-gray-400 shrink-0">#{m.jerseyNumber}</span>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {isLeaderMember && <Crown size={12} className="text-yellow-500 shrink-0" />}
+                  {jerseyNum && (
+                    <span className="text-xs font-bold text-gray-500 shrink-0">#{jerseyNum}</span>
                   )}
-                  <span className="text-white text-sm font-medium flex-1 truncate">{displayName}</span>
+                  <span className="text-black text-sm font-medium truncate">{displayName}</span>
                   {m.position && (
-                    <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${positionColor[m.position] || "bg-white/10 text-gray-400"}`}>{m.position}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${positionColor[m.position] || "bg-gray-200 text-gray-600"}`}>{m.position}</span>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  {roleLabels.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {roleLabels.map((label: string, idx: number) => (
-                        <span key={idx} className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: "rgba(255,255,255,0.1)", color: "var(--text-primary)" }}>
-                          {label}
-                        </span>
-                      ))}
-                    </div>
+                <div className="flex gap-1 shrink-0">
+                  {memberEditing && !isDemo && hasFullEditPermission && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditingMember(m); setEditForm({ position: m.position || "", roles: m.roles || (m.role ? [m.role] : ['member']) }); }}
+                      className="text-gray-500 hover:text-white transition-colors"
+                    >
+                      <Pencil size={11} />
+                    </button>
                   )}
-                  <div className="flex gap-1 ml-auto">
-                    {!isDemo && !memberEditing && currentUser?.username !== m.userId && m.userId && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); router?.push(`/chat?to=${m.userId}&name=${encodeURIComponent(displayName)}`); }}
-                        className="text-gray-500 hover:text-white transition-colors shrink-0"
-                      >
-                        <MessageCircle size={12} />
-                      </button>
-                    )}
-                    {memberEditing && !isDemo && hasFullEditPermission && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setEditingMember(m); setEditForm({ position: m.position || "", roles: m.roles || (m.role ? [m.role] : ['member']) }); }}
-                        className="text-gray-500 hover:text-white transition-colors shrink-0"
-                      >
-                        <Pencil size={11} />
-                      </button>
-                    )}
-                    {memberEditing && !isDemo && hasFullEditPermission && !isLeaderMember && currentUser?.username !== m.userId && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); deleteMemberAPI(m.userId); }}
-                        className="text-gray-600 hover:text-red-400 transition-colors shrink-0"
-                      >
-                        <X size={11} />
-                      </button>
-                    )}
-                  </div>
+                  {memberEditing && !isDemo && hasFullEditPermission && !isLeaderMember && !isManagerMember && currentUser?.username !== m.userId && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteMemberAPI(m.userId); }}
+                      className="text-gray-600 hover:text-red-400 transition-colors"
+                    >
+                      <X size={11} />
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -954,6 +1121,64 @@ function TeamPageContent({
           {members.length === 0 && !loadingMembers && (
             <p className="text-xs text-gray-600 col-span-full text-center py-2">아직 등록된 멤버가 없습니다</p>
           )}
+          </div>
+        </div>
+
+        {/* 신청자 명단 */}
+        {!isDemo && hasFullEditPermission && joinRequests.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <Send size={14} className="text-gray-400" />
+              <span className="text-sm text-gray-400">가입 신청 ({joinRequests.length}명)</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              {joinRequests.map((req) => (
+                <div key={req.requestId} className="flex items-center justify-between rounded-lg px-3 py-2 bg-yellow-500/5 border border-yellow-500/20">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-white text-sm font-medium truncate">{req.name}</span>
+                    {req.position && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${positionColor[req.position] || "bg-white/10 text-gray-400"}`}>{req.position}</span>
+                    )}
+                  </div>
+                  <div className="flex gap-1 shrink-0 ml-2">
+                    <button
+                      onClick={() => acceptJoinRequest(req.requestId)}
+                      className="text-xs px-2 py-1 rounded font-semibold" style={{ background: "#000", color: "#fff" }}>
+                      승인
+                    </button>
+                    <button
+                      onClick={() => rejectJoinRequest(req.requestId)}
+                      className="text-xs px-2 py-1 rounded font-semibold text-gray-500 hover:text-red-400">
+                      거절
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 공지사항 */}
+      <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-primary)' }}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <h2 className="text-sm font-semibold text-gray-300">공지사항</h2>
+        </div>
+        <div className="space-y-3">
+          {[
+            { date: "2026.03.10", title: "3/15(토) vs FC 블루 경기 안내", content: "서경대 운동장 14시 집합. 유니폼 지참 필수." },
+            { date: "2026.03.08", title: "3월 회비 납부 안내", content: "3월 회비 30,000원 15일까지 납부 부탁드립니다." },
+            { date: "2026.03.05", title: "3/18(화) 정기 훈련 공지", content: "성북구 풋살장 19시. 개인 음료 준비해주세요." },
+          ].map((notice, i) => (
+            <div key={i} className="bg-white rounded-lg p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-semibold text-black">{notice.title}</span>
+                <span className="text-xs text-gray-500">{notice.date}</span>
+              </div>
+              <p className="text-xs text-gray-600">{notice.content}</p>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -1044,22 +1269,23 @@ function TeamPageContent({
                 };
                 const isEditing = scheduleEditMode && editingMatchId === m.id;
                 return (
-                  <div key={m.id} className="border border-white/10 rounded-lg p-4 space-y-3">
+                  <div key={m.id} className="bg-white rounded-lg p-4 space-y-3">
                     {/* 카드 헤더 */}
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="flex items-center gap-2 mb-0.5">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${m.type === "경기" ? "bg-blue-500/20 text-blue-400" : m.type === "훈련" ? "bg-green-500/20 text-green-400" : "bg-white/10 text-gray-400"}`}>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${m.type === "경기" ? "text-black" : m.type === "훈련" ? "text-black" : "bg-gray-200 text-gray-600"}`}
+                            style={m.type === "경기" ? { background: "#87CEEB" } : m.type === "훈련" ? { background: "#90EE90" } : {}}>
                             {m.type || "경기"}
                           </span>
-                          {m.type === "경기" && <p className="text-white font-medium text-sm">vs {m.awayTeamName || m.awayTeamId || "상대팀"}</p>}
-                          {m.type !== "경기" && <p className="text-white font-medium text-sm">{m.venue || "장소 미정"}</p>}
+                          {m.type === "경기" && <p className="text-black font-medium text-sm">vs {m.awayTeamName || m.awayTeamId || "상대팀"}</p>}
+                          {m.type !== "경기" && <p className="text-black font-medium text-sm">{m.venue || "장소 미정"}</p>}
                         </div>
                         <p className="text-gray-500 text-xs">{dateStr} {timeStr}{m.type === "경기" ? ` · ${m.venue || "장소 미정"}` : ""}</p>
                       </div>
                       {scheduleEditMode && (
                         <button onClick={() => editingMatchId === m.id ? setEditingMatchId(null) : openEditMatch(m)}
-                          className="text-gray-500 hover:text-white transition-colors shrink-0 ml-2">
+                          className="text-gray-400 hover:text-black transition-colors shrink-0 ml-2">
                           <Pencil size={13} />
                         </button>
                       )}
@@ -1108,11 +1334,12 @@ function TeamPageContent({
                       <div className="flex gap-2">
                         <button onClick={() => respondAttendance(m.id, "accepted")}
                           className="flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors"
-                          style={myStatus === "accepted" ? { background: "rgba(255,255,255,0.1)", border: "2px solid rgba(255,255,255,0.2)", color: "var(--text-primary)" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
+                          style={myStatus === "accepted" ? { background: "#ADD8E6", color: "#000000" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
                           참석
                         </button>
                         <button onClick={() => respondAttendance(m.id, "declined")}
-                          className={`flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors ${myStatus === "declined" ? "bg-red-500 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}>
+                          className="flex-1 py-1.5 rounded-md text-xs font-semibold transition-colors"
+                          style={myStatus === "declined" ? { background: "#FF4500", color: "#ffffff" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
                           불참
                         </button>
                       </div>
@@ -1256,26 +1483,26 @@ function TeamPageContent({
                     : (m.confirmedAt?.slice(0, 10) || "");
                   const venue = m._fromManage ? (m.venue || "") : "";
                   return (
-                    <div key={m.matchId ?? m.id ?? i} className={`border border-white/10 rounded-lg p-3 ${resultBg}`}>
+                    <div key={m.matchId ?? m.id ?? i} className={`rounded-lg p-3 ${result === "승" ? "bg-green-50" : result === "패" ? "bg-red-50" : "bg-white"}`}>
                       <div className="flex items-center justify-between mb-1">
                         <div>
-                          <p className="text-white font-medium text-sm">vs {opponentName}</p>
+                          <p className="text-black font-medium text-sm">vs {opponentName}</p>
                           <p className="text-gray-500 text-xs">{matchDate}{venue ? ` · ${venue}` : ""}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-white font-bold">{ourScore} - {theirScore}</p>
-                          <p className={`text-xs font-semibold ${resultColor}`}>{result}</p>
+                          <p className="text-black font-bold">{ourScore} - {theirScore}</p>
+                          <p className={`text-xs font-semibold ${result === "승" ? "text-green-600" : result === "패" ? "text-red-600" : "text-gray-500"}`}>{result}</p>
                         </div>
                       </div>
                       {myGoals.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {m._fromManage
                             ? myGoals.filter((s: any) => s.goals > 0 || s.assists > 0).map((s: any, j: number) => (
-                                <span key={j} className="text-xs px-2 py-0.5 rounded bg-white/10 text-gray-300">
+                                <span key={j} className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700">
                                   {s.goals > 0 ? `⚽ ${s.name} ${s.goals}골` : ""}{s.goals > 0 && s.assists > 0 ? " " : ""}{s.assists > 0 ? `🅰️ ${s.assists}도움` : ""}
                                 </span>
                               ))
-                            : myGoals.map((g: any, j: number) => <span key={j} className="text-xs px-2 py-0.5 rounded bg-white/10 text-gray-300">⚽ {g.scorer?.split("@")[0]} ×{g.count}</span>)
+                            : myGoals.map((g: any, j: number) => <span key={j} className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700">⚽ {g.scorerName || g.scorer?.split("@")[0]} ×{g.count}</span>)
                           }
                         </div>
                       )}
@@ -1451,7 +1678,7 @@ function TeamPageContent({
       {/* 멤버 수정 모달 (역할만 수정 가능 - 포지션/등번호는 마이페이지에서 개인이 설정) */}
       {editingMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={() => setEditingMember(null)}>
-          <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-xs space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-md space-y-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <span className="text-white font-semibold text-sm">역할 수정</span>
               <button onClick={() => setEditingMember(null)} className="text-gray-500 hover:text-white"><X size={16} /></button>
@@ -1459,9 +1686,11 @@ function TeamPageContent({
             <p className="text-xs text-gray-500">포지션과 등번호는 마이페이지에서 개인이 설정합니다</p>
             <div className="space-y-1">
               <label className="text-xs text-gray-400">역할</label>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {[
                   { value: "member", label: "멤버" },
+                  { value: "owner", label: "단장" },
+                  { value: "coach", label: "감독" },
                   { value: "manager", label: "관리자" },
                   { value: "treasurer", label: "총무" },
                   { value: "leader", label: "주장" },
@@ -1472,9 +1701,22 @@ function TeamPageContent({
                       key={role.value} 
                       type="button" 
                       onClick={() => setEditForm((p: any) => {
-                        const newRoles = isSelected 
-                          ? p.roles.filter((r: string) => r !== role.value)
-                          : [...p.roles, role.value];
+                        const specialRoles = ['leader', 'manager', 'treasurer', 'owner', 'coach'];
+                        let newRoles: string[];
+                        
+                        if (role.value === 'member') {
+                          // 멤버 클릭: 멤버만 선택 (다른 역할 모두 해제)
+                          newRoles = isSelected ? [] : ['member'];
+                        } else {
+                          // 주장/관리자/총무 클릭: 멤버 해제하고 토글
+                          const currentSpecial = p.roles.filter((r: string) => specialRoles.includes(r));
+                          if (isSelected) {
+                            newRoles = currentSpecial.filter((r: string) => r !== role.value);
+                          } else {
+                            newRoles = [...currentSpecial, role.value];
+                          }
+                        }
+                        
                         return { ...p, roles: newRoles.length > 0 ? newRoles : ['member'] };
                       })}
                       className={`flex-1 text-xs px-2 py-1.5 rounded font-semibold transition-colors ${isSelected ? "bg-white/20 text-white border border-white/30" : "bg-white/5 text-gray-500"}`}>
@@ -1578,6 +1820,7 @@ function FinanceSection({ currentTeam, members, isLeaderUser, hasFullEditPermiss
   hasFullEditPermission: boolean;
   hasTreasurerPermission: boolean;
 }) {
+  const [financeExpanded, setFinanceExpanded] = useState(false);
   const [duesList, setDuesList] = useState<Due[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1724,13 +1967,23 @@ function FinanceSection({ currentTeam, members, isLeaderUser, hasFullEditPermiss
   const canEditFinance = hasFullEditPermission || hasTreasurerPermission;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-white">팀 재정 관리</h2>
-        {canEditFinance && (
-          <span className="text-xs text-gray-500">편집 권한 있음</span>
-        )}
-      </div>
+    <div className="space-y-4">
+      <button 
+        onClick={() => setFinanceExpanded(!financeExpanded)}
+        className="w-full flex items-center justify-between bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Wallet size={16} style={{ color: 'var(--text-primary)' }} />
+          <h2 className="text-lg font-bold text-white">팀 재정 관리</h2>
+          {canEditFinance && (
+            <span className="text-xs text-gray-500 ml-2">편집 권한 있음</span>
+          )}
+        </div>
+        <span className="text-gray-400 text-sm">{financeExpanded ? "▲" : "▼"}</span>
+      </button>
+
+      {financeExpanded && (
+        <div className="space-y-6">
 
       {/* AI 분석 */}
       <div className="bg-white/5 border border-white/20 rounded-xl p-5 space-y-4">
@@ -1920,6 +2173,8 @@ function FinanceSection({ currentTeam, members, isLeaderUser, hasFullEditPermiss
           )}
         </div>
       </div>
+        </div>
+      )}
     </div>
   );
 }

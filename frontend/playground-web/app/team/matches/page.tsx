@@ -217,7 +217,9 @@ export default function MatchRecordsPage() {
               : (m.confirmedAt?.slice(0, 10) || "");
             const venue = m._fromManage ? (m.venue || "") : "";
             const matchType = m._fromManage ? (m.type || "") : "";
-            const attendees: any[] = m._fromManage ? (m.attendees || []) : [];
+            const attendees: any[] = m._fromManage 
+              ? (m.attendees || []) 
+              : (m.attendances || []).filter((a: any) => a.status === "accepted");
 
             return (
               <div key={m.matchId ?? m.id} className={`border rounded-xl overflow-hidden ${resultBg}`}>
@@ -255,7 +257,7 @@ export default function MatchRecordsPage() {
                               </span>
                             ))
                           : myGoals.map((g: any, i: number) => (
-                              <span key={i} className="px-2 py-0.5 rounded-full bg-white/10 text-gray-300">⚽{g.scorer?.split("@")[0]} ×{g.count}</span>
+                              <span key={i} className="px-2 py-0.5 rounded-full bg-white/10 text-gray-300">⚽{g.scorerName || g.scorer?.split("@")[0]} ×{g.count}</span>
                             ))
                         }
                       </div>
@@ -263,7 +265,7 @@ export default function MatchRecordsPage() {
                     <div className="flex items-center gap-1.5 text-gray-500">
                       <span>참석({attendees.length})</span>
                       {attendees.length > 0 ? (
-                        <span className="text-gray-400">{attendees.map((a: any) => a.userName || a.userId).join(", ")}</span>
+                        <span className="text-gray-400">{attendees.map((a: any) => a.userName || a.name || a.oderId?.split("@")[0] || a.userId?.split("@")[0]).join(", ")}</span>
                       ) : (
                         <span className="text-gray-600">-</span>
                       )}

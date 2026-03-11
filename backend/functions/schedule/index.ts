@@ -75,7 +75,11 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // POST /schedule/matches
     if (method === 'POST' && parts[0] === 'matches') {
       const body = JSON.parse(event.body ?? '{}')
-      const match = { id: randomUUID(), ...body, status: 'pending', createdAt: new Date().toISOString() }
+      // 빈 문자열 필드 제거 (DynamoDB GSI는 빈 문자열 허용 안 함)
+      const cleanBody = Object.fromEntries(
+        Object.entries(body).filter(([, v]) => v !== '' && v !== null && v !== undefined)
+      )
+      const match = { id: randomUUID(), ...cleanBody, status: 'pending', createdAt: new Date().toISOString() }
       await db.send(new PutCommand({ TableName: MATCHES, Item: match }))
       return res(201, match)
     }

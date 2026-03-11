@@ -7,8 +7,6 @@ import { regionData } from "./regions";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
-const allSports = ["축구", "풋살", "농구", "야구", "배구", "배드민턴", "아이스하키", "스노보드", "러닝크루", "기타"];
-
 function SignupInner() {
   const searchParams = useSearchParams();
   const kakaoId = searchParams.get("kakaoId") || "";
@@ -23,10 +21,6 @@ function SignupInner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  const [teamSport, setTeamSport] = useState("");
-  const [teamId, setTeamId] = useState<string | null>(null);
-  const [position, setPosition] = useState("");
-  const [teamClubs, setTeamClubs] = useState<any[]>([]);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((p) => ({ ...p, [k]: e.target.value }));
@@ -43,14 +37,6 @@ function SignupInner() {
   };
 
   const getSigunguItems = (sido: string) => sido ? ["전체", ...(regionData[sido] || [])] : [];
-
-  useEffect(() => {
-    if (!teamSport) { setTeamClubs([]); return; }
-    fetch(`${API}/clubs?sport=${encodeURIComponent(teamSport)}`)
-      .then(r => r.json())
-      .then(d => setTeamClubs(d.clubs || []))
-      .catch(() => setTeamClubs([]));
-  }, [teamSport]);
 
   function Dropdown({ value, placeholder, items, onChange, disabled }: { value: string; placeholder: string; items: string[]; onChange: (v: string) => void; disabled?: boolean }) {
     const [open, setOpen] = useState(false);
@@ -102,11 +88,6 @@ function SignupInner() {
           birthdate: form.birth,
           regionSido: form.regionSido,
           regionSigungu: form.regionSigungu,
-          hasTeam: !!teamId,
-          teamSport: teamSport,
-          teamId: teamId,
-          teamIds: teamId ? [teamId] : [],
-          position: position,
           kakaoId: kakaoId || undefined,
         }),
       });
@@ -163,68 +144,6 @@ function SignupInner() {
             <Dropdown value={form.regionSigungu} placeholder="시/군/구" items={getSigunguItems(form.regionSido)} onChange={(v) => setForm((p) => ({ ...p, regionSigungu: v }))} disabled={!form.regionSido} />
           </div>
         </div>
-
-        <div>
-          <p className="text-xs text-gray-500 mb-2">소속 팀 (선택)</p>
-          <div className="flex flex-wrap gap-2 mb-2">
-            {allSports.map(s => (
-              <button key={s} type="button"
-                onClick={() => { setTeamSport(s === teamSport ? "" : s); setTeamId(null); setPosition(""); }}
-                className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
-                style={teamSport === s ? chipActive : chipInactive}
-              >{s}</button>
-            ))}
-          </div>
-          {teamSport && teamClubs.length > 0 && (
-            <div className="space-y-1.5 max-h-40 overflow-y-auto">
-              {teamClubs.map((c: any) => (
-                <button key={c.clubId} type="button"
-                  onClick={() => setTeamId(teamId === c.clubId ? null : c.clubId)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-left text-sm transition-colors"
-                  style={teamId === c.clubId
-                    ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
-                    : { background: "var(--chip-inactive-bg)", border: "1px solid var(--chip-inactive-border)", color: "var(--text-primary)" }}>
-                  <span>{c.name}</span>
-                  <span className="text-xs opacity-70">{c.members || 0}명</span>
-                </button>
-              ))}
-            </div>
-          )}
-          {teamSport && teamClubs.length === 0 && (
-            <p className="text-xs text-gray-600">해당 종목의 팀이 없습니다</p>
-          )}
-        </div>
-
-        {teamId && (() => {
-          const selectedClub = teamClubs.find((c: any) => c.clubId === teamId);
-          const sport = selectedClub?.sport || teamSport;
-          const positionsBySport: Record<string, string[]> = {
-            "축구": ["GK", "DF", "MF", "FW"],
-            "풋살": ["GK", "DF", "MF", "FW"],
-            "농구": ["PG", "SG", "SF", "PF", "C"],
-            "야구": ["투수", "포수", "내야수", "외야수"],
-            "배구": ["세터", "리베로", "공격수"],
-            "아이스하키": ["GK", "DF", "FW"],
-            "배드민턴": ["단식", "복식"],
-            "스노보드": ["프리스타일", "알파인", "보더크로스"],
-            "러닝크루": ["페이스메이커", "러너"],
-          };
-          const positions = [...(positionsBySport[sport] || []), "기타"];
-          return (
-            <div>
-              <p className="text-xs text-gray-500 mb-2">포지션</p>
-              <div className="flex flex-wrap gap-2">
-                {positions.map(p => (
-                  <button key={p} type="button"
-                    onClick={() => setPosition(position === p ? "" : p)}
-                    className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
-                    style={position === p ? chipActive : chipInactive}
-                  >{p}</button>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
       </div>
 
       <div className="space-y-3">

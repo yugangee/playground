@@ -203,14 +203,14 @@ export default function ClubsPage() {
 
   const chipStyle = (active: boolean) =>
     active
-      ? { background: "var(--card-bg)", color: "var(--text-primary)", border: "1px solid var(--card-border)" }
-      : { background: "transparent", color: "var(--text-muted)", border: "1px solid transparent" };
+      ? { background: "#000000", color: "#ffffff", border: "1px solid #000000" }
+      : { background: "transparent", color: "#000000", border: "1px solid #d1d5db" };
 
   const modalInputStyle: React.CSSProperties = {
-    background: "var(--input-bg)",
-    border: "1px solid var(--input-border)",
+    background: "#f9fafb",
+    border: "1px solid #d1d5db",
     borderRadius: "10px",
-    color: "var(--text-primary)",
+    color: "#000000",
     padding: "10px 14px",
     width: "100%",
     outline: "none",
@@ -233,12 +233,12 @@ export default function ClubsPage() {
           <span style={{ color: "#6b7280", fontSize: "10px" }}>▼</span>
         </button>
         {open && items.length > 0 && (
-          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 60, marginTop: "4px", background: "var(--dropdown-bg)", border: "1px solid var(--card-border)", borderRadius: "10px", maxHeight: "200px", overflowY: "auto" }}>
+          <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 60, marginTop: "4px", background: "#ffffff", border: "1px solid #d1d5db", borderRadius: "10px", maxHeight: "200px", overflowY: "auto" }}>
             {items.map((item) => (
               <div key={item} onClick={() => { onChange(item); setOpen(false); }}
-                style={{ padding: "8px 14px", fontSize: "13px", color: item === value ? "#c084fc" : "var(--text-primary)", cursor: "pointer", background: item === value ? "rgba(192,132,252,0.1)" : "transparent" }}
-                onMouseEnter={(e) => { if (item !== value) (e.target as HTMLDivElement).style.background = "var(--card-bg)"; }}
-                onMouseLeave={(e) => { (e.target as HTMLDivElement).style.background = item === value ? "rgba(192,132,252,0.1)" : "transparent"; }}>
+                style={{ padding: "8px 14px", fontSize: "13px", color: item === value ? "#7c3aed" : "#000000", cursor: "pointer", background: item === value ? "rgba(124,58,237,0.08)" : "transparent" }}
+                onMouseEnter={(e) => { if (item !== value) (e.target as HTMLDivElement).style.background = "#f3f4f6"; }}
+                onMouseLeave={(e) => { (e.target as HTMLDivElement).style.background = item === value ? "rgba(124,58,237,0.08)" : "transparent"; }}>
                 {item}
               </div>
             ))}
@@ -285,8 +285,8 @@ export default function ClubsPage() {
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>클럽 탐색</h1>
         </div>
-        <button onClick={() => { if (!user) { show("로그인이 필요합니다", "error"); return; } setCreating(true); }} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)", color: "var(--text-primary)" }}>
-          <Plus size={18} />
+        <button onClick={() => { if (!user) { show("로그인이 필요합니다", "error"); return; } setCreating(true); }} className="px-4 py-2 rounded-full text-xs font-semibold transition-colors" style={{ background: "#000000", color: "#ffffff", border: "1px solid #000000" }}>
+          팀 만들기
         </button>
       </div>
 
@@ -352,7 +352,7 @@ export default function ClubsPage() {
         {[{ key: "latest", label: "최신등록순" }, { key: "winRate", label: "승률순" }, { key: "recruiting", label: "모집중" }].map(({ key, label }) => (
           <button key={key} onClick={() => setSortBy(key)}
             className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
-            style={sortBy === key ? { background: "var(--card-bg)", color: "var(--text-primary)", border: "1px solid var(--card-border)" } : { background: "transparent", color: "var(--text-muted)", border: "1px solid transparent" }}
+            style={sortBy === key ? { background: "#000000", color: "#ffffff", border: "1px solid #000000" } : { background: "transparent", color: "#000000", border: "1px solid #d1d5db" }}
           >{label}</button>
         ))}
       </div>
@@ -479,10 +479,10 @@ export default function ClubsPage() {
       {/* 클럽 생성 모달 */}
       {creating && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={() => setCreating(false)}>
-          <div className="border rounded-xl p-6 w-full max-w-sm space-y-4" style={{ background: "var(--sidebar-bg)", borderColor: "var(--card-border)" }} onClick={e => e.stopPropagation()}>
+          <div className="border rounded-xl p-6 w-full max-w-sm space-y-4" style={{ background: "#ffffff", borderColor: "#e5e7eb" }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <span className="text-white font-semibold">클럽 생성</span>
-              <button onClick={() => setCreating(false)} className="text-gray-500 hover:text-white"><X size={16} /></button>
+              <span className="font-semibold" style={{ color: "#000000" }}>클럽 생성</span>
+              <button onClick={() => setCreating(false)} className="text-gray-400 hover:text-black"><X size={16} /></button>
             </div>
 
             {/* 이미지 업로드 */}
@@ -497,16 +497,16 @@ export default function ClubsPage() {
                 }}
               />
               <button type="button" onClick={() => fileRef.current?.click()}
-                className="w-full h-32 rounded-xl border border-dashed border-white/20 flex flex-col items-center justify-center gap-2 hover:border-fuchsia-500/40 transition-colors overflow-hidden relative">
+                className="w-full h-32 rounded-xl border border-dashed flex flex-col items-center justify-center gap-2 transition-colors overflow-hidden relative" style={{ borderColor: "#d1d5db" }}>
                 {newClub.imagePreview
                   ? <Image src={newClub.imagePreview} alt="preview" fill className="object-cover" />
-                  : <><ImageIcon size={24} className="text-gray-600" /><span className="text-xs text-gray-500">클럽 이미지 업로드</span></>}
+                  : <><ImageIcon size={24} className="text-gray-400" /><span className="text-xs" style={{ color: "#6b7280" }}>클럽 이미지 업로드</span></>}
               </button>
             </div>
 
             {/* 종목 */}
             <div className="space-y-1">
-              <label className="text-xs text-gray-400">종목</label>
+              <label className="text-xs" style={{ color: "#374151" }}>종목</label>
               <div className="flex flex-wrap gap-2">
                 {["축구", "풋살", "농구", "야구", "배구", "배드민턴", "아이스하키", "스노보드"].map((s) => (
                   <button key={s} type="button"
@@ -527,25 +527,14 @@ export default function ClubsPage() {
                   value={newClub[key]}
                   onChange={e => setNewClub(p => ({ ...p, [key]: e.target.value }))}
                   placeholder={placeholder}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-fuchsia-500/50 placeholder:text-gray-600"
+                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none placeholder:text-gray-400" style={{ background: "#f9fafb", borderColor: "#d1d5db", color: "#000000" }}
                 />
               </div>
             ))}
 
-            {/* 현재 멤버 수 */}
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">현재 멤버 수</label>
-              <input
-                type="number" min="1" placeholder="예) 15"
-                value={newClub.members}
-                onChange={e => setNewClub(p => ({ ...p, members: e.target.value }))}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-fuchsia-500/50 placeholder:text-gray-600"
-              />
-            </div>
-
             {/* 플레이 스타일 */}
             <div className="space-y-1">
-              <label className="text-xs text-gray-400">플레이 스타일 (복수 선택)</label>
+              <label className="text-xs" style={{ color: "#374151" }}>플레이 스타일 (복수 선택)</label>
               <div className="flex flex-wrap gap-2">
                 {["공격형", "수비형", "역습형", "점유형", "압박형", "측면공격", "세트피스", "균형형"].map((s) => (
                   <button key={s} type="button"
@@ -559,11 +548,11 @@ export default function ClubsPage() {
 
             {/* 활동 지역 3개 */}
             <div className="space-y-1">
-              <label className="text-xs text-gray-400">활동 지역 (최대 3개)</label>
+              <label className="text-xs" style={{ color: "#374151" }}>활동 지역 (최대 3개)</label>
               <div className="space-y-2">
                 {clubAreas.map((area, i) => (
                   <div key={i} className="flex gap-2 items-center">
-                    <span className="text-xs text-gray-600 w-3 shrink-0">{i + 1}</span>
+                    <span className="text-xs w-3 shrink-0" style={{ color: "#6b7280" }}>{i + 1}</span>
                     <ModalDropdown value={area.sido} placeholder="시/도" items={Object.keys(regionData)} onChange={(v) => updateClubArea(i, "sido", v)} />
                     <ModalDropdown value={area.sigungu} placeholder="시/군/구"
                       items={getClubSigunguItems(area.sido).filter((sg) => !isClubDuplicateArea(i, area.sido, sg))}
@@ -630,7 +619,7 @@ export default function ClubsPage() {
                       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/profile`, {
                         method: "PUT",
                         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                        body: JSON.stringify({ hasTeam: true, teamSport: clubSport, teamId: newClubId, teamIds: [...(user.teamIds || (user.teamId ? [user.teamId] : [])), newClubId], position: user.position || "", role: "leader" }),
+                        body: JSON.stringify({ hasTeam: true, teamSport: clubSport, teamId: newClubId, teamIds: [...(user.teamIds || (user.teamId ? [user.teamId] : [])), newClubId], position: user.position || "", role: "manager" }),
                       }).catch(() => { });
                       await refresh();
                     }
@@ -642,7 +631,7 @@ export default function ClubsPage() {
                         await fetch(`${manageApi}/team/${newClubId}/members`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-                          body: JSON.stringify({ userId: user.username, name: user.name, email: user.email, position: user.position || "", roles: ["leader", "manager"] }),
+                          body: JSON.stringify({ userId: user.username, name: user.name, email: user.email, position: user.position || "", roles: ["manager"] }),
                         });
                       }
                     } catch (e) { console.error("Manage API 멤버 등록 실패", e); }
@@ -660,7 +649,7 @@ export default function ClubsPage() {
               }}
               disabled={!newClub.name.trim()}
               className="w-full py-2.5 rounded-lg font-semibold text-sm disabled:opacity-40"
-              style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}
+              style={{ background: "#000000", color: "#ffffff" }}
             >클럽 생성</button>
           </div>
         </div>
