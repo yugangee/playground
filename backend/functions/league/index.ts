@@ -12,6 +12,7 @@ import { randomUUID } from 'crypto'
 
 const db = DynamoDBDocumentClient.from(new DynamoDBClient({}))
 const LEAGUES = process.env.LEAGUES_TABLE!
+const TEAMS = process.env.TEAMS_TABLE!
 const LEAGUE_TEAMS = process.env.LEAGUE_TEAMS_TABLE!
 const LEAGUE_MATCHES = process.env.LEAGUE_MATCHES_TABLE!
 const MATCH_EVENTS = process.env.MATCH_EVENTS_TABLE!
@@ -379,12 +380,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return res(200, { message: 'updated' })
     }
 
-    // DELETE /league/:id  (주최자만, 연관 teams/matches cascade 삭제)
+    // DELETE /league/:id  (주최자 또는 주최팀 리더, 연관 teams/matches cascade 삭제)
     if (method === 'DELETE' && parts.length === 1) {
       if (!userId) return res(401, { message: 'Unauthorized' })
       const league = await db.send(new GetCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
       if (!league.Item) return res(404, { message: 'League not found' })
-      if (league.Item.organizerId !== userId) return res(403, { message: '리그 주최자만 삭제할 수 있습니다' })
+      if (league.Item.organizerId !== userId) {
+        // 주최자가 아니면 → 주최팀의 리더인지 확인
+        if (!league.Item.organizerTeamId) return res(403, { message: '리그 주최자만 삭제할 수 있습니다' })
+        const orgTeam = await db.send(new GetCommand({ TableName: TEAMS, Key: { id: league.Item.organizerTeamId } }))
+        if (!orgTeam.Item || orgTeam.Item.leaderId !== userId) {
+          return res(403, { message: '리그 주최자만 삭제할 수 있습니다' })
+        }
+      }
       // cascade: LEAGUE_TEAMS 삭제
       const teamsResult = await db.send(new QueryCommand({
         TableName: LEAGUE_TEAMS,
@@ -444,13 +452,20 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return res(201, { leagueId, teamId })
     }
 
-    // DELETE /league/:id/teams/:teamId  (팀 참가 취소 — 주최자만)
+    // DELETE /league/:id/teams/:teamId  (팀 참가 취소 — 주최자 또는 해당 팀 리더)
     if (method === 'DELETE' && parts[1] === 'teams' && parts[2]) {
       if (!userId) return res(401, { message: 'Unauthorized' })
       const league = await db.send(new GetCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
       if (!league.Item) return res(404, { message: 'League not found' })
-      if (league.Item.organizerId !== userId) return res(403, { message: '리그 주최자만 팀을 제거할 수 있습니다' })
-      await db.send(new DeleteCommand({ TableName: LEAGUE_TEAMS, Key: { leagueId, teamId: parts[2] } }))
+      const removeTeamId = parts[2]
+      if (league.Item.organizerId !== userId) {
+        // 주최자가 아니면 → 해당 팀의 리더인지 확인
+        const team = await db.send(new GetCommand({ TableName: TEAMS, Key: { id: removeTeamId } }))
+        if (!team.Item || team.Item.leaderId !== userId) {
+          return res(403, { message: '주최자 또는 해당 팀 리더만 탈퇴할 수 있습니다' })
+        }
+      }
+      await db.send(new DeleteCommand({ TableName: LEAGUE_TEAMS, Key: { leagueId, teamId: removeTeamId } }))
       return res(200, { message: 'deleted' })
     }
 
