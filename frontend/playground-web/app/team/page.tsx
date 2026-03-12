@@ -69,16 +69,16 @@ type ConfirmModalState = {
 function ConfirmModal({ state, onClose }: { state: ConfirmModalState; onClose: () => void }) {
   if (!state.open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}>
-      <div className="w-full max-w-sm rounded-2xl p-6 space-y-4" style={{ background: "var(--card-bg, #1a1a1a)", border: "1px solid rgba(255,255,255,0.1)" }}>
-        <h3 className="text-lg font-bold text-white">{state.title}</h3>
-        <p className="text-sm text-gray-300 whitespace-pre-line">{state.message}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }}>
+      <div className="w-full max-w-sm rounded-2xl p-6 space-y-4" style={{ background: "var(--dropdown-bg)", border: "1px solid var(--card-border)" }}>
+        <h3 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>{state.title}</h3>
+        <p className="text-sm whitespace-pre-line" style={{ color: "var(--text-secondary)" }}>{state.message}</p>
         <div className="flex gap-3 pt-2">
           {state.type !== 'alert' && (
             <button
               onClick={onClose}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-              style={{ background: "rgba(255,255,255,0.1)", color: "#fff" }}
+              style={{ background: "var(--chip-inactive-bg)", color: "var(--text-primary)", border: "1px solid var(--card-border)" }}
             >
               {state.cancelText || '취소'}
             </button>
@@ -86,7 +86,7 @@ function ConfirmModal({ state, onClose }: { state: ConfirmModalState; onClose: (
           <button
             onClick={() => { state.onConfirm(); onClose(); }}
             className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-            style={{ background: "#fff", color: "#000" }}
+            style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}
           >
             {state.confirmText || '확인'}
           </button>
@@ -401,6 +401,18 @@ export default function TeamPage() {
       const email = member?.email || editingMember.userId;
       const roles = editForm.roles?.length ? editForm.roles : ['member'];
       const role = roles.join(',');
+
+      // 마지막 관리자가 자신의 관리자 역할을 제거하려는 경우 차단
+      const isEditingSelf = editingMember.userId === user?.username;
+      const currentlyManager = (member?.roles || (member?.role ? [member.role] : [])).includes('manager');
+      const removingManager = !roles.includes('manager');
+      if (isEditingSelf && currentlyManager && removingManager) {
+        const managerCount = members.filter(m => (m.roles || (m.role ? [m.role] : [])).includes('manager')).length;
+        if (managerCount <= 1) {
+          alert('팀에 관리자가 최소 1명은 있어야 합니다. 다른 멤버에게 관리자 역할을 부여한 뒤 변경하세요.');
+          return;
+        }
+      }
       // Auth API (playground-club-members)에 저장
       await fetch(`${AUTH_API}/club-members`, {
         method: "POST",
@@ -519,11 +531,11 @@ export default function TeamPage() {
   }
 
   // 권한 체크
-  const currentMember = members.find(m => m.userId === user?.username);
+  const currentMember = members.find(m => m.userId === user?.email || m.userId === user?.username);
   const currentUserRoles = currentMember?.role ? [currentMember.role] : ['member'];
   const isManager = currentUserRoles.includes('manager');
   const isTreasurer = currentUserRoles.includes('treasurer');
-  const hasFullEditPermission = isLeader || isManager; // 주장 또는 관리자
+  const hasFullEditPermission = isManager; // 관리자만
   const hasTreasurerPermission = isTreasurer; // 총무
 
   // 채팅 목업 (경기 제안 UI용)
@@ -779,6 +791,27 @@ function TeamPageContent({
   const finalWinRate = computedWinRate ?? club.winRate ?? 0;
   const finalAreas = areas || (club.areas || []).map((a: any) => [a.sido, a.sigungu].filter(Boolean).join(" ")).join(", ");
   const finalStyles = styles || (club.styles || []).join(", ");
+
+  const [teamInfoEditOpen, setTeamInfoEditOpen] = useState(false);
+  const [teamInfoForm, setTeamInfoForm] = useState({ name: '', region: '' });
+  const [teamInfoSaving, setTeamInfoSaving] = useState(false);
+
+  const openTeamInfoEdit = () => {
+    setTeamInfoForm({ name: currentTeam?.name || '', region: currentTeam?.region || '' });
+    setTeamInfoEditOpen(true);
+  };
+  const saveTeamInfo = async () => {
+    if (!currentTeam?.id) return;
+    setTeamInfoSaving(true);
+    try {
+      await manageFetch(`/team/${currentTeam.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name: teamInfoForm.name, region: teamInfoForm.region }),
+      });
+      window.location.reload();
+    } catch { alert('수정에 실패했습니다'); }
+    finally { setTeamInfoSaving(false); }
+  };
 
   const [showScheduleForm, setShowScheduleForm] = useState(false);
   const [scheduleForm, setScheduleForm] = useState({ type: "경기", awayTeamId: "", date: "", time: "", venue: "" });
@@ -1072,7 +1105,14 @@ function TeamPageContent({
               )}
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">{club.name}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-white">{club.name}</h2>
+                {!isDemo && hasFullEditPermission && (
+                  <button onClick={openTeamInfoEdit} className="text-gray-500 hover:text-white transition-colors">
+                    <Pencil size={13} />
+                  </button>
+                )}
+              </div>
               <p className="text-xs text-gray-500 mt-0.5">
                 {finalAreas}{finalStyles ? ` · ${finalStyles}` : ""}
                 {club.description ? ` · ${club.description}` : ""}
@@ -1082,12 +1122,13 @@ function TeamPageContent({
           {!isDemo && (
             <div className="flex items-center gap-2">
               <button
-                onClick={toggleRecruiting}
+                onClick={hasFullEditPermission ? toggleRecruiting : undefined}
                 disabled={recruitingLoading}
+                title={!hasFullEditPermission ? '관리자만 모집 상태를 변경할 수 있습니다' : undefined}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border disabled:opacity-50"
                 style={recruiting
-                  ? { background: "#000000", color: "#ffffff", borderColor: "#000000" }
-                  : { background: "rgba(255,255,255,0.08)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.15)" }}
+                  ? { background: "#000000", color: "#ffffff", borderColor: "#000000", cursor: hasFullEditPermission ? 'pointer' : 'default' }
+                  : { background: "rgba(255,255,255,0.08)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.15)", cursor: hasFullEditPermission ? 'pointer' : 'default', opacity: hasFullEditPermission ? 1 : 0.5 }}
               >
                 <Users size={13} />{recruiting ? "모집중" : "모집 시작"}
               </button>
@@ -1146,7 +1187,16 @@ function TeamPageContent({
           if (staffMembers.length === 0) return null;
           return (
             <div className="space-y-2">
-              <span className="text-xs text-gray-500 uppercase tracking-wider">운영진</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-500 uppercase tracking-wider">운영진</span>
+                <div className="relative group">
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-white/10 text-gray-500 text-[10px] cursor-default select-none">?</span>
+                  <div className="absolute left-0 bottom-full mb-2 w-56 rounded-lg px-3 py-2 text-xs leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10"
+                    style={{ background: "var(--dropdown-bg)", color: "var(--text-secondary)", border: "1px solid var(--card-border)", boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
+                    관리자만 페이지를 수정할 수 있으며, 팀에서 관리자는 1명 이상이어야 합니다.
+                  </div>
+                </div>
+              </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                 {staffMembers.map((m: any, i: number) => {
                   const memberRoles = m.roles?.length ? m.roles : (m.role ? [m.role] : []);
@@ -1183,7 +1233,16 @@ function TeamPageContent({
 
         {/* 전체 명단 */}
         <div className="space-y-2">
-          <span className="text-xs text-gray-500 uppercase tracking-wider">전체 명단</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-gray-500 uppercase tracking-wider">전체 명단</span>
+            <div className="relative group">
+              <span className="flex items-center justify-center w-4 h-4 rounded-full bg-white/10 text-gray-500 text-[10px] cursor-default select-none">?</span>
+              <div className="absolute left-0 bottom-full mb-2 w-60 rounded-lg px-3 py-2 text-xs leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10"
+                style={{ background: "var(--dropdown-bg)", color: "var(--text-secondary)", border: "1px solid var(--card-border)", boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }}>
+                관리자는 팀원의 역할을 수정할 수 있습니다.<br />등번호·포지션은 각 팀원이 개인 마이페이지에서 직접 설정합니다.
+              </div>
+            </div>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
           {[...members].sort((a, b) => {
             const numA = a.jerseyNumber ?? 9999;
@@ -1307,6 +1366,7 @@ function TeamPageContent({
               <CalendarDays size={16} style={{ color: 'var(--text-primary)' }} />
               <h2 className="text-sm font-semibold text-gray-300">다음 일정</h2>
             </div>
+            {hasFullEditPermission && (
             <div className="flex items-center gap-2">
               <button onClick={() => { setScheduleEditMode(v => !v); setEditingMatchId(null); }}
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${scheduleEditMode ? "bg-purple-600" : "bg-white/10 hover:bg-white/20"}`}>
@@ -1316,6 +1376,7 @@ function TeamPageContent({
                 <Plus size={14} className="text-gray-300" />
               </button>
             </div>
+            )}
           </div>
 
           {showScheduleForm && (
@@ -1792,6 +1853,46 @@ function TeamPageContent({
         </div>
       )}
 
+      {/* 팀 이름/지역 수정 모달 */}
+      {teamInfoEditOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={() => setTeamInfoEditOpen(false)}>
+          <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-sm space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <span className="text-white font-semibold text-sm">팀 정보 수정</span>
+              <button onClick={() => setTeamInfoEditOpen(false)} className="text-gray-500 hover:text-white"><X size={16} /></button>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs text-gray-400">팀 이름</label>
+                <input
+                  value={teamInfoForm.name}
+                  onChange={e => setTeamInfoForm(f => ({ ...f, name: e.target.value }))}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-white/30"
+                  placeholder="팀 이름"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-400">활동 지역</label>
+                <input
+                  value={teamInfoForm.region}
+                  onChange={e => setTeamInfoForm(f => ({ ...f, region: e.target.value }))}
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-white/30"
+                  placeholder="활동 지역"
+                />
+              </div>
+            </div>
+            <button
+              onClick={saveTeamInfo}
+              disabled={teamInfoSaving || !teamInfoForm.name.trim()}
+              className="w-full py-2 rounded-lg text-sm font-semibold disabled:opacity-40"
+              style={{ background: "rgba(255,255,255,0.1)", border: "2px solid rgba(255,255,255,0.2)", color: "var(--text-primary)" }}
+            >
+              {teamInfoSaving ? '저장 중...' : '저장'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 멤버 수정 모달 (역할만 수정 가능 - 포지션/등번호는 마이페이지에서 개인이 설정) */}
       {editingMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={() => setEditingMember(null)}>
@@ -1813,14 +1914,24 @@ function TeamPageContent({
                   { value: "leader", label: "주장" },
                 ].map(role => {
                   const isSelected = editForm.roles.includes(role.value);
+                  // 마지막 관리자가 자신의 관리자 버튼을 해제하지 못하도록 비활성화
+                  const editingMemberObj = members.find((m: any) => m.userId === editingMember?.userId);
+                  const isLastManagerSelf =
+                    role.value === 'manager' &&
+                    isSelected &&
+                    editingMember?.userId === currentUser?.username &&
+                    (editingMemberObj?.roles || (editingMemberObj?.role ? [editingMemberObj.role] : [])).includes('manager') &&
+                    members.filter((m: any) => (m.roles || (m.role ? [m.role] : [])).includes('manager')).length <= 1;
                   return (
-                    <button 
-                      key={role.value} 
-                      type="button" 
+                    <button
+                      key={role.value}
+                      type="button"
+                      disabled={isLastManagerSelf}
+                      title={isLastManagerSelf ? '마지막 관리자는 역할을 해제할 수 없습니다' : undefined}
                       onClick={() => setEditForm((p: any) => {
                         const specialRoles = ['leader', 'manager', 'treasurer', 'owner', 'coach'];
                         let newRoles: string[];
-                        
+
                         if (role.value === 'member') {
                           // 멤버 클릭: 멤버만 선택 (다른 역할 모두 해제)
                           newRoles = isSelected ? [] : ['member'];
@@ -1833,16 +1944,28 @@ function TeamPageContent({
                             newRoles = [...currentSpecial, role.value];
                           }
                         }
-                        
+
                         return { ...p, roles: newRoles.length > 0 ? newRoles : ['member'] };
                       })}
-                      className={`flex-1 text-xs px-2 py-1.5 rounded font-semibold transition-colors ${isSelected ? "bg-white/20 text-white border border-white/30" : "bg-white/5 text-gray-500"}`}>
+                      className={`flex-1 text-xs px-2 py-1.5 rounded font-semibold transition-colors ${isLastManagerSelf ? "bg-white/5 text-gray-600 cursor-not-allowed" : isSelected ? "bg-white/20 text-white border border-white/30" : "bg-white/5 text-gray-500"}`}>
                       {role.label}
                     </button>
                   );
                 })}
               </div>
             </div>
+            {(() => {
+              const editingMemberObj = members.find((m: any) => m.userId === editingMember?.userId);
+              const isLastManagerSelf =
+                editingMember?.userId === currentUser?.username &&
+                (editingMemberObj?.roles || (editingMemberObj?.role ? [editingMemberObj.role] : [])).includes('manager') &&
+                members.filter((m: any) => (m.roles || (m.role ? [m.role] : [])).includes('manager')).length <= 1;
+              return isLastManagerSelf ? (
+                <p className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-lg px-3 py-2">
+                  ⚠️ 팀에 관리자가 최소 1명은 있어야 합니다. 다른 멤버에게 관리자 역할을 먼저 부여하세요.
+                </p>
+              ) : null;
+            })()}
             <button onClick={saveEditMember}
               className="w-full py-2 rounded-lg font-semibold text-sm"
               style={{ background: "rgba(255,255,255,0.1)", border: "2px solid rgba(255,255,255,0.2)", color: "var(--text-primary)" }}>저장</button>
