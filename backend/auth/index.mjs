@@ -4,6 +4,7 @@
   AdminConfirmSignUpCommand,
   InitiateAuthCommand,
   GetUserCommand,
+  AdminGetUserCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { PutCommand, DynamoDBDocumentClient, ScanCommand, QueryCommand, GetCommand, UpdateCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
@@ -135,9 +136,32 @@ async function login(body) {
 }
 
 async function getMe(accessToken) {
-  const result = await cognito.send(new GetUserCommand({ AccessToken: accessToken }));
-  const attrs = {};
-  result.UserAttributes.forEach(a => { attrs[a.Name] = a.Value; });
+  let attrs = {};
+  let username = "";
+
+  try {
+    // 일반 로그인 유저: GetUserCommand로 속성 조회
+    const result = await cognito.send(new GetUserCommand({ AccessToken: accessToken }));
+    result.UserAttributes.forEach(a => { attrs[a.Name] = a.Value; });
+    username = result.Username;
+  } catch (e) {
+    // Federated(Google 등) 유저: GetUserCommand 실패 → JWT 디코딩 + AdminGetUser
+    try {
+      const payload = JSON.parse(Buffer.from(accessToken.split(".")[1], "base64").toString());
+      const cognitoUsername = payload.username || payload["cognito:username"] || payload.sub;
+      if (!cognitoUsername) return res(401, { message: "유효하지 않은 토큰입니다" });
+
+      const adminResult = await cognito.send(new AdminGetUserCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: cognitoUsername,
+      }));
+      adminResult.UserAttributes.forEach(a => { attrs[a.Name] = a.Value; });
+      username = adminResult.Username;
+    } catch (adminErr) {
+      console.error("AdminGetUser failed:", adminErr);
+      return res(401, { message: "토큰이 유효하지 않습니다" });
+    }
+  }
 
   // DynamoDB에서 확장 프로필 가져오기
   const email = attrs.email;
@@ -156,7 +180,7 @@ async function getMe(accessToken) {
     }
   }
 
-  return res(200, { username: result.Username, ...attrs, ...profile });
+  return res(200, { username, ...attrs, ...profile });
 }
 
 async function updateProfile(accessToken, body) {
@@ -1046,7 +1070,7 @@ async function googleAuth(body) {
   const { code, redirectUri } = body;
   if (!code) return res(400, { message: "code가 필요합니다" });
 
-  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "23338190756-l80tu785d13afpapjkb1fmsfnaa3hio1.apps.googleusercontent.com";
+  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "23338190756-lamc6koq6548eag3i0issk8f88vvl0ju.apps.googleusercontent.com";
   const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
   // 1. 구글 토큰 교환
@@ -1112,6 +1136,77 @@ async function googleAuth(body) {
   });
 }
 
+// Cognito 소셜 로그인 사용자 프로필 생성 (Cognito에 이미 등록된 상태)
+async function createSocialProfile(accessToken, body) {
+  // Cognito Hosted UI 토큰은 GetUser scope가 없을 수 있으므로
+  // accessToken 대신 idToken에서 정보 추출 시도, 실패 시 body.email 사용
+  let email = body.email;
+  
+  try {
+    const result = await cognito.send(new GetUserCommand({ AccessToken: accessToken }));
+    const attrs = {};
+    result.UserAttributes.forEach(a => { attrs[a.Name] = a.Value; });
+    email = attrs.email || email;
+  } catch (e) {
+    // Hosted UI 토큰은 scope 부족으로 실패할 수 있음 — body.email 사용
+    console.log("GetUser failed (expected for social login):", e.message);
+    if (!email) return res(400, { message: "이메일을 찾을 수 없습니다" });
+  }
+
+  if (!email) return res(400, { message: "이메일을 찾을 수 없습니다" });
+
+  // 이미 프로필이 있는지 확인
+  const existing = await ddb.send(new GetCommand({ TableName: USERS_TABLE, Key: { email } }));
+  if (existing.Item) return res(200, { message: "이미 등록된 회원입니다", user: existing.Item });
+
+  const { name, gender, birthdate, regionSido, regionSigungu, activeAreas, sports, position, teamId, teamIds, teamSport, hasTeam, googleId, kakaoId } = body;
+
+  await ddb.send(new PutCommand({
+    TableName: USERS_TABLE,
+    Item: {
+      email,
+      name: name || attrs.name || "",
+      gender: gender || "",
+      birthdate: birthdate || "",
+      regionSido: regionSido || "",
+      regionSigungu: regionSigungu || "",
+      activeAreas: activeAreas || [],
+      sports: sports || [],
+      hasTeam: hasTeam || false,
+      teamSport: teamSport || "",
+      teamId: teamId || (teamIds && teamIds.length > 0 ? teamIds[0] : null),
+      teamIds: teamIds || (teamId ? [teamId] : []),
+      position: position || "",
+      kakaoId: kakaoId || null,
+      googleId: googleId || attrs.sub || null,
+      avatar: "",
+      number: 0,
+      teamNumbers: {},
+      role: "",
+      record: { games: 0, goals: 0, assists: 0 },
+      recentGoals: [],
+      createdAt: new Date().toISOString(),
+    },
+  }));
+
+  // 팀 선택했으면 클럽 멤버로도 등록
+  const joinTeamIds = teamIds || (teamId ? [teamId] : []);
+  for (const tid of joinTeamIds) {
+    await ddb.send(new PutCommand({
+      TableName: MEMBERS_TABLE,
+      Item: {
+        clubId: tid,
+        email,
+        name: name || attrs.name || "",
+        position: position || "",
+        joinedAt: new Date().toISOString(),
+      },
+    }));
+  }
+
+  return res(201, { message: "프로필 생성 완료" });
+}
+
 export const handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return res(200, {});
 
@@ -1124,6 +1219,11 @@ export const handler = async (event) => {
     }
     if (method === "POST" && path === "/auth/google") {
       return await googleAuth(JSON.parse(event.body));
+    }
+    if (method === "POST" && path === "/auth/social-profile") {
+      const token = (event.headers.Authorization || event.headers.authorization || "").replace("Bearer ", "");
+      if (!token) return res(401, { message: "토큰이 필요합니다" });
+      return await createSocialProfile(token, JSON.parse(event.body));
     }
     if (method === "POST" && path === "/auth/signup") {
       return await signup(JSON.parse(event.body));

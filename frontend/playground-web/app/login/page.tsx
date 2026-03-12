@@ -6,6 +6,9 @@ import Link from "next/link";
 import { isNativeApp } from "@/lib/platform";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
+const COGNITO_DOMAIN = process.env.NEXT_PUBLIC_COGNITO_DOMAIN;
+const COGNITO_CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID;
+const KAKAO_CLIENT_ID = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -99,25 +102,11 @@ export default function LoginPage() {
       <div className="space-y-3">
         <button
           onClick={() => {
-            const clientId = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
-            const baseUrl = window.location.hostname === 'localhost' 
-              ? 'http://localhost:3000' 
+            const baseUrl = window.location.hostname === 'localhost'
+              ? 'http://localhost:3000'
               : 'https://fun.sedaily.ai';
-            const redirect = encodeURIComponent(`${baseUrl}/auth/kakao/callback`);
-            window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirect}&response_type=code`;
-          }}
-          className="w-full py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
-          style={{ background: "#FEE500", color: "#191919" }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="#191919"><path d="M12 3C6.477 3 2 6.477 2 10.5c0 2.632 1.553 4.963 3.918 6.318L4.5 21l4.918-2.618A11.3 11.3 0 0 0 12 18c5.523 0 10-3.477 10-7.5S17.523 3 12 3z"/></svg>
-          카카오로 시작하기
-        </button>
-
-        <button
-          onClick={() => {
-            const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-            const redirect = encodeURIComponent(`https://fun.sedaily.ai/auth/google/callback`);
-            window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirect}&response_type=code&scope=openid%20email%20profile`;
+            const redirect = encodeURIComponent(`${baseUrl}/auth/google/callback`);
+            window.location.href = `https://${COGNITO_DOMAIN}/oauth2/authorize?identity_provider=Google&response_type=code&client_id=${COGNITO_CLIENT_ID}&redirect_uri=${redirect}&scope=openid+email+profile`;
           }}
           className="w-full py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
           style={{ background: "white", color: "#333" }}

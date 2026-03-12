@@ -11,6 +11,7 @@ function SignupInner() {
   const searchParams = useSearchParams();
   const kakaoId = searchParams.get("kakaoId") || "";
   const googleId = searchParams.get("googleId") || "";
+  const isCognitoSocial = searchParams.get("cognito") === "true";
 
   const [form, setForm] = useState({
     name: searchParams.get("name") || "",
@@ -75,32 +76,54 @@ function SignupInner() {
 
   const handleSignup = async () => {
     setError("");
-    if (form.password !== form.passwordConfirm) { setError("비밀번호가 일치하지 않습니다"); return; }
+    if (!isCognitoSocial && form.password !== form.passwordConfirm) { setError("비밀번호가 일치하지 않습니다"); return; }
     setLoading(true);
     try {
-      // 소셜 로그인 비밀번호 생성
-      let password = form.password;
-      if (kakaoId) password = `Kakao#${kakaoId}`;
-      else if (googleId) password = `Google#${googleId}`;
+      const profileData = {
+        name: form.name,
+        gender: form.gender === "남성" ? "male" : "female",
+        birthdate: form.birth,
+        regionSido: form.regionSido,
+        regionSigungu: form.regionSigungu,
+        kakaoId: kakaoId || undefined,
+        googleId: googleId || undefined,
+      };
 
-      const res = await fetch(`${API}/auth/signup`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: form.id,
-          password,
-          name: form.name,
-          gender: form.gender === "남성" ? "male" : "female",
-          birthdate: form.birth,
-          regionSido: form.regionSido,
-          regionSigungu: form.regionSigungu,
-          kakaoId: kakaoId || undefined,
-          googleId: googleId || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      router.push("/login");
+      if (isCognitoSocial) {
+        // Cognito 소셜 로그인 — 이미 Cognito에 등록됨, DynamoDB 프로필만 생성
+        const accessToken = localStorage.getItem("accessToken");
+        const idToken = localStorage.getItem("idToken");
+        // idToken에서 email 추출
+        let tokenEmail = form.id;
+        try {
+          if (idToken) {
+            const payload = JSON.parse(atob(idToken.split(".")[1]));
+            tokenEmail = payload.email || form.id;
+          }
+        } catch {}
+        const r = await fetch(`${API}/auth/social-profile`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ ...profileData, email: tokenEmail }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message);
+        window.location.href = "/";
+      } else {
+        // 일반 이메일 회원가입 또는 기존 소셜(카카오) 회원가입
+        let password = form.password;
+        if (kakaoId) password = `Kakao#${kakaoId}`;
+        else if (googleId) password = `Google#${googleId}`;
+
+        const r = await fetch(`${API}/auth/signup`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: form.id, password, ...profileData }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message);
+        router.push("/login");
+      }
     } catch (e: any) {
       setError(e.message || "회원가입 실패");
     } finally {
@@ -131,17 +154,29 @@ function SignupInner() {
           </div>
         </div>
 
-        <input required type="date" value={form.birth} onChange={set("birth")}
-          style={{ ...inputStyle, colorScheme: "dark" }} />
+        <div>
+          <p className="text-xs text-gray-500 mb-2">생년월일 *</p>
+          <input required type="date" value={form.birth} onChange={set("birth")}
+            style={{ ...inputStyle, colorScheme: "dark" }} />
+        </div>
 
-        <input required type="email" placeholder="이메일 *" value={form.id} onChange={set("id")} style={inputStyle} />
-        <input required type="password" placeholder="비밀번호 *" value={form.password} onChange={set("password")} style={inputStyle} />
-        <input required type="password" placeholder="비밀번호 확인 *" value={form.passwordConfirm} onChange={set("passwordConfirm")} style={inputStyle} />
-        {form.passwordConfirm && form.password !== form.passwordConfirm && (
-          <p className="text-red-400 text-xs">비밀번호가 일치하지 않습니다</p>
+        <input required type="email" placeholder="이메일 *" value={form.id} onChange={set("id")} 
+          style={{ ...inputStyle, opacity: (kakaoId || googleId) ? 0.6 : 1 }} 
+          readOnly={!!(kakaoId || googleId)} />
+        {(kakaoId || googleId) && (
+          <p className="text-green-400 text-xs">✓ {googleId ? "Google" : "카카오"} 계정으로 인증됨</p>
         )}
-        {form.passwordConfirm && form.password === form.passwordConfirm && (
-          <p className="text-green-400 text-xs">비밀번호가 일치합니다</p>
+        {!(kakaoId || googleId) && (
+          <>
+            <input required type="password" placeholder="비밀번호 *" value={form.password} onChange={set("password")} style={inputStyle} />
+            <input required type="password" placeholder="비밀번호 확인 *" value={form.passwordConfirm} onChange={set("passwordConfirm")} style={inputStyle} />
+            {form.passwordConfirm && form.password !== form.passwordConfirm && (
+              <p className="text-red-400 text-xs">비밀번호가 일치하지 않습니다</p>
+            )}
+            {form.passwordConfirm && form.password === form.passwordConfirm && (
+              <p className="text-green-400 text-xs">비밀번호가 일치합니다</p>
+            )}
+          </>
         )}
 
         <div>
