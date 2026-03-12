@@ -38,17 +38,19 @@ self.addEventListener('fetch', event => {
   if (url.origin !== self.location.origin) return
   if (url.pathname.startsWith('/uploads/')) return // S3 user uploads
 
-  // ① Next.js 정적 에셋 (_next/static/) — 캐시 우선
+  // ① Next.js 정적 에셋 (_next/static/) — 캐시 우선, 실패 시 네트워크 폴백
   if (url.pathname.startsWith('/_next/static/')) {
     event.respondWith(
       caches.match(request).then(cached => {
         if (cached) return cached
         return fetch(request).then(res => {
-          const resClone = res.clone()
-          caches.open(STATIC_CACHE).then(cache => cache.put(request, resClone))
+          if (res.ok) {
+            const resClone = res.clone()
+            caches.open(STATIC_CACHE).then(cache => cache.put(request, resClone))
+          }
           return res
         })
-      })
+      }).catch(() => fetch(request))
     )
     return
   }
@@ -71,7 +73,9 @@ self.addEventListener('fetch', event => {
 
   // ③ 기타 — 네트워크 우선, 실패 시 캐시 폴백
   event.respondWith(
-    fetch(request).catch(() => caches.match(request))
+    fetch(request).catch(() =>
+      caches.match(request).then(cached => cached || new Response('', { status: 503 }))
+    )
   )
 })
 

@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { manageFetch } from '@/lib/manageFetch'
-import type { League } from '@/types/manage'
-import { StatusBadge, BackBtn, Empty, TeamSearchInvite } from './shared'
+import type { League, Team } from '@/types/manage'
+import { StatusBadge, BackBtn, Empty, TeamSearchInvite, AGE_GROUP_LABEL, SPORT_TYPE_LABEL } from './shared'
 import { generateTournamentPairs, generateRoundRobin, generateFullBracket, type LeagueMatch, type LeagueTeam } from './utils'
 import MatchDetailModal from './MatchDetailModal'
 import BracketMatchSetup from './BracketMatchSetup'
+import TeamDetailModal from './TeamDetailModal'
 import MatchesSection from './MatchesSection'
 import StandingsTable from './StandingsTable'
 import BracketView, { TournamentResults } from './BracketView'
@@ -30,9 +31,11 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
   const [league, setLeague] = useState(initialLeague)
   const [teams, setTeams] = useState<LeagueTeam[]>([])
   const [matches, setMatches] = useState<LeagueMatch[]>([])
+  const [allTeams, setAllTeams] = useState<Record<string, Team>>({})
   const [teamNames, setTeamNames] = useState<Record<string, string>>({})
   const [generating, setGenerating] = useState(false)
   const [detailMatch, setDetailMatch] = useState<LeagueMatch | null>(null)
+  const [detailTeam, setDetailTeam] = useState<Team | null>(null)
   const [tabOverride, setTabOverride] = useState<DetailTab | null>(null)
   const [setupMatch, setSetupMatch] = useState<LeagueMatch | null>(null)
 
@@ -41,14 +44,16 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
 
   const isTournament = league.type === 'tournament'
 
-  const fetchAllTeamNames = async () => {
+  const fetchAllTeamInfo = async () => {
     try {
       const data = await manageFetch('/team/all')
-      const allTeams: Array<{ id: string; name: string }> = data?.teams ?? data ?? []
+      const rawTeams: Team[] = data?.teams ?? data ?? []
+      const teamsMap: Record<string, Team> = {}
       const names: Record<string, string> = {}
-      allTeams.forEach((t: { id: string; name: string }) => {
-        if (t.id && t.name) names[t.id] = t.name
+      rawTeams.forEach((t: Team) => {
+        if (t.id && t.name) { teamsMap[t.id] = t; names[t.id] = t.name }
       })
+      setAllTeams(prev => ({ ...prev, ...teamsMap }))
       setTeamNames(prev => ({ ...prev, ...names }))
     } catch {
       // fallback: 개별 조회
@@ -79,7 +84,7 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
   }
 
   useEffect(() => {
-    fetchAllTeamNames().then(() => {
+    fetchAllTeamInfo().then(() => {
       Promise.all([loadTeams(), loadMatches()]).then(([teamsData, matchesData]) => {
         const allIds = new Set<string>()
         teamsData.forEach(t => allIds.add(t.teamId))
@@ -380,47 +385,79 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
             }} />
           )}
           {teams.length === 0 ? <Empty text="참가팀이 없습니다" /> : (
-            <div className="overflow-hidden rounded-2xl shadow-sm" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--card-border)' }}>
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>팀</th>
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>참가일</th>
-                    {isOrganizer && league.status === 'recruiting' && <th className="px-5 py-3.5" />}
-                  </tr>
-                </thead>
-                <tbody>
-                  {teams.map(t => (
-                    <tr key={t.teamId} className="transition-colors hover:opacity-80" style={{ borderBottom: '1px solid var(--card-border)' }}>
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white"
+            <div className="grid gap-3 sm:grid-cols-2">
+              {teams.map(t => {
+                const team = allTeams[t.teamId]
+                return (
+                  <div key={t.teamId}
+                    className="overflow-hidden rounded-xl cursor-pointer transition-all hover:shadow-md"
+                    style={{ background: 'var(--card-bg)', border: `1px solid ${t.teamId === currentTeamId ? '#10b981' : 'var(--card-border)'}` }}
+                    onClick={() => team && setDetailTeam(team)}>
+                    <div className="p-4">
+                      <div className="flex items-center gap-3">
+                        {team?.logoUrl ? (
+                          <img src={team.logoUrl} alt={tn(t.teamId)}
+                            className="h-10 w-10 rounded-xl object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white"
                             style={{ background: t.teamId === currentTeamId ? '#10b981' : 'var(--btn-solid-bg)' }}>
                             {tn(t.teamId).charAt(0)}
                           </div>
-                          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                            {tn(t.teamId)}
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                              {tn(t.teamId)}
+                            </span>
                             {t.teamId === currentTeamId && (
-                              <span className="ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                              <span className="flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium"
                                 style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>우리팀</span>
                             )}
-                          </span>
+                          </div>
+                          {team && (
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              {team.region && (
+                                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{team.region}</span>
+                              )}
+                              {team.sportType && (
+                                <>
+                                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>·</span>
+                                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                    {SPORT_TYPE_LABEL[team.sportType] ?? team.sportType}
+                                  </span>
+                                </>
+                              )}
+                              {team.ageGroup && (
+                                <>
+                                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>·</span>
+                                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                    {AGE_GROUP_LABEL[team.ageGroup] ?? team.ageGroup}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      </td>
-                      <td className="px-5 py-3.5 text-sm" style={{ color: 'var(--text-muted)' }}>{new Date(t.joinedAt).toLocaleDateString('ko-KR')}</td>
-                      {isOrganizer && league.status === 'recruiting' && (
-                        <td className="px-5 py-3.5 text-right">
-                          <button onClick={() => removeTeam(t.teamId)} className="text-xs transition-colors hover:text-red-500" style={{ color: 'var(--text-muted)' }} title="팀 제거">
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                            </svg>
-                          </button>
-                        </td>
+                      </div>
+                      {team?.description && (
+                        <p className="mt-2 text-xs line-clamp-2" style={{ color: 'var(--text-muted)' }}>{team.description}</p>
                       )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-2.5 text-xs"
+                      style={{ borderTop: '1px solid var(--card-border)', color: 'var(--text-muted)' }}>
+                      <span>참가일: {new Date(t.joinedAt).toLocaleDateString('ko-KR')}</span>
+                      {isOrganizer && league.status === 'recruiting' && (
+                        <button onClick={(e) => { e.stopPropagation(); removeTeam(t.teamId) }}
+                          className="transition-colors hover:text-red-500" title="팀 제거">
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -451,6 +488,11 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
       )}
 
       {tab === 'stats' && <StatsTab matches={matches} leagueType={league.type} league={league} teamNames={teamNames} />}
+
+      {/* ─── 팀 상세 모달 ─────────────────────────────────────── */}
+      {detailTeam && (
+        <TeamDetailModal team={detailTeam} onClose={() => setDetailTeam(null)} />
+      )}
 
       {/* ─── 팀 배정 모달 ─────────────────────────────────────── */}
       {setupMatch && (
