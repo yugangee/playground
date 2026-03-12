@@ -6,6 +6,8 @@ import Link from "next/link";
 import { isNativeApp } from "@/lib/platform";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+const KAKAO_CLIENT_ID = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -99,12 +101,11 @@ export default function LoginPage() {
       <div className="space-y-3">
         <button
           onClick={() => {
-            const clientId = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID;
             const baseUrl = window.location.hostname === 'localhost' 
               ? 'http://localhost:3000' 
               : 'https://fun.sedaily.ai';
             const redirect = encodeURIComponent(`${baseUrl}/auth/kakao/callback`);
-            window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirect}&response_type=code`;
+            window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_CLIENT_ID}&redirect_uri=${redirect}&response_type=code`;
           }}
           className="w-full py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
           style={{ background: "#FEE500", color: "#191919" }}
@@ -115,9 +116,8 @@ export default function LoginPage() {
 
         <button
           onClick={() => {
-            const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
             const redirect = encodeURIComponent(`https://fun.sedaily.ai/auth/google/callback`);
-            window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirect}&response_type=code&scope=openid%20email%20profile`;
+            window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${redirect}&response_type=code&scope=openid%20email%20profile`;
           }}
           className="w-full py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-90 flex items-center justify-center gap-2"
           style={{ background: "white", color: "#333" }}
