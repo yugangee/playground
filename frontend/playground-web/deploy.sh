@@ -14,7 +14,7 @@ npm run build
 
 # E-2: SW 캐시 버전에 git 커밋 해시 주입 (out/sw.js만 수정, public/sw.js 유지)
 GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "local")
-sed -i "s/playground-v[a-zA-Z0-9._-]*/playground-${GIT_HASH}/" out/sw.js
+sed -i '' "s/playground-v[a-zA-Z0-9._-]*/playground-${GIT_HASH}/" out/sw.js
 echo "🔖 SW 캐시 버전: playground-${GIT_HASH}"
 
 echo ""
