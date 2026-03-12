@@ -3,6 +3,19 @@
 import React, { useState, useEffect } from 'react'
 import { manageFetch } from '@/lib/manageFetch'
 
+// ── Label maps ───────────────────────────────────────────────────────────────
+
+export const AGE_GROUP_LABEL: Record<string, string> = {
+  elementary: '초등', middle: '중등', high: '고등',
+  university: '대학', worker: '직장인', senior: '시니어', mixed: '혼합',
+}
+
+export const SPORT_TYPE_LABEL: Record<string, string> = {
+  soccer: '축구', futsal: '풋살', basketball: '농구', baseball: '야구',
+  volleyball: '배구', ice_hockey: '아이스하키',
+  running: '러닝크루', snowboard: '스노보드', badminton: '배드민턴',
+}
+
 // ── Form style constants ─────────────────────────────────────────────────────
 
 export const lbl = 'mb-1.5 block text-xs font-semibold uppercase tracking-wide'
