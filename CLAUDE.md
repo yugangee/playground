@@ -17,7 +17,7 @@ sedaily-playground/
 │   ├── auth/                  # Auth Lambda (index.mjs, scoring.mjs) — manually deployed
 │   ├── chat/                  # WebSocket chat Lambda
 │   ├── chatbot/               # AI chatbot server (Python)
-│   ├── functions/             # CDK-managed Lambdas (team, finance, league, schedule, notifications, reminder, seasonReset, ec2)
+│   ├── functions/             # CDK-managed Lambdas (team, finance, league, schedule, notifications, reminder, seasonReset, ec2, ec2-update)
 │   └── infra/                 # AWS CDK stack definition (cdk.json lives here)
 └── docs/                      # PROGRESS.md, MILESTONES.md, WORK-LOG-*.md, DB-CONNECTIONS.md, RATING-SYSTEM.md, etc.
 ```
@@ -29,7 +29,7 @@ cd frontend/playground-web
 
 npm run dev      # Dev server → http://127.0.0.1:3000
 npm run build    # Static export → ./out/
-npm run lint     # ESLint check (React Compiler rules enabled)
+npm run lint     # ESLint check
 npm run deploy   # Build + sync to S3 + invalidate CloudFront (Linux/Mac)
 npm run deploy:win  # Same for Windows
 ```
@@ -55,15 +55,15 @@ npm run build    # TypeScript → dist/
 ## Frontend Architecture
 
 - **Framework:** Next.js 16 with App Router, configured for **static export** (`output: 'export'`). No SSR — all pages are pre-rendered HTML.
-- **Styling:** Tailwind CSS 4 + Radix UI primitives (shadcn-style, configured in `components.json`). Theme via CSS custom properties (`var(--text-primary)`, `var(--card-bg)`, etc.)
+- **Styling:** Tailwind CSS 4 + Radix UI primitives (shadcn-style). Theme via CSS custom properties (`var(--text-primary)`, `var(--card-bg)`, etc.)
 - **State:** React Context providers in `context/` — `AuthContext`, `ChatContext`, `ClubContext`, `TeamContext`, `ThemeContext`
 - **API calls:**
   - `lib/manageFetch.ts` — wraps fetch for the **Manage API** (CDK stack); uses idToken; includes 401 auto-refresh + retry
   - `lib/tokenRefresh.ts` — shared token utilities: `tryRefreshTokens()` (singleton pattern), `clearTokens()`, `isTokenExpiredOrNearExpiry()`
-  - `lib/useWebSocket.ts` — manages WebSocket lifecycle for real-time chat; uses ref-sync pattern (optionsRef/connectRef updated in useEffect, not during render)
+  - `lib/useWebSocket.ts` — manages WebSocket lifecycle for real-time chat; uses `wsRef`, `reconnectTimer`, `optionsRef` refs (`optionsRef.current` is assigned in the render body)
   - `app/team/page.tsx` defines a local `authFetch()` — wraps fetch for the **Auth API**; uses accessToken; same 401 → refresh → retry pattern
 - **Path alias:** `@/` maps to the `frontend/playground-web/` root
-- **React Compiler** is enabled — ESLint enforces `react-hooks/refs` (no ref access during render), `react-hooks/immutability`, `react-hooks/preserve-manual-memoization`
+- **React Compiler** is NOT explicitly enabled (`next.config.ts` has no `reactCompiler: true`). Standard ESLint rules (Next.js core web vitals + TypeScript) are configured via `eslint.config.mjs`.
 
 ## Frontend Pages
 
@@ -92,7 +92,14 @@ npm run build    # TypeScript → dist/
 | `/manage/finance` | Ledger, dues, fines, settlement |
 | `/manage/social` | Friends, favorites |
 | `/manage/discover` | Discover teams/leagues by region/age |
+| `/manage/mypage` | Admin profile page |
 | `/m` | Mobile landing with quick actions |
+| `/` | Home page (logged-in dashboard / guest landing) |
+| `/auth/kakao/callback` | Kakao OAuth callback handler |
+| `/clubs/[id]` | Club detail page (dynamic route) |
+| `/community` | Community forums |
+| `/join` | Team join via invite token (`?token=xxx`) |
+| `/payment` | Payment processing |
 
 ## Backend Lambdas (CDK-managed)
 
@@ -106,6 +113,7 @@ npm run build    # TypeScript → dist/
 | **reminder** | EventBridge hourly — D-2/D-1/same-day match reminders (Kakao AlimTalk + SMS fallback) |
 | **seasonReset** | EventBridge Jan 1 KST — 50% point decay, tier recalculation |
 | **ec2** | Auto-start EC2 for video analysis pipeline |
+| **ec2-update** | Remote code update on EC2 via SSM (git pull + restart) |
 
 ## Dual API System — Critical Architecture
 
@@ -168,8 +176,7 @@ The project uses **two separate APIs** that share one Cognito pool but serve dif
 
 ## Important Gotchas
 
-- **Hooks before early returns:** `TeamPageContent` in `team/page.tsx` has an `if (!club) return` guard. All `useState`/`useEffect` must be declared **before** this guard or React will crash when hook count changes between renders.
-- **No ref access during render:** React Compiler enforces this. Use `useEffect` to sync refs (see `useWebSocket.ts` pattern: `optionsRef.current` assigned inside `useEffect`, not in the render body).
+- **Hooks before early returns:** React requires consistent hook call order across renders. If a component has an early return guard (e.g. `if (!data) return`), all hooks must be declared **before** that guard. Currently `TeamPageContent` in `team/page.tsx` receives all state as props and has no hooks of its own, but this rule applies to any future hooks added to such components.
 - **No impure functions during render:** `Math.random()`, `Date.now()`, etc. in render bodies cause different values on each re-render. Use `useMemo` or deterministic seed-based values.
 - **Build ignores errors:** `ignoreBuildErrors: true` in `next.config.ts` means the build will pass even with TypeScript/ESLint errors. Always run `npm run lint` explicitly.
 - **CDK GSI limit:** DynamoDB does not allow adding more than one GSI in a single CloudFormation update — deploy GSI additions in separate steps.

@@ -1,8 +1,10 @@
 'use client'
 
-import React from 'react'
+import React, { useMemo } from 'react'
 import { Empty } from './shared'
-import { ROUND_ORDER, type LeagueMatch } from './utils'
+import { ROUND_ORDER, generateBracketTemplate, type LeagueMatch } from './utils'
+
+/* ── 대회 결과 (결승 완료 시 표시) ─────────────────────────────────────────── */
 
 function TournamentResults({ matches, tn }: {
   matches: LeagueMatch[]; tn: (id: string) => string
@@ -100,22 +102,349 @@ function TournamentResults({ matches, tn }: {
 
 export { TournamentResults }
 
-export default function BracketView({ matches, tn, onMatchClick, leagueStatus }: {
-  matches: LeagueMatch[]; tn: (id: string) => string; onMatchClick: (m: LeagueMatch) => void; leagueStatus?: string
+/* ── 상수 ─────────────────────────────────────────────────────────────────── */
+
+const CARD_W = 200
+
+/* ── 매치 카드 (예시 스타일 적용) ─────────────────────────────────────────── */
+
+function MatchCard({ match, tn, onClick, label }: {
+  match?: LeagueMatch
+  tn: (id: string) => string
+  onClick?: () => void
+  label?: string
 }) {
-  const getWinner = (m: LeagueMatch): string | null => {
-    if (m.status !== 'completed') return null
-    if (m.winner) return m.winner
-    if ((m.homeScore ?? 0) > (m.awayScore ?? 0)) return m.homeTeamId
-    if ((m.awayScore ?? 0) > (m.homeScore ?? 0)) return m.awayTeamId
-    return null
+  // 빈 슬롯
+  if (!match) {
+    return (
+      <div style={{
+        width: CARD_W, borderRadius: 10, overflow: 'hidden',
+        border: '1px dashed var(--text-muted)', opacity: 0.4,
+      }}>
+        {label && (
+          <div style={{
+            padding: '5px 12px', fontSize: 10, fontWeight: 500, letterSpacing: '0.02em',
+            color: 'var(--text-muted)', borderBottom: '1px dashed var(--text-muted)',
+          }}>{label}</div>
+        )}
+        <div style={{ padding: '8px 12px', fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>미정</div>
+        <div style={{ padding: '8px 12px', fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic', borderTop: '1px dashed var(--text-muted)' }}>미정</div>
+      </div>
+    )
   }
 
+  const isBye = match.homeTeamId === 'BYE' || match.awayTeamId === 'BYE'
+  const isTbd = match.homeTeamId === 'TBD' && match.awayTeamId === 'TBD'
+  const isCompleted = match.status === 'completed'
+
+  const winner = (() => {
+    if (!isCompleted) return null
+    if (match.winner) return match.winner
+    if ((match.homeScore ?? 0) > (match.awayScore ?? 0)) return match.homeTeamId
+    if ((match.awayScore ?? 0) > (match.homeScore ?? 0)) return match.awayTeamId
+    return null
+  })()
+
+  const teamName = (id: string) => {
+    if (id === 'BYE') return '부전승'
+    if (id === 'TBD') return '미정'
+    return tn(id)
+  }
+
+  const timeStr = match.scheduledAt && match.scheduledAt !== '미정'
+    ? new Date(match.scheduledAt).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : ''
+
+  const teamRow = (id: string, score: number | undefined, isWin: boolean, isTop: boolean) => {
+    const isPlaceholder = id === 'TBD' || id === 'BYE'
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '7px 12px',
+        borderTop: isTop ? undefined : '1px solid var(--input-border)',
+        background: isWin ? 'rgba(16,185,129,0.08)' : undefined,
+        opacity: isCompleted && !isWin && winner ? 0.45 : 1,
+      }}>
+        <span style={{
+          flex: 1, fontSize: 13, letterSpacing: '-0.01em',
+          fontWeight: isWin ? 700 : isPlaceholder ? 400 : 600,
+          color: isPlaceholder ? 'var(--text-muted)' : 'var(--text-primary)',
+          fontStyle: isPlaceholder ? 'italic' : undefined,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          {teamName(id)}
+        </span>
+        {isCompleted && !isBye && score !== undefined && (
+          <span style={{
+            fontSize: 16, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+            color: isWin ? 'var(--text-primary)' : 'var(--text-muted)',
+            minWidth: 22, textAlign: 'right',
+          }}>
+            {score}
+          </span>
+        )}
+        {isCompleted && isBye && isWin && (
+          <span style={{ fontSize: 9, fontWeight: 600, padding: '1px 5px', borderRadius: 3, background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
+            W.O.
+          </span>
+        )}
+        {isWin && !isBye && <span style={{ fontSize: 10, color: '#10b981' }}>✓</span>}
+      </div>
+    )
+  }
+
+  return (
+    <div
+      style={{
+        width: CARD_W, borderRadius: 10, overflow: 'hidden',
+        border: isTbd ? '1px solid var(--input-border)' : `1px solid var(--input-border)`,
+        background: 'var(--card-bg)',
+        cursor: onClick ? 'pointer' : 'default',
+        opacity: isBye && isCompleted ? 0.55 : 1,
+        transition: 'all 0.2s ease',
+      }}
+      onMouseEnter={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)' } }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '' }}
+      onClick={onClick}
+    >
+      {/* 헤더 */}
+      {label && (
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '5px 12px',
+          background: 'rgba(0,0,0,0.03)',
+          borderBottom: '1px solid var(--input-border)',
+        }}>
+          <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-muted)', letterSpacing: '0.02em' }}>{label}</span>
+          {timeStr && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{timeStr}</span>}
+        </div>
+      )}
+
+      {teamRow(match.homeTeamId, match.homeScore, winner === match.homeTeamId, true)}
+      {teamRow(match.awayTeamId, match.awayScore, winner === match.awayTeamId, false)}
+
+      {match.pkScore && (
+        <div style={{
+          textAlign: 'center', fontSize: 9, fontWeight: 600, padding: '3px 0',
+          color: 'var(--text-muted)', borderTop: '1px solid var(--input-border)',
+          background: 'rgba(0,0,0,0.02)',
+        }}>
+          PK {match.pkScore.home}:{match.pkScore.away}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── SVG 커넥터 ───────────────────────────────────────────────────────────── */
+
+function ConnectorSVG({ matchCount, direction }: { matchCount: number; direction: 'left' | 'right' }) {
+  const pairCount = matchCount / 2
+  const segH = 100 / matchCount
+
+  const paths: string[] = []
+  for (let i = 0; i < pairCount; i++) {
+    const topY = segH * (i * 2) + segH / 2
+    const botY = segH * (i * 2 + 1) + segH / 2
+    const midY = (topY + botY) / 2
+
+    if (direction === 'left') {
+      paths.push(`M 0 ${topY} L 50 ${topY} L 50 ${midY} L 100 ${midY}`)
+      paths.push(`M 0 ${botY} L 50 ${botY} L 50 ${midY}`)
+    } else {
+      paths.push(`M 100 ${topY} L 50 ${topY} L 50 ${midY} L 0 ${midY}`)
+      paths.push(`M 100 ${botY} L 50 ${botY} L 50 ${midY}`)
+    }
+  }
+
+  return (
+    <div style={{ width: 48, minWidth: 48, position: 'relative' }}>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none"
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+        {paths.map((d, i) => (
+          <path key={i} d={d} fill="none" strokeWidth="1.5"
+            vectorEffect="non-scaling-stroke"
+            style={{ stroke: 'var(--text-secondary)' }} />
+        ))}
+      </svg>
+    </div>
+  )
+}
+
+/** 수평 연결선 (준결승 ↔ 결승) */
+function HLine() {
+  return (
+    <div style={{ width: 32, minWidth: 32, position: 'relative' }}>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none"
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+        <line x1="0" y1="50" x2="100" y2="50" strokeWidth="1.5"
+          vectorEffect="non-scaling-stroke"
+          style={{ stroke: 'var(--text-secondary)' }} />
+      </svg>
+    </div>
+  )
+}
+
+/* ── 라운드 열 ────────────────────────────────────────────────────────────── */
+
+function RoundColumn({ round, matchMap, tn, onSlotClick, canClick }: {
+  round: { name: string; matchNumbers: number[] }
+  matchMap: Map<number, LeagueMatch>
+  tn: (id: string) => string
+  onSlotClick: (mn: number, match?: LeagueMatch) => void
+  canClick: (m?: LeagueMatch) => boolean
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minWidth: CARD_W }}>
+      <div style={{ textAlign: 'center', marginBottom: 12 }}>
+        <span style={{
+          display: 'inline-block', fontSize: 11, fontWeight: 600,
+          textTransform: 'uppercase', letterSpacing: '0.08em',
+          color: 'var(--text-muted)', paddingBottom: 8,
+          borderBottom: '1px solid var(--input-border)',
+        }}>
+          {round.name}
+        </span>
+      </div>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {round.matchNumbers.map(mn => {
+          const match = matchMap.get(mn)
+          return (
+            <div key={mn} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px 0' }}>
+              <MatchCard
+                match={match} tn={tn}
+                onClick={canClick(match) ? () => onSlotClick(mn, match) : undefined}
+                label={`#${mn}`}
+              />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* ── 메인 BracketView (양쪽 대칭 + SVG 커넥터) ───────────────────────────── */
+
+export default function BracketView({ bracketSize, matches, tn, onSlotClick, leagueStatus }: {
+  bracketSize?: 4 | 8 | 16 | 32
+  matches: LeagueMatch[]
+  tn: (id: string) => string
+  onSlotClick: (matchNumber: number, match?: LeagueMatch) => void
+  leagueStatus?: string
+}) {
+  const matchMap = useMemo(() => {
+    const map = new Map<number, LeagueMatch>()
+    matches.forEach(m => { if (m.matchNumber) map.set(m.matchNumber, m) })
+    return map
+  }, [matches])
+
+  const template = useMemo(() => bracketSize ? generateBracketTemplate(bracketSize) : [], [bracketSize])
+
+  if (!bracketSize) {
+    if (matches.length === 0) return <Empty text="대진표가 없습니다" />
+    return <LegacyBracket matches={matches} tn={tn} onMatchClick={m => onSlotClick(m.matchNumber ?? 0, m)} />
+  }
+
+  // 좌/우/결승 분할
+  const leftRounds: Array<{ name: string; matchNumbers: number[] }> = []
+  const rightRounds: Array<{ name: string; matchNumbers: number[] }> = []
+  let finalMatchNumber: number | null = null
+
+  for (const round of template) {
+    if (round.name === '결승') {
+      finalMatchNumber = round.matchNumbers[0]
+    } else {
+      const half = Math.ceil(round.matchNumbers.length / 2)
+      leftRounds.push({ name: round.name, matchNumbers: round.matchNumbers.slice(0, half) })
+      rightRounds.push({ name: round.name, matchNumbers: round.matchNumbers.slice(half) })
+    }
+  }
+
+  const finalMatch = finalMatchNumber ? matchMap.get(finalMatchNumber) : undefined
+  const thirdPlaceNumber = bracketSize
+  const thirdPlaceMatch = matchMap.get(thirdPlaceNumber)
+  const canClick = (m?: LeagueMatch) => leagueStatus === 'ongoing' || m?.status === 'completed' || false
+  const rightReversed = [...rightRounds].reverse()
+  const firstRoundPerSide = leftRounds[0]?.matchNumbers.length ?? 1
+  const minH = firstRoundPerSide * 80
+
+  return (
+    <div className="space-y-6">
+      <div className="overflow-x-auto pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ display: 'flex', alignItems: 'stretch', minWidth: 'max-content', minHeight: minH }}>
+
+          {/* ── 왼쪽 브래킷 ── */}
+          {leftRounds.map((round, ri) => (
+            <React.Fragment key={`L-${round.name}`}>
+              <RoundColumn round={round} matchMap={matchMap} tn={tn} onSlotClick={onSlotClick} canClick={canClick} />
+              {ri < leftRounds.length - 1
+                ? <ConnectorSVG matchCount={round.matchNumbers.length} direction="left" />
+                : <HLine />
+              }
+            </React.Fragment>
+          ))}
+
+          {/* ── 결승 ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: CARD_W + 20 }}>
+            <div style={{ textAlign: 'center', marginBottom: 12 }}>
+              <span style={{
+                display: 'inline-block', fontSize: 11, fontWeight: 700,
+                letterSpacing: '0.08em', color: '#f59e0b',
+                paddingBottom: 8, borderBottom: '2px solid #f59e0b',
+              }}>
+                결승
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <MatchCard match={finalMatch} tn={tn}
+                onClick={canClick(finalMatch) ? () => onSlotClick(finalMatchNumber!, finalMatch) : undefined}
+                label={`#${finalMatchNumber}`} />
+            </div>
+          </div>
+
+          {/* ── 오른쪽 브래킷 (역순) ── */}
+          {rightReversed.map((round, ri) => (
+            <React.Fragment key={`R-${round.name}`}>
+              {ri === 0
+                ? <HLine />
+                : <ConnectorSVG matchCount={round.matchNumbers.length} direction="right" />
+              }
+              <RoundColumn round={round} matchMap={matchMap} tn={tn} onSlotClick={onSlotClick} canClick={canClick} />
+            </React.Fragment>
+          ))}
+
+        </div>
+      </div>
+
+      {/* ── 3/4위전 ── */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+          <span style={{
+            fontSize: 11, fontWeight: 600, letterSpacing: '0.08em',
+            color: 'var(--text-muted)', paddingBottom: 8,
+            borderBottom: '1px solid var(--input-border)',
+          }}>3/4위전</span>
+          <div style={{ flex: 1, height: 1, background: 'var(--input-border)' }} />
+        </div>
+        <MatchCard match={thirdPlaceMatch} tn={tn}
+          onClick={canClick(thirdPlaceMatch) ? () => onSlotClick(thirdPlaceNumber, thirdPlaceMatch) : undefined}
+          label={`#${thirdPlaceNumber}`} />
+      </div>
+    </div>
+  )
+}
+
+/* ── 레거시 브래킷 (bracketSize 없는 기존 토너먼트) ──────────────────────── */
+
+function LegacyBracket({ matches, tn, onMatchClick }: {
+  matches: LeagueMatch[]; tn: (id: string) => string; onMatchClick: (m: LeagueMatch) => void
+}) {
   const roundGroups: Array<{ round: string; matches: LeagueMatch[] }> = []
   const used = new Set<string>()
 
   for (const r of ROUND_ORDER) {
-    const ms = matches.filter(m => m.round === r)
+    const ms = matches.filter(m => m.round === r).sort((a, b) => (a.matchNumber ?? 0) - (b.matchNumber ?? 0))
     if (ms.length > 0) {
       roundGroups.push({ round: r, matches: ms })
       ms.forEach(m => used.add(m.id))
@@ -124,196 +453,57 @@ export default function BracketView({ matches, tn, onMatchClick, leagueStatus }:
   const remaining = matches.filter(m => m.round && !used.has(m.id) && m.round !== '3/4위전')
   const otherRounds = Array.from(new Set(remaining.map(m => m.round!)))
   for (const r of otherRounds) {
-    const ms = remaining.filter(m => m.round === r)
-    roundGroups.push({ round: r, matches: ms })
-    ms.forEach(m => used.add(m.id))
+    roundGroups.push({ round: r, matches: remaining.filter(m => m.round === r) })
   }
 
   const thirdPlaceMatch = matches.find(m => m.round === '3/4위전')
-
   if (roundGroups.length === 0) return <Empty text="대진표가 없습니다" />
-
-  const finalMatch = matches.find(m => m.round === '결승' && m.status === 'completed')
-  const champion = finalMatch ? getWinner(finalMatch) : null
-
-  const MATCH_W = 200
-  const MATCH_H = 72
-  const COL_GAP = 48
-  const ROUND_LABEL_H = 36
-
-  const firstRoundMatchCount = roundGroups[0]?.matches.length ?? 1
-  const totalHeight = firstRoundMatchCount * (MATCH_H + 24) - 24 + ROUND_LABEL_H
-
-  const renderMatchCard = (m: LeagueMatch, x: number, y: number) => {
-    const winner = getWinner(m)
-    const isFinal = m.round === '결승'
-    const borderColor = isFinal && champion ? '#f59e0b' : 'var(--card-border)'
-    const borderWidth = isFinal && champion ? 2 : 1
-    const isPending = m.status === 'pending'
-
-    return (
-      <g key={m.id} onClick={() => onMatchClick(m)} className="cursor-pointer" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.06))' }}>
-        <rect x={x} y={y} width={MATCH_W} height={MATCH_H} rx={10}
-          fill="var(--card-bg)" stroke={borderColor} strokeWidth={borderWidth}
-          strokeDasharray={isPending ? '6 3' : undefined} />
-        <line x1={x} y1={y + MATCH_H / 2} x2={x + MATCH_W} y2={y + MATCH_H / 2}
-          stroke="var(--card-border)" strokeWidth={1} />
-
-        {/* Home */}
-        <text x={x + 12} y={y + 23} fontSize={13}
-          fontWeight={winner === m.homeTeamId ? 700 : 400}
-          fill={winner === m.homeTeamId ? 'var(--text-primary)' : (m.status === 'completed' && winner && winner !== m.homeTeamId) ? 'var(--text-muted)' : 'var(--text-primary)'}>
-          {champion === m.homeTeamId ? '\u{1F3C6} ' : ''}{tn(m.homeTeamId).length > 12 ? tn(m.homeTeamId).slice(0, 12) + '…' : tn(m.homeTeamId)}
-        </text>
-        <text x={x + MATCH_W - 12} y={y + 23} fontSize={13} fontWeight={600}
-          textAnchor="end" fontFamily="monospace"
-          fill={winner === m.homeTeamId ? 'var(--text-primary)' : 'var(--text-muted)'}>
-          {m.status === 'completed' ? m.homeScore : isPending ? 'TBD' : '-'}
-        </text>
-        {winner === m.homeTeamId && (
-          <rect x={x} y={y} width={3} height={MATCH_H / 2} rx={1} fill="#10b981" />
-        )}
-
-        {/* Away */}
-        <text x={x + 12} y={y + MATCH_H / 2 + 23} fontSize={13}
-          fontWeight={winner === m.awayTeamId ? 700 : 400}
-          fill={winner === m.awayTeamId ? 'var(--text-primary)' : (m.status === 'completed' && winner && winner !== m.awayTeamId) ? 'var(--text-muted)' : 'var(--text-primary)'}>
-          {champion === m.awayTeamId ? '\u{1F3C6} ' : ''}{tn(m.awayTeamId).length > 12 ? tn(m.awayTeamId).slice(0, 12) + '…' : tn(m.awayTeamId)}
-        </text>
-        <text x={x + MATCH_W - 12} y={y + MATCH_H / 2 + 23} fontSize={13} fontWeight={600}
-          textAnchor="end" fontFamily="monospace"
-          fill={winner === m.awayTeamId ? 'var(--text-primary)' : 'var(--text-muted)'}>
-          {m.status === 'completed' ? m.awayScore : isPending ? 'TBD' : '-'}
-        </text>
-        {winner === m.awayTeamId && (
-          <rect x={x} y={y + MATCH_H / 2} width={3} height={MATCH_H / 2} rx={1} fill="#10b981" />
-        )}
-
-        {m.pkScore && (
-          <text x={x + MATCH_W / 2} y={y + MATCH_H + 14} fontSize={10} textAnchor="middle" fill="var(--text-muted)">
-            PK {m.pkScore.home}:{m.pkScore.away}
-          </text>
-        )}
-
-        <rect x={x} y={y} width={MATCH_W} height={MATCH_H} rx={10}
-          fill="transparent" className="hover:fill-[rgba(0,0,0,0.03)] transition-colors" />
-      </g>
-    )
-  }
-
-  const positions: Array<{ match: LeagueMatch; x: number; y: number }> = []
-  const colWidth = MATCH_W + COL_GAP
-
-  roundGroups.forEach((group, gi) => {
-    const x = gi * colWidth
-    const matchCount = group.matches.length
-    const availableHeight = totalHeight - ROUND_LABEL_H
-    const spacing = matchCount > 1 ? availableHeight / matchCount : availableHeight
-    const startY = ROUND_LABEL_H + (spacing - MATCH_H) / 2
-
-    group.matches.forEach((m, mi) => {
-      const y = startY + mi * spacing
-      positions.push({ match: m, x, y })
-    })
-  })
-
-  const svgWidth = roundGroups.length * colWidth - COL_GAP + 20
-  const svgHeight = totalHeight + 30
-
-  const connectors: Array<{ x1: number; y1: number; x2: number; y2: number; key: string }> = []
-
-  for (let gi = 0; gi < roundGroups.length - 1; gi++) {
-    const currentRound = positions.filter(p => p.x === gi * colWidth)
-    const nextRound = positions.filter(p => p.x === (gi + 1) * colWidth)
-
-    for (let ni = 0; ni < nextRound.length; ni++) {
-      const nextMatch = nextRound[ni]
-      const pair = currentRound.slice(ni * 2, ni * 2 + 2)
-
-      pair.forEach((curr, pi) => {
-        const fromX = curr.x + MATCH_W
-        const fromY = curr.y + MATCH_H / 2
-        const toX = nextMatch.x
-        const toY = nextMatch.y + (pi === 0 ? MATCH_H * 0.25 : MATCH_H * 0.75)
-        connectors.push({ x1: fromX, y1: fromY, x2: toX, y2: toY, key: `conn-${gi}-${ni}-${pi}` })
-      })
-    }
-  }
 
   return (
     <div className="space-y-6">
-      {champion && leagueStatus === 'finished' && (
-        <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)' }}>
-          <span className="text-lg">🏆</span>
-          <span className="ml-2 text-sm font-bold" style={{ color: 'var(--text-primary)' }}>우승: {tn(champion)}</span>
-        </div>
-      )}
-
-      <div className="overflow-x-auto pb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <svg width={svgWidth} height={svgHeight} className="min-w-max">
+      <div className="overflow-x-auto pb-4">
+        <div style={{ display: 'flex', alignItems: 'stretch', minWidth: 'max-content' }}>
           {roundGroups.map((group, gi) => (
-            <g key={`label-${group.round}`}>
-              <rect x={gi * colWidth + (MATCH_W - group.round.length * 14) / 2 - 8} y={2}
-                width={group.round.length * 14 + 16} height={24} rx={6}
-                fill="var(--btn-solid-bg)" />
-              <text x={gi * colWidth + MATCH_W / 2} y={19}
-                textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--btn-solid-color)">
-                {group.round}
-              </text>
-            </g>
+            <React.Fragment key={group.round}>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: CARD_W }}>
+                <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                  <span style={{
+                    display: 'inline-block', fontSize: 11, fontWeight: 600,
+                    textTransform: 'uppercase', letterSpacing: '0.08em',
+                    color: 'var(--text-muted)', paddingBottom: 8,
+                    borderBottom: '1px solid var(--input-border)',
+                  }}>
+                    {group.round}
+                  </span>
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  {group.matches.map(m => (
+                    <div key={m.id} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px 0' }}>
+                      <MatchCard match={m} tn={tn} onClick={() => onMatchClick(m)}
+                        label={m.matchNumber ? `#${m.matchNumber}` : undefined} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {gi < roundGroups.length - 1 && (
+                <ConnectorSVG matchCount={Math.max(2, group.matches.length)} direction="left" />
+              )}
+            </React.Fragment>
           ))}
-
-          {connectors.map(c => (
-            <path key={c.key}
-              d={`M ${c.x1} ${c.y1} C ${c.x1 + (c.x2 - c.x1) * 0.5} ${c.y1}, ${c.x2 - (c.x2 - c.x1) * 0.5} ${c.y2}, ${c.x2} ${c.y2}`}
-              fill="none" stroke="var(--card-border)" strokeWidth={1.5} />
-          ))}
-
-          {positions.map(p => renderMatchCard(p.match, p.x, p.y))}
-        </svg>
+        </div>
       </div>
-
       {thirdPlaceMatch && (
         <div>
-          <div className="mb-3 flex items-center gap-3">
-            <span className="rounded-lg px-3 py-1 text-xs font-bold" style={{ background: 'var(--btn-solid-bg)', color: 'var(--btn-solid-color)' }}>3/4위전</span>
-            <div className="h-px flex-1" style={{ background: 'var(--card-border)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+            <span style={{
+              fontSize: 11, fontWeight: 600, letterSpacing: '0.08em',
+              color: 'var(--text-muted)', paddingBottom: 8,
+              borderBottom: '1px solid var(--input-border)',
+            }}>3/4위전</span>
+            <div style={{ flex: 1, height: 1, background: 'var(--input-border)' }} />
           </div>
-          <div onClick={() => onMatchClick(thirdPlaceMatch)}
-            className="w-52 rounded-xl cursor-pointer transition-all hover:opacity-90"
-            style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-            {(() => {
-              const m = thirdPlaceMatch
-              const winner = getWinner(m)
-              return (
-                <>
-                  <div className="flex items-center justify-between px-3 py-2"
-                    style={{ borderBottom: '1px solid var(--card-border)', fontWeight: winner === m.homeTeamId ? 700 : 400 }}>
-                    <span className="text-sm truncate flex-1" style={{ color: winner === m.homeTeamId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                      {tn(m.homeTeamId)}
-                    </span>
-                    <span className="text-sm font-mono tabular-nums ml-2" style={{ color: 'var(--text-primary)' }}>
-                      {m.status === 'completed' ? m.homeScore : '-'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between px-3 py-2"
-                    style={{ fontWeight: winner === m.awayTeamId ? 700 : 400 }}>
-                    <span className="text-sm truncate flex-1" style={{ color: winner === m.awayTeamId ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                      {tn(m.awayTeamId)}
-                    </span>
-                    <span className="text-sm font-mono tabular-nums ml-2" style={{ color: 'var(--text-primary)' }}>
-                      {m.status === 'completed' ? m.awayScore : '-'}
-                    </span>
-                  </div>
-                  {m.pkScore && (
-                    <div className="px-3 py-1 text-[10px] text-center" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--card-border)' }}>
-                      PK {m.pkScore.home}:{m.pkScore.away}
-                    </div>
-                  )}
-                </>
-              )
-            })()}
-          </div>
+          <MatchCard match={thirdPlaceMatch} tn={tn} onClick={() => onMatchClick(thirdPlaceMatch)}
+            label={thirdPlaceMatch.matchNumber ? `#${thirdPlaceMatch.matchNumber}` : undefined} />
         </div>
       )}
     </div>
