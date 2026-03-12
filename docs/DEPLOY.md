@@ -13,7 +13,7 @@ npm run build
 
 1. AWS Console → S3 → 버킷 만들기
 2. 버킷 이름: `playground-web` (고유한 이름)
-3. 리전: `ap-northeast-2` (서울)
+3. 리전: `us-east-1` (버지니아)
 4. 퍼블릭 액세스 차단 해제
 5. 정적 웹사이트 호스팅 활성화
    - 인덱스 문서: `index.html`
@@ -69,7 +69,12 @@ aws s3 sync out/ s3://playground-web-sedaily-us --delete --exclude "uploads/*"
 }
 ```
 
-배포 스크립트(`deploy.sh`, `deploy.bat`)에는 `--exclude "uploads/*"` 옵션이 포함되어 있어 사용자 업로드 파일이 보호됩니다.
+배포 스크립트(`deploy.sh`, `deploy.bat`)는 다음 단계를 자동 수행합니다:
+
+1. `npm run build` — Next.js 정적 빌드 (`out/` 폴더 생성)
+2. **SW 캐시 버전 주입** — `out/sw.js`의 캐시 키에 git 커밋 해시 삽입 (`playground-{hash}`)
+3. **S3 업로드** — `aws s3 sync out/ s3://playground-web-sedaily-us --delete --exclude "uploads/*"`
+4. **CloudFront 캐시 무효화** — `aws cloudfront create-invalidation --distribution-id E1U8HJ0871GR0O --paths "/*"`
 
 ## 7. 배포 실행
 

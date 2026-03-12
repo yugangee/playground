@@ -111,9 +111,9 @@ export default function StandingsTable({ standings, tn, currentTeamId, matches }
   if (standings.length === 0) return <Empty text="완료된 경기가 없습니다" />
 
   const medalBg = (i: number) => {
-    if (i === 0) return 'rgba(16,185,129,0.12)'
-    if (i === 1) return 'rgba(148,163,184,0.12)'
-    if (i === 2) return 'rgba(245,158,11,0.12)'
+    if (i === 0) return 'rgba(16,185,129,0.08)'
+    if (i === 1) return 'rgba(148,163,184,0.08)'
+    if (i === 2) return 'rgba(245,158,11,0.08)'
     return undefined
   }
 
@@ -144,7 +144,7 @@ export default function StandingsTable({ standings, tn, currentTeamId, matches }
         {standings.length > 5 && <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" /> 강등권</span>}
       </div>
 
-      <div className="overflow-hidden rounded-2xl" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+      <div className="overflow-hidden rounded-2xl shadow-sm" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -161,7 +161,7 @@ export default function StandingsTable({ standings, tn, currentTeamId, matches }
                 const ha = getHomeAway(s.teamId)
                 return (
                   <React.Fragment key={s.teamId}>
-                    <tr className="cursor-pointer hover:opacity-80"
+                    <tr className="cursor-pointer transition-colors hover:opacity-80"
                       style={{ borderBottom: '1px solid var(--card-border)', background: medalBg(i), borderLeft: zoneBorder(i) }}
                       onClick={() => setExpandedTeam(expandedTeam === s.teamId ? null : s.teamId)}>
                       <td className="px-3 py-3.5">
@@ -171,12 +171,19 @@ export default function StandingsTable({ standings, tn, currentTeamId, matches }
                             : i === 2 ? { background: '#f59e0b', color: '#fff' }
                             : { color: 'var(--text-muted)' }}>{i + 1}</span>
                       </td>
-                      <td className="px-3 py-3.5 font-medium" style={{ color: 'var(--text-primary)' }}>
-                        <span className="cursor-pointer hover:underline" onClick={e => { e.stopPropagation(); setDetailTeamId(s.teamId) }}>
-                          {s.teamId === currentTeamId
-                            ? <span className="text-emerald-600 font-semibold">{tn(s.teamId)} ★</span>
-                            : tn(s.teamId)}
-                        </span>
+                      <td className="px-3 py-3.5">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-[10px] font-bold text-white"
+                            style={{ background: s.teamId === currentTeamId ? '#10b981' : 'var(--btn-solid-bg)' }}>
+                            {tn(s.teamId).charAt(0)}
+                          </div>
+                          <span className="cursor-pointer font-medium hover:underline"
+                            style={{ color: s.teamId === currentTeamId ? '#10b981' : 'var(--text-primary)' }}
+                            onClick={e => { e.stopPropagation(); setDetailTeamId(s.teamId) }}>
+                            {tn(s.teamId)}
+                            {s.teamId === currentTeamId && <span className="ml-1 text-[10px]">★</span>}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-3 py-3.5 text-center" style={{ color: 'var(--text-muted)' }}>{s.w + s.d + s.l}</td>
                       <td className="px-3 py-3.5 text-center font-semibold text-emerald-600">{s.w}</td>
@@ -198,7 +205,7 @@ export default function StandingsTable({ standings, tn, currentTeamId, matches }
                       <td className="px-3 py-3.5 text-center text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{s.pts}</td>
                     </tr>
                     {expandedTeam === s.teamId && ha && (
-                      <tr style={{ background: 'rgba(128,128,128,0.06)' }}>
+                      <tr style={{ background: 'rgba(128,128,128,0.04)' }}>
                         <td colSpan={11} className="px-6 py-3">
                           <div className="flex gap-6 text-xs" style={{ color: 'var(--text-muted)' }}>
                             <div><span className="font-semibold mr-2" style={{ color: 'var(--text-primary)' }}>홈</span> {ha.hw}승 {ha.hd}무 {ha.hl}패 (득 {ha.hgf} / 실 {ha.hga})</div>
