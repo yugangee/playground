@@ -8,7 +8,7 @@ import type { TeamMember, League } from '@/types/manage'
 
 type StatsSubTab = 'scorers' | 'assists' | 'cards' | 'teamRanking'
 
-export default function StatsTab({ matches, leagueType, league }: { matches: LeagueMatch[]; leagueType?: string; league?: League }) {
+export default function StatsTab({ matches, leagueType, league, teamNames }: { matches: LeagueMatch[]; leagueType?: string; league?: League; teamNames?: Record<string, string> }) {
   const completed = matches.filter(m => m.status === 'completed')
   const [subTab, setSubTab] = useState<StatsSubTab>('scorers')
 
@@ -316,7 +316,7 @@ export default function StatsTab({ matches, leagueType, league }: { matches: Lea
                     {ranked.map((t, i) => (
                       <tr key={t.id} style={{ borderBottom: '1px solid var(--card-border)' }}>
                         <td className="px-3 py-3 font-medium" style={{ color: i < 3 ? '#10b981' : 'var(--text-muted)' }}>{i + 1}</td>
-                        <td className="px-3 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{t.id.slice(0, 8)}</td>
+                        <td className="px-3 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{teamNames?.[t.id] ?? t.id.slice(0, 8)}</td>
                         <td className="px-3 py-3 text-center font-semibold text-emerald-600">{t.w}</td>
                         <td className="px-3 py-3 text-center" style={{ color: 'var(--text-muted)' }}>{t.d}</td>
                         <td className="px-3 py-3 text-center text-red-500">{t.l}</td>

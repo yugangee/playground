@@ -245,6 +245,7 @@ export interface League {
   registration?: LeagueRegistration
   venue?: LeagueVenue
   awards?: string[]               // 시상 항목
+  bracketSize?: 4 | 8 | 16 | 32  // 토너먼트 대진표 규모
   createdAt: string
 }
 
@@ -257,6 +258,7 @@ export interface LeagueTeam {
 export interface LeagueMatch extends Match {
   leagueId: string
   round?: string
+  matchNumber?: number  // 고정 대진표: 매치 순번 (1-based)
   winner?: string  // 토너먼트: 승리팀 ID (PK 등 동점 시 수동 지정)
   pkScore?: { home: number; away: number }  // 승부차기 결과
 }

@@ -23,6 +23,7 @@ export default function CreateWizard({ teamId, onSuccess, onCancel }: WizardProp
   // Step 1: 기본 정보
   const [form, setForm] = useState({
     name: '', type: 'league', region: '', startDate: '', endDate: '', description: '', isPublic: true, organizerTeamId: teamId,
+    bracketSize: 8 as 4 | 8 | 16 | 32,
   })
   const set = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }))
 
@@ -71,6 +72,7 @@ export default function CreateWizard({ teamId, onSuccess, onCancel }: WizardProp
     try {
       const body: Record<string, unknown> = {
         ...form,
+        bracketSize: form.type === 'tournament' ? form.bracketSize : undefined,
         isPublic: reg.visibility === 'public' ? true : form.isPublic,
         rules,
         registration: reg,
@@ -145,6 +147,26 @@ export default function CreateWizard({ teamId, onSuccess, onCancel }: WizardProp
                 <option value="tournament">토너먼트 (단판 승부)</option>
               </select>
             </Field>
+            {form.type === 'tournament' && (
+              <Field label="대진표 규모">
+                <div className="grid grid-cols-4 gap-2">
+                  {([4, 8, 16, 32] as const).map(size => (
+                    <button key={size} type="button"
+                      onClick={() => set('bracketSize', size)}
+                      className="rounded-xl py-3 text-sm font-semibold transition-all"
+                      style={form.bracketSize === size
+                        ? { background: 'var(--btn-solid-bg)', color: 'var(--btn-solid-color)' }
+                        : { color: 'var(--text-muted)', border: '1px solid var(--card-border)' }
+                      }>
+                      {size}강
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {form.bracketSize}팀 이하 참가 가능 · 부전승(BYE) 자동 적용
+                </p>
+              </Field>
+            )}
             <Field label="지역">
               <input value={form.region} onChange={e => set('region', e.target.value)} className={inp} style={inpStyle} placeholder="서울" />
             </Field>

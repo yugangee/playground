@@ -34,7 +34,7 @@ function parseBody(raw: string | null): Record<string, unknown> | null {
 
 // ── 토너먼트 라운드 진행 헬퍼 ────────────────────────────────────────────────
 
-const ROUND_ORDER = ['1라운드', '16강', '8강', '준결승', '결승']
+const ROUND_ORDER = ['1라운드', '32강', '16강', '8강', '준결승', '결승']
 
 function nextRound(currentRound: string): string | null {
   const idx = ROUND_ORDER.indexOf(currentRound)
@@ -132,6 +132,91 @@ async function tryAdvanceTournament(leagueId: string, currentRound: string) {
   }
 
   // 홀수 winner → 부전승 (자동 다음 라운드 진출은 하지 않음, 주최자가 수동 처리)
+}
+
+// ── 고정 대진표: 매치별 개별 진출 헬퍼 ──────────────────────────────────────
+
+function getNextMatchInfoBackend(matchNumber: number, bracketSize: number): { nextMatchNumber: number; isHome: boolean } | null {
+  const thirdPlaceMatch = bracketSize
+  const finalMatch = bracketSize - 1
+  if (matchNumber === finalMatch || matchNumber === thirdPlaceMatch) return null
+
+  let roundStart = 1
+  let roundSize = bracketSize / 2
+  while (roundStart + roundSize <= matchNumber) {
+    roundStart += roundSize
+    roundSize = Math.floor(roundSize / 2)
+  }
+
+  const nextRoundStart = roundStart + roundSize
+  const posInRound = matchNumber - roundStart
+  const nextMatchNumber = nextRoundStart + Math.floor(posInRound / 2)
+  const isHome = posInRound % 2 === 0
+
+  return { nextMatchNumber, isHome }
+}
+
+async function advanceMatchWinner(leagueId: string, matchId: string) {
+  const matchResult = await db.send(new GetCommand({ TableName: LEAGUE_MATCHES, Key: { id: matchId } }))
+  const match = matchResult.Item
+  if (!match || !match.matchNumber) return
+
+  const leagueResult = await db.send(new GetCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
+  const bracketSize = leagueResult.Item?.bracketSize as number | undefined
+  if (!bracketSize) return
+
+  const winner = getWinner(match)
+  if (!winner) return
+
+  const matchNumber = match.matchNumber as number
+  const loser = winner === (match.homeTeamId as string)
+    ? (match.awayTeamId as string)
+    : (match.homeTeamId as string)
+
+  // 전체 매치 조회
+  const allResult = await db.send(new QueryCommand({
+    TableName: LEAGUE_MATCHES,
+    IndexName: 'leagueId-index',
+    KeyConditionExpression: 'leagueId = :lid',
+    ExpressionAttributeValues: { ':lid': leagueId },
+  }))
+  const allMatches = allResult.Items ?? []
+
+  // 다음 매치에 승자 배치
+  const nextInfo = getNextMatchInfoBackend(matchNumber, bracketSize)
+  if (nextInfo) {
+    const nextMatch = allMatches.find(m => m.matchNumber === nextInfo.nextMatchNumber)
+    if (nextMatch) {
+      const updateField = nextInfo.isHome ? 'homeTeamId' : 'awayTeamId'
+      await db.send(new UpdateCommand({
+        TableName: LEAGUE_MATCHES,
+        Key: { id: nextMatch.id as string },
+        UpdateExpression: 'SET #field = :val',
+        ExpressionAttributeNames: { '#field': updateField },
+        ExpressionAttributeValues: { ':val': winner },
+      }))
+    }
+  }
+
+  // 준결승 패자 → 3/4위전 배치
+  const sfMatch1 = bracketSize - 3
+  const sfMatch2 = bracketSize - 2
+  const thirdPlaceMatchNumber = bracketSize
+
+  if ((matchNumber === sfMatch1 || matchNumber === sfMatch2) && loser && loser !== 'BYE') {
+    const thirdMatch = allMatches.find(m => m.matchNumber === thirdPlaceMatchNumber)
+    if (thirdMatch) {
+      const isFirst = matchNumber === sfMatch1
+      const updateField = isFirst ? 'homeTeamId' : 'awayTeamId'
+      await db.send(new UpdateCommand({
+        TableName: LEAGUE_MATCHES,
+        Key: { id: thirdMatch.id as string },
+        UpdateExpression: 'SET #field = :val',
+        ExpressionAttributeNames: { '#field': updateField },
+        ExpressionAttributeValues: { ':val': loser },
+      }))
+    }
+  }
 }
 
 // ── 통계 집계 헬퍼 ──────────────────────────────────────────────────────────
@@ -439,11 +524,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
       // 토너먼트 자동 진출: status가 completed로 변경된 경우
       if (body.status === 'completed' && league.Item.type === 'tournament') {
-        // 현재 매치의 round 조회
         const matchResult = await db.send(new GetCommand({ TableName: LEAGUE_MATCHES, Key: { id: parts[2] } }))
-        const currentRound = matchResult.Item?.round as string | undefined
-        if (currentRound) {
-          await tryAdvanceTournament(leagueId, currentRound)
+        const match = matchResult.Item
+        if (match?.matchNumber) {
+          // 고정 대진표: 매치별 개별 진출
+          await advanceMatchWinner(leagueId, parts[2])
+        } else {
+          // 레거시: 라운드별 진출
+          const currentRound = match?.round as string | undefined
+          if (currentRound) {
+            await tryAdvanceTournament(leagueId, currentRound)
+          }
         }
       }
 

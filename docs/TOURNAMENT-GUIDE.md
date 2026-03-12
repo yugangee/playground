@@ -4,8 +4,16 @@
 
 > 작성일: 2026-03-11
 > 프로젝트: PLAYGROUND (fun.sedaily.ai)
-> 문서 성격: 기획 + 기술 개요 통합 명세서
+> 문서 성격: **미래 기획 명세서 (구현 완료 문서가 아님)**
 > 관련 문서: FEATURE-PLAN.md, CLAUDE.md, README.md
+>
+> **⚠️ 주의:** 이 문서는 향후 구현할 기능의 기획/설계 명세서입니다. 현재 구현된 기능은 일부에 불과합니다.
+> - API 엔드포인트: 28개 중 ~10개만 구현됨 (league CRUD, match events/lineups/MOM)
+> - DynamoDB 테이블: 6개 중 3개만 생성됨 (`pg-match-lineups`, `pg-match-events`, `pg-match-mom`)
+> - 프론트엔드 페이지: 14개 신규 라우트 전부 미구현 (`/vote/`, `/lineup/`, `/league/[id]/bracket` 등)
+> - 컴포넌트: `components/lineup/`, `components/live/`, `lib/kakaoShare.ts`, `context/LeagueContext` 미존재
+>
+> 실제 구현 현황은 MILESTONES.md 및 CLAUDE.md를 참고하세요.
 
 ---
 

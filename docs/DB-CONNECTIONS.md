@@ -62,10 +62,10 @@
 |------|-----------|----------------|
 | 멤버 수정 | `PATCH /team/{id}/members/{userId}` | `pg-team-members` |
 | 멤버 삭제 | `DELETE /team/{id}/members/{userId}` | `pg-team-members` |
-| 초대 링크 생성 | `POST /team/{id}/invite` | `pg-team-invites` |
-| 일정 목록 | `GET /schedule/matches?teamId=` | `pg-schedule-matches`, `pg-attendance` |
-| 일정 등록 | `POST /schedule/matches` | `pg-schedule-matches` |
-| 일정 수정/취소/완료 | `PATCH /schedule/matches/{id}` | `pg-schedule-matches`, `playground-users` (골·도움 기록) |
+| 초대 링크 생성 | `POST /team/{id}/invite` | `pg-invites` |
+| 일정 목록 | `GET /schedule/matches?teamId=` | `pg-matches`, `pg-attendance` |
+| 일정 등록 | `POST /schedule/matches` | `pg-matches` |
+| 일정 수정/취소/완료 | `PATCH /schedule/matches/{id}` | `pg-matches`, `playground-users` (골·도움 기록) |
 | 참석/불참 응답 | `PUT /schedule/matches/{id}/attendance` | `pg-attendance` |
 
 ### 테이블 필드
@@ -76,7 +76,7 @@
 **`playground-activities`** (PK: `activityId`, GSI: `clubId-index`)
 - clubId, sport, date, venue, createdBy, participants[], completedParticipants[], status
 
-**`pg-schedule-matches`** (PK: `id`, GSI: `homeTeamId-index`, `awayTeamId-index`)
+**`pg-matches`** (PK: `id`, GSI: `homeTeamId-index`, `awayTeamId-index`)
 - homeTeamId, awayTeamId, type (경기/훈련/기타), status, scheduledAt, venue
 - ourScore, theirScore, result (win/draw/loss), scorers[], attendees[]
 - scorers 구조: `{ userId, name, goals, assists }`
@@ -88,7 +88,7 @@
 **`pg-team-members`** (PK: `teamId` + `userId`, GSI: `userId-index`)
 - role, position, number, joinedAt
 
-**`pg-team-invites`** (PK: `token`)
+**`pg-invites`** (PK: `token`)
 - teamId, createdBy, expiresAt (7일)
 
 ### 유저 기록 자동 업데이트
@@ -151,8 +151,8 @@ record.games   += 1
 |--------|-----|-----|
 | `pg-teams` | id | 팀 기본 정보 |
 | `pg-team-members` | teamId+userId | 팀 로스터 |
-| `pg-team-invites` | token | 초대 링크 |
-| `pg-schedule-matches` | id | 팀 일정 (경기/훈련/기타) |
+| `pg-invites` | token | 초대 링크 |
+| `pg-matches` | id | 팀 일정 (경기/훈련/기타) |
 | `pg-attendance` | matchId+userId | 참석 응답 |
 | `pg-leagues` | id | 리그·토너먼트 |
 | `pg-finance` | id | 팀 재정 |

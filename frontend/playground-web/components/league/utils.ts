@@ -13,6 +13,7 @@ export interface LeagueMatch {
   homeScore?: number
   awayScore?: number
   round?: string
+  matchNumber?: number
   goals?: GoalRecord[]
   cards?: CardRecord[]
   guests?: string[]
@@ -28,7 +29,143 @@ export interface LeagueTeam {
 
 // ── Round ordering ───────────────────────────────────────────────────────────
 
-export const ROUND_ORDER = ['1라운드', '16강', '8강', '준결승', '결승']
+export const ROUND_ORDER = ['1라운드', '32강', '16강', '8강', '준결승', '결승']
+
+// ── Fixed bracket system ────────────────────────────────────────────────────
+
+export const BRACKET_ROUNDS: Record<number, string[]> = {
+  4:  ['준결승', '결승'],
+  8:  ['8강', '준결승', '결승'],
+  16: ['16강', '8강', '준결승', '결승'],
+  32: ['32강', '16강', '8강', '준결승', '결승'],
+}
+
+export interface BracketMatch {
+  matchNumber: number
+  round: string
+  homeTeamId: string  // teamId, 'TBD', or 'BYE'
+  awayTeamId: string
+}
+
+/** 고정 대진표 전체 생성 (첫 라운드~결승+3/4위전) */
+export function generateFullBracket(
+  bracketSize: 4 | 8 | 16 | 32,
+  seedings: Map<number, string>,
+): BracketMatch[] {
+  const rounds = BRACKET_ROUNDS[bracketSize]
+  if (!rounds) throw new Error(`Invalid bracketSize: ${bracketSize}`)
+
+  const matches: BracketMatch[] = []
+  let matchNumber = 1
+  const firstRoundCount = bracketSize / 2
+
+  // 첫 라운드: seedings 기반 팀 배치
+  for (let i = 0; i < firstRoundCount; i++) {
+    matches.push({
+      matchNumber: matchNumber++,
+      round: rounds[0],
+      homeTeamId: seedings.get(i * 2) ?? 'BYE',
+      awayTeamId: seedings.get(i * 2 + 1) ?? 'BYE',
+    })
+  }
+
+  // 이후 라운드 (TBD vs TBD)
+  for (let r = 1; r < rounds.length; r++) {
+    const count = firstRoundCount / Math.pow(2, r)
+    for (let i = 0; i < count; i++) {
+      matches.push({
+        matchNumber: matchNumber++,
+        round: rounds[r],
+        homeTeamId: 'TBD',
+        awayTeamId: 'TBD',
+      })
+    }
+  }
+
+  // 3/4위전
+  matches.push({
+    matchNumber: matchNumber++,
+    round: '3/4위전',
+    homeTeamId: 'TBD',
+    awayTeamId: 'TBD',
+  })
+
+  return matches
+}
+
+/** 매치 번호로 다음 라운드 매치 정보 계산 */
+export function getNextMatchInfo(
+  matchNumber: number,
+  bracketSize: 4 | 8 | 16 | 32,
+): { nextMatchNumber: number; isHome: boolean } | null {
+  const rounds = BRACKET_ROUNDS[bracketSize]
+  if (!rounds) return null
+
+  const firstRoundCount = bracketSize / 2
+  const totalRegular = bracketSize - 1 // 3/4위전 제외
+  const thirdPlaceNumber = totalRegular + 1
+
+  // 결승 또는 3/4위전이면 다음 없음
+  if (matchNumber >= totalRegular || matchNumber === thirdPlaceNumber) return null
+
+  // 매치가 속한 라운드 찾기
+  let start = 1
+  for (let r = 0; r < rounds.length - 1; r++) {
+    const count = firstRoundCount / Math.pow(2, r)
+    if (matchNumber >= start && matchNumber < start + count) {
+      const posInRound = matchNumber - start
+      const nextStart = start + count
+      return {
+        nextMatchNumber: nextStart + Math.floor(posInRound / 2),
+        isHome: posInRound % 2 === 0,
+      }
+    }
+    start += count
+  }
+
+  return null
+}
+
+/** 준결승 매치 번호 2개 반환 (3/4위전 패자 배치용) */
+export function getSemifinalMatchNumbers(bracketSize: 4 | 8 | 16 | 32): [number, number] {
+  const rounds = BRACKET_ROUNDS[bracketSize]
+  if (!rounds) throw new Error(`Invalid bracketSize: ${bracketSize}`)
+
+  const firstRoundCount = bracketSize / 2
+  let start = 1
+  for (let r = 0; r < rounds.length; r++) {
+    const count = firstRoundCount / Math.pow(2, r)
+    if (rounds[r] === '준결승') return [start, start + 1]
+    start += count
+  }
+  throw new Error('No semifinal round found')
+}
+
+/** bracketSize만으로 대진표 구조 생성 (매치 데이터 없이 렌더링용) */
+export interface BracketRound {
+  name: string
+  matchNumbers: number[]
+}
+
+export function generateBracketTemplate(bracketSize: 4 | 8 | 16 | 32): BracketRound[] {
+  const rounds = BRACKET_ROUNDS[bracketSize]
+  if (!rounds) return []
+
+  const result: BracketRound[] = []
+  let matchNumber = 1
+  const firstRoundCount = bracketSize / 2
+
+  for (let r = 0; r < rounds.length; r++) {
+    const count = firstRoundCount / Math.pow(2, r)
+    const matchNumbers: number[] = []
+    for (let i = 0; i < count; i++) {
+      matchNumbers.push(matchNumber++)
+    }
+    result.push({ name: rounds[r], matchNumbers })
+  }
+
+  return result
+}
 
 // ── Bracket / Schedule generation ────────────────────────────────────────────
 
