@@ -194,9 +194,9 @@ export default function AnnouncementsPage() {
       ) : (
         <div className="space-y-3">
           {announcements.map((notice) => (
-            <Link
+            <button
               key={notice.id}
-              href={`/team/announcements/${notice.id}`}
+              onClick={() => setSelectedAnnouncement(notice)}
               className="block w-full bg-white/5 border border-white/10 rounded-xl p-4 text-left hover:bg-white/10 transition-colors"
             >
               <div className="flex items-center justify-between mb-2">
@@ -210,7 +210,7 @@ export default function AnnouncementsPage() {
                 <p className="text-sm text-gray-400 truncate flex-1 mr-3">{getFirstLine(notice.content)}</p>
                 <span className="text-xs text-gray-500 shrink-0">{notice.authorName || '관리자'}</span>
               </div>
-            </Link>
+            </button>
           ))}
         </div>
       )}
