@@ -7,6 +7,9 @@ export interface LeagueMatch {
   leagueId: string
   homeTeamId: string
   awayTeamId: string
+  homeTeamName?: string
+  awayTeamName?: string
+  label?: string
   scheduledAt: string
   venue: string
   status: string
@@ -31,6 +34,7 @@ export interface LeagueMatch {
 export interface LeagueTeam {
   leagueId: string
   teamId: string
+  teamName?: string
   joinedAt: string
 }
 

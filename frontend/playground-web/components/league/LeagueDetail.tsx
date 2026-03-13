@@ -62,12 +62,20 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
     }
   }
 
-  const fetchTeamNames = async (teamIds: string[]) => {
-    const uniqueIds = Array.from(new Set(teamIds)).filter(id => !teamNames[id])
-    if (uniqueIds.length === 0) return
+  const extractNamesFromData = (teamsData: LeagueTeam[], matchesData: LeagueMatch[]) => {
     const names: Record<string, string> = {}
-    uniqueIds.forEach(tid => { names[tid] = tid })
-    setTeamNames(prev => ({ ...prev, ...names }))
+    // league-teams 레코드에서 teamName 추출
+    teamsData.forEach(t => {
+      if (t.teamName && t.teamId) names[t.teamId] = t.teamName
+    })
+    // 매치 데이터에서 homeTeamName/awayTeamName 추출
+    matchesData.forEach(m => {
+      if (m.homeTeamName && m.homeTeamName !== 'TBD' && m.homeTeamId) names[m.homeTeamId] = m.homeTeamName
+      if (m.awayTeamName && m.awayTeamName !== 'TBD' && m.awayTeamId) names[m.awayTeamId] = m.awayTeamName
+    })
+    if (Object.keys(names).length > 0) {
+      setTeamNames(prev => ({ ...prev, ...names }))
+    }
   }
 
   const loadTeams = async () => {
@@ -88,10 +96,7 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
   useEffect(() => {
     fetchAllTeamInfo().then(() => {
       Promise.all([loadTeams(), loadMatches()]).then(([teamsData, matchesData]) => {
-        const allIds = new Set<string>()
-        teamsData.forEach(t => allIds.add(t.teamId))
-        matchesData.forEach(m => { allIds.add(m.homeTeamId); allIds.add(m.awayTeamId) })
-        if (allIds.size > 0) fetchTeamNames(Array.from(allIds))
+        extractNamesFromData(teamsData, matchesData)
       })
     })
   }, [league.id])

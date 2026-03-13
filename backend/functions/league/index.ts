@@ -167,6 +167,26 @@ function getNextMatchInfoBackend(matchNumber: number, bracketSize: number): { ne
   return { nextMatchNumber, isHome }
 }
 
+// 매치에서 팀 ID → 팀 이름 매핑 추출
+function getTeamName(match: Record<string, unknown>, teamId: string): string {
+  if (teamId === match.homeTeamId) return (match.homeTeamName as string) || teamId
+  if (teamId === match.awayTeamId) return (match.awayTeamName as string) || teamId
+  return teamId
+}
+
+// 다음 매치에 teamId + teamName 함께 업데이트
+async function updateNextMatchSlot(nextMatchId: string, slot: 'home' | 'away', teamId: string, teamName: string) {
+  const idField = slot === 'away' ? 'awayTeamId' : 'homeTeamId'
+  const nameField = slot === 'away' ? 'awayTeamName' : 'homeTeamName'
+  await db.send(new UpdateCommand({
+    TableName: LEAGUE_MATCHES,
+    Key: { id: nextMatchId },
+    UpdateExpression: 'SET #idF = :idV, #nameF = :nameV',
+    ExpressionAttributeNames: { '#idF': idField, '#nameF': nameField },
+    ExpressionAttributeValues: { ':idV': teamId, ':nameV': teamName },
+  }))
+}
+
 async function advanceMatchWinner(leagueId: string, matchId: string) {
   const matchResult = await db.send(new GetCommand({ TableName: LEAGUE_MATCHES, Key: { id: matchId } }))
   const match = matchResult.Item
@@ -181,6 +201,8 @@ async function advanceMatchWinner(leagueId: string, matchId: string) {
 
   const matchNumber = match.matchNumber as number
   const loser = getLoser(match)
+  const winnerName = getTeamName(match, winner)
+  const loserName = loser ? getTeamName(match, loser) : ''
 
   // 전체 매치 조회
   const allResult = await db.send(new QueryCommand({
@@ -195,15 +217,8 @@ async function advanceMatchWinner(leagueId: string, matchId: string) {
   if (match.nextMatchNumber) {
     const nextMatch = allMatches.find(m => m.matchNumber === (match.nextMatchNumber as number))
     if (nextMatch) {
-      const slot = (match.nextMatchSlot as string) || 'home'
-      const updateField = slot === 'away' ? 'awayTeamId' : 'homeTeamId'
-      await db.send(new UpdateCommand({
-        TableName: LEAGUE_MATCHES,
-        Key: { id: nextMatch.id as string },
-        UpdateExpression: 'SET #field = :val',
-        ExpressionAttributeNames: { '#field': updateField },
-        ExpressionAttributeValues: { ':val': winner },
-      }))
+      const slot = ((match.nextMatchSlot as string) || 'home') as 'home' | 'away'
+      await updateNextMatchSlot(nextMatch.id as string, slot, winner, winnerName)
     }
   } else {
     // ── 기존 power-of-2 공식 기반 진출 ──
@@ -214,14 +229,8 @@ async function advanceMatchWinner(leagueId: string, matchId: string) {
     if (nextInfo) {
       const nextMatch = allMatches.find(m => m.matchNumber === nextInfo.nextMatchNumber)
       if (nextMatch) {
-        const updateField = nextInfo.isHome ? 'homeTeamId' : 'awayTeamId'
-        await db.send(new UpdateCommand({
-          TableName: LEAGUE_MATCHES,
-          Key: { id: nextMatch.id as string },
-          UpdateExpression: 'SET #field = :val',
-          ExpressionAttributeNames: { '#field': updateField },
-          ExpressionAttributeValues: { ':val': winner },
-        }))
+        const slot = nextInfo.isHome ? 'home' as const : 'away' as const
+        await updateNextMatchSlot(nextMatch.id as string, slot, winner, winnerName)
       }
     }
 
@@ -233,15 +242,8 @@ async function advanceMatchWinner(leagueId: string, matchId: string) {
     if ((matchNumber === sfMatch1 || matchNumber === sfMatch2) && loser && loser !== 'BYE') {
       const thirdMatch = allMatches.find(m => m.matchNumber === thirdPlaceMatchNumber)
       if (thirdMatch) {
-        const isFirst = matchNumber === sfMatch1
-        const updateField = isFirst ? 'homeTeamId' : 'awayTeamId'
-        await db.send(new UpdateCommand({
-          TableName: LEAGUE_MATCHES,
-          Key: { id: thirdMatch.id as string },
-          UpdateExpression: 'SET #field = :val',
-          ExpressionAttributeNames: { '#field': updateField },
-          ExpressionAttributeValues: { ':val': loser },
-        }))
+        const slot = matchNumber === sfMatch1 ? 'home' as const : 'away' as const
+        await updateNextMatchSlot(thirdMatch.id as string, slot, loser, loserName)
       }
     }
   }
@@ -250,15 +252,8 @@ async function advanceMatchWinner(leagueId: string, matchId: string) {
   if (match.loserNextMatchNumber && loser && loser !== 'BYE' && loser !== 'TBD') {
     const loserNextMatch = allMatches.find(m => m.matchNumber === (match.loserNextMatchNumber as number))
     if (loserNextMatch) {
-      const slot = (match.loserNextMatchSlot as string) || 'home'
-      const updateField = slot === 'away' ? 'awayTeamId' : 'homeTeamId'
-      await db.send(new UpdateCommand({
-        TableName: LEAGUE_MATCHES,
-        Key: { id: loserNextMatch.id as string },
-        UpdateExpression: 'SET #field = :val',
-        ExpressionAttributeNames: { '#field': updateField },
-        ExpressionAttributeValues: { ':val': loser },
-      }))
+      const slot = ((match.loserNextMatchSlot as string) || 'home') as 'home' | 'away'
+      await updateNextMatchSlot(loserNextMatch.id as string, slot, loser, loserName)
     }
   }
 }
