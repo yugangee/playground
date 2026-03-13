@@ -165,7 +165,7 @@ function LeaguePageInner() {
 
       {mainTab === 'mine' && (
         loading ? <Spinner /> : leagues.length === 0
-          ? <Empty text={isLeader ? '아직 주최한 대회가 없습니다' : '팀 리더만 대회를 만들 수 있습니다'} />
+          ? <Empty text={isLeader ? '아직 주최한 대회가 없습니다' : '팀 관리자(매니저) 이상만 대회를 만들 수 있습니다'} />
           : <LeagueGrid leagues={leagues} onSelect={l => { setSelected(l); setView('detail') }} currentTeamId={teamId}
               onDelete={async (l) => {
                 if (!confirm(`"${l.name}" 대회를 삭제하시겠습니까?\n참가팀과 경기 기록이 모두 삭제됩니다.`)) return

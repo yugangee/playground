@@ -6,7 +6,9 @@ import { Section, inp, inpStyle } from './shared'
 import type { LeagueMatch } from './utils'
 import type { GoalRecord, CardRecord, TeamMember, MatchTeamStats } from '@/types/manage'
 
+const HALVES = ['전반', '후반']
 const QUARTERS = ['1Q', '2Q', '3Q', '4Q']
+const PERIODS = [...HALVES, ...QUARTERS]
 
 const STAT_KEYS: { key: keyof MatchTeamStats; label: string }[] = [
   { key: 'shots', label: '슈팅' },
@@ -24,11 +26,16 @@ export default function MatchDetailModal({ match, leagueId, isOrganizer, leagueS
   teamNames: Record<string, string>; onClose: () => void; onSave: () => void
 }) {
   const tn = (id: string) => teamNames[id] ?? id
-  const editable = isOrganizer && leagueStatus === 'ongoing' && match.status !== 'completed'
+  const isForfeit = match.status === 'forfeit'
+  const editable = isOrganizer && leagueStatus === 'ongoing' && match.status !== 'completed' && !isForfeit
   const editableCompleted = isOrganizer && match.status === 'completed'
   const canEdit = editable || editableCompleted
 
   const [modalTab, setModalTab] = useState<ModalTab>('record')
+  const [showForfeit, setShowForfeit] = useState(false)
+  const [forfeitTeamId, setForfeitTeamId] = useState('')
+  const [forfeitReason, setForfeitReason] = useState('')
+  const [forfeitSaving, setForfeitSaving] = useState(false)
 
   const [homeScore, setHomeScore] = useState(String(match.homeScore ?? ''))
   const [awayScore, setAwayScore] = useState(String(match.awayScore ?? ''))
@@ -89,6 +96,25 @@ export default function MatchDetailModal({ match, leagueId, isOrganizer, leagueS
     } catch (e) {
       alert(e instanceof Error ? e.message : '저장 실패')
     } finally { setSaving(false) }
+  }
+
+  const handleForfeit = async () => {
+    if (!forfeitTeamId) { alert('몰수패 대상 팀을 선택하세요'); return }
+    if (!confirm(`${tn(forfeitTeamId)} 팀에 몰수패를 적용하시겠습니까?`)) return
+    setForfeitSaving(true)
+    try {
+      await manageFetch(`/league/${leagueId}/matches/${match.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          status: 'forfeit',
+          forfeitTeamId,
+          forfeitReason: forfeitReason || '운영진 판정',
+        }),
+      })
+      onSave()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '몰수패 처리 실패')
+    } finally { setForfeitSaving(false) }
   }
 
   // 타임라인 데이터: 골+카드를 쿼터/분 순서로 정렬
@@ -242,8 +268,8 @@ export default function MatchDetailModal({ match, leagueId, isOrganizer, leagueS
                         {allMembers.map(m => <option key={m.userId} value={m.userId}>{m.name}</option>)}
                       </select>
                       <select value={g.quarter ?? ''} onChange={e => updateGoal(i, 'quarter', e.target.value || undefined)} className="w-16 rounded-lg px-1 py-1.5 text-sm outline-none" style={inpStyle}>
-                        <option value="">Q</option>
-                        {QUARTERS.map(q => <option key={q} value={q}>{q}</option>)}
+                        <option value="">-</option>
+                        {PERIODS.map(q => <option key={q} value={q}>{q}</option>)}
                       </select>
                       <input type="number" placeholder="분" value={g.minute ?? ''} onChange={e => updateGoal(i, 'minute', e.target.value ? Number(e.target.value) : undefined)}
                         className="w-14 rounded-lg px-2 py-1.5 text-sm text-center outline-none" style={inpStyle} />
@@ -282,8 +308,8 @@ export default function MatchDetailModal({ match, leagueId, isOrganizer, leagueS
                         <option value="red">레드</option>
                       </select>
                       <select value={c.quarter ?? ''} onChange={e => updateCard(i, 'quarter', e.target.value || undefined)} className="w-16 rounded-lg px-1 py-1.5 text-sm outline-none" style={inpStyle}>
-                        <option value="">Q</option>
-                        {QUARTERS.map(q => <option key={q} value={q}>{q}</option>)}
+                        <option value="">-</option>
+                        {PERIODS.map(q => <option key={q} value={q}>{q}</option>)}
                       </select>
                       <input type="number" placeholder="분" value={c.minute ?? ''} onChange={e => updateCard(i, 'minute', e.target.value ? Number(e.target.value) : undefined)}
                         className="w-14 rounded-lg px-2 py-1.5 text-sm text-center outline-none" style={inpStyle} />
@@ -400,6 +426,58 @@ export default function MatchDetailModal({ match, leagueId, isOrganizer, leagueS
               <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{ background: '#3b82f6' }} />{tn(match.homeTeamId)}</span>
               <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{ background: '#ef4444' }} />{tn(match.awayTeamId)}</span>
             </div>
+          </div>
+        )}
+
+        {/* Forfeit banner (already forfeited) */}
+        {isForfeit && (
+          <div className="mt-4 rounded-xl px-4 py-3 text-sm"
+            style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444' }}>
+            <span className="font-bold">몰수패</span> — {tn(match.forfeitTeamId ?? '')}
+            {match.forfeitReason && <span className="ml-1">({match.forfeitReason})</span>}
+          </div>
+        )}
+
+        {/* Forfeit button & UI (organizer, ongoing, not yet completed/forfeit) */}
+        {isOrganizer && leagueStatus === 'ongoing' && match.status !== 'completed' && !isForfeit && (
+          <div className="mt-4">
+            {!showForfeit ? (
+              <button onClick={() => setShowForfeit(true)}
+                className="rounded-xl px-4 py-2 text-xs font-semibold transition-colors hover:opacity-85"
+                style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+                몰수패 처리
+              </button>
+            ) : (
+              <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                <div className="text-xs font-bold" style={{ color: '#ef4444' }}>몰수패 처리</div>
+                <select value={forfeitTeamId} onChange={e => setForfeitTeamId(e.target.value)}
+                  className="w-full rounded-lg px-3 py-2 text-sm outline-none" style={inpStyle}>
+                  <option value="">몰수패 대상 팀 선택</option>
+                  <option value={match.homeTeamId}>{tn(match.homeTeamId)}</option>
+                  <option value={match.awayTeamId}>{tn(match.awayTeamId)}</option>
+                </select>
+                <select value={forfeitReason} onChange={e => setForfeitReason(e.target.value)}
+                  className="w-full rounded-lg px-3 py-2 text-sm outline-none" style={inpStyle}>
+                  <option value="">사유 선택</option>
+                  <option value="최소인원 미달">최소인원 미달 (7명 미만)</option>
+                  <option value="미출전">미출전 (경기 불참)</option>
+                  <option value="자격 미달">자격 미달</option>
+                  <option value="기타">기타</option>
+                </select>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowForfeit(false)}
+                    className="rounded-lg px-3 py-1.5 text-xs font-medium"
+                    style={{ color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
+                    취소
+                  </button>
+                  <button onClick={handleForfeit} disabled={forfeitSaving || !forfeitTeamId}
+                    className="rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                    style={{ background: '#ef4444', color: 'white' }}>
+                    {forfeitSaving ? '처리 중...' : '몰수패 확정'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

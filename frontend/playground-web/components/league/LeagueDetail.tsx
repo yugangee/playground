@@ -14,8 +14,10 @@ import BracketView, { TournamentResults } from './BracketView'
 import StatsTab from './StatsTab'
 import InfoTab from './InfoTab'
 import LeagueInfoCard from './LeagueInfoCard'
+import RosterTab from './RosterTab'
+import { KJA_BRACKET_TEMPLATE, kjaTemplateToBatchPayload } from '@/data/kja-bracket-template'
 
-type DetailTab = 'info' | 'teams' | 'matches' | 'standings' | 'bracket' | 'stats'
+type DetailTab = 'info' | 'teams' | 'matches' | 'standings' | 'bracket' | 'stats' | 'roster'
 
 function getDefaultTab(league: League, matchCount: number): DetailTab {
   if (league.status === 'recruiting') return 'teams'
@@ -108,32 +110,81 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
     catch (e) { alert(e instanceof Error ? e.message : '제거 실패') }
   }
 
+  const isKJATemplate = league.bracketSize === 52 || league.name.includes('기자협회') || league.name.includes('KJA')
+
   const startLeague = async () => {
-    // 고정 대진표 → TBD 매치 일괄 생성
-    if (isTournament && league.bracketSize) {
-      if (!confirm(`${league.bracketSize}강 대진표를 생성하고 대회를 시작하시겠습니까?\n대진표에서 팀을 배정할 수 있습니다.`)) return
+    // KJA 커스텀 대진표 → 57경기 일괄 생성
+    if (isTournament && isKJATemplate) {
+      if (!confirm(`KJA 52팀 대진표 (57경기)를 생성하고 대회를 시작하시겠습니까?\n대진표에서 시드 팀과 참가 팀을 배정할 수 있습니다.`)) return
       setGenerating(true)
       try {
-        const bracketSize = league.bracketSize as 4 | 8 | 16 | 32
-        const bracketMatches = generateFullBracket(bracketSize, new Map())
+        const defaultDate = league.startDate
+          ? new Date(league.startDate).toISOString()
+          : new Date().toISOString()
+        const venue = league.region ?? '미정'
+
+        const batchPayload = kjaTemplateToBatchPayload({}, defaultDate, venue)
+        await manageFetch(`/league/${league.id}/matches`, {
+          method: 'POST',
+          body: JSON.stringify({ matches: batchPayload }),
+        })
+
+        await manageFetch(`/league/${league.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'ongoing' }),
+        })
+
+        setLeague(l => ({ ...l, status: 'ongoing' }))
+        setTabOverride('bracket')
+        await loadMatches()
+      } catch (e) {
+        alert(e instanceof Error ? e.message : '대회 시작 실패')
+      } finally { setGenerating(false) }
+      return
+    }
+
+    // 고정 대진표 → TBD 매치 일괄 생성
+    if (isTournament && league.bracketSize) {
+      if (!confirm(`${league.bracketSize}팀 대진표를 생성하고 대회를 시작하시겠습니까?\n대진표에서 팀을 배정할 수 있습니다.`)) return
+      setGenerating(true)
+      try {
+        const bracketMatches = generateFullBracket(league.bracketSize!, new Map())
 
         const defaultDate = league.startDate
           ? new Date(league.startDate).toISOString()
           : new Date().toISOString()
         const venue = league.region ?? '미정'
 
-        for (const bm of bracketMatches) {
+        // Use batch creation if available
+        try {
           await manageFetch(`/league/${league.id}/matches`, {
             method: 'POST',
             body: JSON.stringify({
-              homeTeamId: bm.homeTeamId,
-              awayTeamId: bm.awayTeamId,
-              round: bm.round,
-              matchNumber: bm.matchNumber,
-              scheduledAt: defaultDate,
-              venue,
+              matches: bracketMatches.map(bm => ({
+                homeTeamId: bm.homeTeamId,
+                awayTeamId: bm.awayTeamId,
+                round: bm.round,
+                matchNumber: bm.matchNumber,
+                scheduledAt: defaultDate,
+                venue,
+              })),
             }),
           })
+        } catch {
+          // Fallback to individual creation
+          for (const bm of bracketMatches) {
+            await manageFetch(`/league/${league.id}/matches`, {
+              method: 'POST',
+              body: JSON.stringify({
+                homeTeamId: bm.homeTeamId,
+                awayTeamId: bm.awayTeamId,
+                round: bm.round,
+                matchNumber: bm.matchNumber,
+                scheduledAt: defaultDate,
+                venue,
+              }),
+            })
+          }
         }
 
         await manageFetch(`/league/${league.id}`, {
@@ -243,6 +294,7 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
   const detailTabs: { key: DetailTab; label: string; show: boolean }[] = isTournament
     ? [
         { key: 'teams', label: `참가팀 (${teams.length})`, show: true },
+        { key: 'roster', label: '선수 등록', show: teams.length > 0 },
         { key: 'bracket', label: '대진표', show: !isRecruiting && (!!league.bracketSize || matches.length > 0) },
         { key: 'matches', label: `경기 (${matches.length})`, show: !isRecruiting },
         { key: 'stats', label: '통계', show: !isRecruiting && matches.some(m => m.status === 'completed') },
@@ -250,6 +302,7 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
       ]
     : [
         { key: 'teams', label: `참가팀 (${teams.length})`, show: true },
+        { key: 'roster', label: '선수 등록', show: teams.length > 0 },
         { key: 'standings', label: '순위', show: !isRecruiting },
         { key: 'matches', label: `경기 (${matches.length})`, show: !isRecruiting },
         { key: 'stats', label: '통계', show: !isRecruiting && matches.some(m => m.status === 'completed') },
@@ -345,9 +398,11 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
       {isOrganizer && league.status === 'recruiting' && (
         <div className="mb-6 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: '#d97706' }}>
           <span className="font-semibold">모집중</span> — 팀을 초대한 후 <span className="font-semibold">&quot;대회 시작&quot;</span> 버튼을 누르면
-          {isTournament && league.bracketSize
-            ? ` ${league.bracketSize}강 대진표가 생성되고, 대진표에서 직접 팀을 배정할 수 있습니다`
-            : isTournament ? ' 토너먼트 대진표가 자동으로 생성됩니다' : ' 라운드 로빈 일정이 자동으로 생성됩니다'}
+          {isTournament && isKJATemplate
+            ? ' KJA 52팀 커스텀 대진표(57경기)가 생성되고, 대진표에서 직접 팀을 배정할 수 있습니다'
+            : isTournament && league.bracketSize
+              ? ` ${league.bracketSize}팀 대진표가 생성되고, 대진표에서 직접 팀을 배정할 수 있습니다`
+              : isTournament ? ' 토너먼트 대진표가 자동으로 생성됩니다' : ' 라운드 로빈 일정이 자동으로 생성됩니다'}
           .
         </div>
       )}
@@ -478,13 +533,24 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
             <TournamentResults matches={matches} tn={tn} />
           )}
           <BracketView
-            bracketSize={league.bracketSize as 4 | 8 | 16 | 32 | undefined}
+            bracketSize={league.bracketSize}
             matches={matches}
             tn={tn}
             onSlotClick={handleSlotClick}
             leagueStatus={league.status}
           />
         </div>
+      )}
+
+      {tab === 'roster' && (
+        <RosterTab
+          leagueId={league.id}
+          teams={teams}
+          teamNames={teamNames}
+          isOrganizer={isOrganizer}
+          leagueStatus={league.status}
+          maxPlayers={league.rules?.maxPlayersPerTeam ?? 30}
+        />
       )}
 
       {tab === 'stats' && <StatsTab matches={matches} leagueType={league.type} league={league} teamNames={teamNames} />}

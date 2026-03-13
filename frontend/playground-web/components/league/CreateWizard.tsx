@@ -23,21 +23,23 @@ export default function CreateWizard({ teamId, onSuccess, onCancel }: WizardProp
   // Step 1: 기본 정보
   const [form, setForm] = useState({
     name: '', type: 'league', region: '', startDate: '', endDate: '', description: '', isPublic: true, organizerTeamId: teamId,
-    bracketSize: 8 as 4 | 8 | 16 | 32,
+    bracketSize: 8 as number,
   })
   const set = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }))
 
   // Step 2: 경기 규칙
   const [rules, setRules] = useState<LeagueRules>({
-    quartersPerMatch: 4,
-    minutesPerQuarter: 15,
-    halftimeMinutes: 5,
+    halvesPerMatch: 2,
+    minutesPerHalf: 15,
+    halftimeMinutes: 10,
     substitutionRule: 'free',
     maxSubstitutions: undefined,
     yellowCardAccumulation: 2,
-    redCardSuspension: 1,
+    redCardSuspension: 2,
     penaltyShootout: true,
     maxGuestsPerMatch: 3,
+    maxPlayersPerTeam: 30,
+    minPlayersPerMatch: 7,
   })
   const setRule = (k: string, v: unknown) => setRules(r => ({ ...r, [k]: v }))
 
@@ -46,7 +48,7 @@ export default function CreateWizard({ teamId, onSuccess, onCancel }: WizardProp
     visibility: 'public',
     entryFee: undefined,
     minTeams: 4,
-    maxTeams: 16,
+    maxTeams: 64,
     registrationDeadline: undefined,
   })
   const setRegField = (k: string, v: unknown) => setReg(r => ({ ...r, [k]: v }))
@@ -149,21 +151,26 @@ export default function CreateWizard({ teamId, onSuccess, onCancel }: WizardProp
             </Field>
             {form.type === 'tournament' && (
               <Field label="대진표 규모">
-                <div className="grid grid-cols-4 gap-2">
-                  {([4, 8, 16, 32] as const).map(size => (
+                <div className="flex items-center gap-2">
+                  <input type="number" value={form.bracketSize} onChange={e => set('bracketSize', Math.max(2, Number(e.target.value) || 2))}
+                    className={inp} style={{ ...inpStyle, width: '100px' }} min={2} max={128} />
+                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>팀</span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {[8, 16, 32, 52, 64].map(size => (
                     <button key={size} type="button"
                       onClick={() => set('bracketSize', size)}
-                      className="rounded-xl py-3 text-sm font-semibold transition-all"
+                      className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
                       style={form.bracketSize === size
                         ? { background: 'var(--btn-solid-bg)', color: 'var(--btn-solid-color)' }
                         : { color: 'var(--text-muted)', border: '1px solid var(--card-border)' }
                       }>
-                      {size}강
+                      {size}팀
                     </button>
                   ))}
                 </div>
                 <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {form.bracketSize}팀 이하 참가 가능 · 부전승(BYE) 자동 적용
+                  {form.bracketSize}팀 참가 · 부전승(BYE) 자동 적용
                 </p>
               </Field>
             )}
@@ -187,17 +194,17 @@ export default function CreateWizard({ teamId, onSuccess, onCancel }: WizardProp
         {/* Step 2: 경기 규칙 */}
         {step === 2 && (
           <>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="쿼터 수">
-                <input type="number" value={rules.quartersPerMatch ?? ''} onChange={e => setRule('quartersPerMatch', e.target.value ? Number(e.target.value) : undefined)} className={inp} style={inpStyle} min={1} max={8} />
+            <div className="grid grid-cols-3 gap-4">
+              <Field label="전·후반 수">
+                <input type="number" value={rules.halvesPerMatch ?? ''} onChange={e => setRule('halvesPerMatch', e.target.value ? Number(e.target.value) : undefined)} className={inp} style={inpStyle} min={1} max={4} />
               </Field>
-              <Field label="쿼터당 시간(분)">
-                <input type="number" value={rules.minutesPerQuarter ?? ''} onChange={e => setRule('minutesPerQuarter', e.target.value ? Number(e.target.value) : undefined)} className={inp} style={inpStyle} min={1} />
+              <Field label="하프당 시간(분)">
+                <input type="number" value={rules.minutesPerHalf ?? ''} onChange={e => setRule('minutesPerHalf', e.target.value ? Number(e.target.value) : undefined)} className={inp} style={inpStyle} min={1} />
+              </Field>
+              <Field label="하프타임(분)">
+                <input type="number" value={rules.halftimeMinutes ?? ''} onChange={e => setRule('halftimeMinutes', e.target.value ? Number(e.target.value) : undefined)} className={inp} style={inpStyle} min={0} />
               </Field>
             </div>
-            <Field label="하프타임(분)">
-              <input type="number" value={rules.halftimeMinutes ?? ''} onChange={e => setRule('halftimeMinutes', e.target.value ? Number(e.target.value) : undefined)} className={inp} style={inpStyle} min={0} />
-            </Field>
             <div className="grid grid-cols-2 gap-4">
               <Field label="교체 규정">
                 <select value={rules.substitutionRule ?? 'free'} onChange={e => setRule('substitutionRule', e.target.value)} className={inp} style={inpStyle}>
@@ -217,6 +224,14 @@ export default function CreateWizard({ teamId, onSuccess, onCancel }: WizardProp
               </Field>
               <Field label="퇴장 시 출전정지(경기)">
                 <input type="number" value={rules.redCardSuspension ?? ''} onChange={e => setRule('redCardSuspension', e.target.value ? Number(e.target.value) : undefined)} className={inp} style={inpStyle} min={1} />
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="팀당 최대 선수(명)">
+                <input type="number" value={rules.maxPlayersPerTeam ?? ''} onChange={e => setRule('maxPlayersPerTeam', e.target.value ? Number(e.target.value) : undefined)} className={inp} style={inpStyle} min={1} max={99} />
+              </Field>
+              <Field label="최소 출전 인원(명)">
+                <input type="number" value={rules.minPlayersPerMatch ?? ''} onChange={e => setRule('minPlayersPerMatch', e.target.value ? Number(e.target.value) : undefined)} className={inp} style={inpStyle} min={1} max={20} />
               </Field>
             </div>
             <Field label="경기당 용병 제한(명)">
@@ -249,7 +264,7 @@ export default function CreateWizard({ teamId, onSuccess, onCancel }: WizardProp
                 <input type="number" value={reg.minTeams ?? ''} onChange={e => setRegField('minTeams', e.target.value ? Number(e.target.value) : undefined)} className={inp} style={inpStyle} min={2} />
               </Field>
               <Field label="최대 참가팀">
-                <input type="number" value={reg.maxTeams ?? ''} onChange={e => setRegField('maxTeams', e.target.value ? Number(e.target.value) : undefined)} className={inp} style={inpStyle} min={2} />
+                <input type="number" value={reg.maxTeams ?? ''} onChange={e => setRegField('maxTeams', e.target.value ? Number(e.target.value) : undefined)} className={inp} style={inpStyle} min={2} max={128} />
               </Field>
             </div>
             <Field label="참가 마감일">

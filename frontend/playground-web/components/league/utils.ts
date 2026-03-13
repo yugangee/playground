@@ -19,6 +19,13 @@ export interface LeagueMatch {
   guests?: string[]
   winner?: string
   pkScore?: { home: number; away: number }
+  block?: 'left' | 'right' | 'final'
+  nextMatchNumber?: number
+  nextMatchSlot?: 'home' | 'away'
+  loserNextMatchNumber?: number
+  loserNextMatchSlot?: 'home' | 'away'
+  forfeitTeamId?: string
+  forfeitReason?: string
 }
 
 export interface LeagueTeam {
@@ -47,17 +54,44 @@ export interface BracketMatch {
   awayTeamId: string
 }
 
-/** 고정 대진표 전체 생성 (첫 라운드~결승+3/4위전) */
+/** 임의 크기에서 가장 가까운 큰 power-of-2 계산 */
+export function nextPowerOf2(n: number): number {
+  let p = 1
+  while (p < n) p *= 2
+  return p
+}
+
+/** bracket 라운드 이름 자동 생성 (임의 크기 지원) */
+export function getBracketRounds(bracketSize: number): string[] {
+  // power-of-2 프리셋이 있으면 그것을 사용
+  if (BRACKET_ROUNDS[bracketSize]) return BRACKET_ROUNDS[bracketSize]
+  // 그 외: nextPowerOf2 기반으로 라운드 생성
+  const p2 = nextPowerOf2(bracketSize)
+  return BRACKET_ROUNDS[p2] ?? generateRoundNames(p2)
+}
+
+function generateRoundNames(p2: number): string[] {
+  const names: string[] = []
+  if (p2 >= 64) names.push('1라운드')
+  if (p2 >= 32) names.push('32강')
+  if (p2 >= 16) names.push('16강')
+  if (p2 >= 8) names.push('8강')
+  names.push('준결승', '결승')
+  return names
+}
+
+/** 고정 대진표 전체 생성 (첫 라운드~결승+3/4위전, 임의 크기 지원) */
 export function generateFullBracket(
-  bracketSize: 4 | 8 | 16 | 32,
+  bracketSize: number,
   seedings: Map<number, string>,
 ): BracketMatch[] {
-  const rounds = BRACKET_ROUNDS[bracketSize]
-  if (!rounds) throw new Error(`Invalid bracketSize: ${bracketSize}`)
+  const p2 = nextPowerOf2(bracketSize)
+  const rounds = getBracketRounds(bracketSize)
+  if (!rounds || rounds.length === 0) throw new Error(`Invalid bracketSize: ${bracketSize}`)
 
   const matches: BracketMatch[] = []
   let matchNumber = 1
-  const firstRoundCount = bracketSize / 2
+  const firstRoundCount = p2 / 2
 
   // 첫 라운드: seedings 기반 팀 배치
   for (let i = 0; i < firstRoundCount; i++) {
@@ -96,13 +130,14 @@ export function generateFullBracket(
 /** 매치 번호로 다음 라운드 매치 정보 계산 */
 export function getNextMatchInfo(
   matchNumber: number,
-  bracketSize: 4 | 8 | 16 | 32,
+  bracketSize: number,
 ): { nextMatchNumber: number; isHome: boolean } | null {
-  const rounds = BRACKET_ROUNDS[bracketSize]
+  const p2 = nextPowerOf2(bracketSize)
+  const rounds = getBracketRounds(bracketSize)
   if (!rounds) return null
 
-  const firstRoundCount = bracketSize / 2
-  const totalRegular = bracketSize - 1 // 3/4위전 제외
+  const firstRoundCount = p2 / 2
+  const totalRegular = p2 - 1 // 3/4위전 제외
   const thirdPlaceNumber = totalRegular + 1
 
   // 결승 또는 3/4위전이면 다음 없음
@@ -127,11 +162,12 @@ export function getNextMatchInfo(
 }
 
 /** 준결승 매치 번호 2개 반환 (3/4위전 패자 배치용) */
-export function getSemifinalMatchNumbers(bracketSize: 4 | 8 | 16 | 32): [number, number] {
-  const rounds = BRACKET_ROUNDS[bracketSize]
+export function getSemifinalMatchNumbers(bracketSize: number): [number, number] {
+  const p2 = nextPowerOf2(bracketSize)
+  const rounds = getBracketRounds(bracketSize)
   if (!rounds) throw new Error(`Invalid bracketSize: ${bracketSize}`)
 
-  const firstRoundCount = bracketSize / 2
+  const firstRoundCount = p2 / 2
   let start = 1
   for (let r = 0; r < rounds.length; r++) {
     const count = firstRoundCount / Math.pow(2, r)
@@ -147,13 +183,14 @@ export interface BracketRound {
   matchNumbers: number[]
 }
 
-export function generateBracketTemplate(bracketSize: 4 | 8 | 16 | 32): BracketRound[] {
-  const rounds = BRACKET_ROUNDS[bracketSize]
-  if (!rounds) return []
+export function generateBracketTemplate(bracketSize: number): BracketRound[] {
+  const p2 = nextPowerOf2(bracketSize)
+  const rounds = getBracketRounds(bracketSize)
+  if (!rounds || rounds.length === 0) return []
 
   const result: BracketRound[] = []
   let matchNumber = 1
-  const firstRoundCount = bracketSize / 2
+  const firstRoundCount = p2 / 2
 
   for (let r = 0; r < rounds.length; r++) {
     const count = firstRoundCount / Math.pow(2, r)

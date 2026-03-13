@@ -105,7 +105,7 @@ export interface Fine {
 }
 
 // ── Match / Schedule ──────────────────────────────────
-export type MatchStatus = 'pending' | 'accepted' | 'rejected' | 'completed'
+export type MatchStatus = 'pending' | 'accepted' | 'rejected' | 'completed' | 'forfeit'
 export type MatchType = 'match' | 'training'
 export type AttendanceStatus = 'attending' | 'absent' | 'pending'
 
@@ -203,15 +203,19 @@ export type LeagueStatus = 'recruiting' | 'ongoing' | 'finished'
 export type SubstitutionRule = 'free' | 'limited'
 
 export interface LeagueRules {
-  quartersPerMatch?: number       // 기본 4
-  minutesPerQuarter?: number      // 기본 15
-  halftimeMinutes?: number        // 기본 5
+  quartersPerMatch?: number       // 기본 4 (구 호환)
+  minutesPerQuarter?: number      // 기본 15 (구 호환)
+  halvesPerMatch?: number         // 전·후반 수 (기본 2)
+  minutesPerHalf?: number         // 하프당 시간 (기본 15)
+  halftimeMinutes?: number        // 하프타임 (기본 10)
   substitutionRule?: SubstitutionRule  // 교체 규정
   maxSubstitutions?: number       // limited일 때 최대 교체 수
   yellowCardAccumulation?: number // 경고 누적 기준 (기본 2)
-  redCardSuspension?: number      // 퇴장 시 출전정지 경기 수 (기본 1)
+  redCardSuspension?: number      // 퇴장 시 출전정지 경기 수 (기본 2)
   penaltyShootout?: boolean       // 토너먼트 승부차기 여부
   maxGuestsPerMatch?: number      // 경기당 용병 제한 (기본 3)
+  maxPlayersPerTeam?: number      // 팀당 최대 선수 수 (기본 30)
+  minPlayersPerMatch?: number     // 경기당 최소 출전 인원 (기본 7)
 }
 
 export interface LeagueRegistration {
@@ -245,7 +249,7 @@ export interface League {
   registration?: LeagueRegistration
   venue?: LeagueVenue
   awards?: string[]               // 시상 항목
-  bracketSize?: 4 | 8 | 16 | 32  // 토너먼트 대진표 규모
+  bracketSize?: number            // 토너먼트 대진표 규모 (임의 크기)
   createdAt: string
 }
 
@@ -258,9 +262,16 @@ export interface LeagueTeam {
 export interface LeagueMatch extends Match {
   leagueId: string
   round?: string
-  matchNumber?: number  // 고정 대진표: 매치 순번 (1-based)
-  winner?: string  // 토너먼트: 승리팀 ID (PK 등 동점 시 수동 지정)
+  matchNumber?: number           // 고정 대진표: 매치 순번 (1-based)
+  winner?: string                // 토너먼트: 승리팀 ID (PK 등 동점 시 수동 지정)
   pkScore?: { home: number; away: number }  // 승부차기 결과
+  block?: 'left' | 'right' | 'final'  // 커스텀 대진표: 좌/우/결승 블록
+  nextMatchNumber?: number       // 커스텀 대진표: 승자가 진출할 다음 경기
+  nextMatchSlot?: 'home' | 'away'  // 다음 경기에서의 위치
+  loserNextMatchNumber?: number  // 패자가 이동할 경기 (3/4위전 등)
+  loserNextMatchSlot?: 'home' | 'away'
+  forfeitTeamId?: string         // 몰수패 팀 ID
+  forfeitReason?: string         // 몰수패 사유
 }
 
 export interface LeaguePlayerStats {
@@ -274,12 +285,31 @@ export interface LeaguePlayerStats {
   gamesPlayed: number
 }
 
-// 프론트에서 계산 — 경고 누적/출전정지 추적용
-export interface PlayerSuspension {
+// 백엔드에서 계산 — 경고 누적/출전정지 추적용
+export interface PlayerDiscipline {
   playerId: string
   teamId: string
   totalYellows: number
   totalReds: number
-  matchesBanned: number   // 남은 출전정지 경기 수
+  matchesBanned: number   // 총 출전정지 경기 수
+  remainingBan: number    // 남은 출전정지 경기 수
   warningReset: boolean   // 4강 진출 시 초기화 여부
+  isSuspended: boolean    // 현재 출전정지 상태
+  suspensionHistory?: Array<{ round: string; reason: string }>
+}
+
+// 구 호환: PlayerSuspension (PlayerDiscipline의 별칭)
+export type PlayerSuspension = PlayerDiscipline
+
+// 대회별 선수 등록 (로스터)
+export interface LeagueRosterPlayer {
+  leagueId: string
+  sk: string              // `${teamId}#${playerId}`
+  teamId: string
+  playerId: string
+  name: string
+  jerseyNumber: number
+  department?: string
+  verified: boolean
+  registeredAt: string
 }

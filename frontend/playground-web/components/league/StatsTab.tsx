@@ -4,13 +4,15 @@ import React, { useState, useEffect } from 'react'
 import { manageFetch } from '@/lib/manageFetch'
 import { Empty } from './shared'
 import type { LeagueMatch } from './utils'
-import type { TeamMember, League } from '@/types/manage'
+import type { TeamMember, League, PlayerDiscipline } from '@/types/manage'
 
 type StatsSubTab = 'scorers' | 'assists' | 'cards' | 'teamRanking'
 
 export default function StatsTab({ matches, leagueType, league, teamNames }: { matches: LeagueMatch[]; leagueType?: string; league?: League; teamNames?: Record<string, string> }) {
-  const completed = matches.filter(m => m.status === 'completed')
+  const completed = matches.filter(m => m.status === 'completed' || m.status === 'forfeit')
   const [subTab, setSubTab] = useState<StatsSubTab>('scorers')
+  const [discipline, setDiscipline] = useState<PlayerDiscipline[]>([])
+  const [disciplineLoaded, setDisciplineLoaded] = useState(false)
 
   const [memberNames, setMemberNames] = useState<Record<string, string>>({})
   const [loadedTeams, setLoadedTeams] = useState<Set<string>>(new Set())
@@ -33,6 +35,17 @@ export default function StatsTab({ matches, leagueType, league, teamNames }: { m
       setLoadedTeams(new Set([...loadedTeams, ...toLoad]))
     })
   }, [completed.length])
+
+  // Load discipline data from backend
+  useEffect(() => {
+    if (!league?.id || disciplineLoaded) return
+    manageFetch(`/league/${league.id}/discipline`)
+      .then((data: { players: PlayerDiscipline[] }) => {
+        setDiscipline(data?.players ?? [])
+        setDisciplineLoaded(true)
+      })
+      .catch(() => setDisciplineLoaded(true))
+  }, [league?.id, completed.length])
 
   const mn = (id: string) => memberNames[id] ?? id.slice(0, 8)
 
@@ -202,10 +215,21 @@ export default function StatsTab({ matches, leagueType, league, teamNames }: { m
                 </thead>
                 <tbody>
                   {cardList.map(c => {
-                    const isSuspended = c.yellow >= yellowLimit || c.red > 0
+                    const disc = discipline.find(d => d.playerId === c.id)
+                    const isSuspended = disc ? disc.isSuspended : (c.yellow >= yellowLimit || c.red > 0)
+                    const remainingBan = disc?.remainingBan ?? 0
+                    const wasReset = disc?.warningReset ?? false
                     return (
-                      <tr key={c.id} style={{ borderBottom: '1px solid var(--card-border)' }}>
-                        <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{mn(c.id)}</td>
+                      <tr key={c.id} style={{
+                        borderBottom: '1px solid var(--card-border)',
+                        background: isSuspended ? 'rgba(239,68,68,0.04)' : undefined,
+                      }}>
+                        <td className="px-4 py-3 font-medium" style={{ color: isSuspended ? '#ef4444' : 'var(--text-primary)' }}>
+                          {mn(c.id)}
+                          {wasReset && (
+                            <span className="ml-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981' }}>초기화</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-center">
                           {c.yellow > 0 && <span className="inline-flex items-center gap-1"><span className="inline-block h-4 w-3 rounded-sm bg-yellow-400" />{c.yellow}</span>}
                         </td>
@@ -214,7 +238,9 @@ export default function StatsTab({ matches, leagueType, league, teamNames }: { m
                         </td>
                         <td className="px-4 py-3 text-center">
                           {isSuspended ? (
-                            <span className="rounded-full px-2 py-0.5 text-xs font-bold" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>출전정지</span>
+                            <span className="rounded-full px-2 py-0.5 text-xs font-bold" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+                              출전정지{remainingBan > 0 ? ` (${remainingBan}경기)` : ''}
+                            </span>
                           ) : c.yellow === yellowLimit - 1 ? (
                             <span className="rounded-full px-2 py-0.5 text-xs font-bold" style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}>경고</span>
                           ) : null}
@@ -227,54 +253,42 @@ export default function StatsTab({ matches, leagueType, league, teamNames }: { m
             </div>
           )}
 
-          {/* 징계 현황 (토너먼트) */}
-          {leagueType === 'tournament' && cardList.length > 0 && (() => {
-            const hasReachedSemis = completed.some(m => m.round === '준결승' || m.round === '결승' || m.round === '3/4위전')
+          {/* 징계 현황 (백엔드 discipline API 기반) */}
+          {discipline.length > 0 && (() => {
+            const suspended = discipline.filter(d => d.isSuspended || d.remainingBan > 0)
+            const resetPlayers = discipline.filter(d => d.warningReset)
+            const warned = discipline.filter(d => !d.isSuspended && d.remainingBan === 0 && d.totalYellows === yellowLimit - 1 && d.totalReds === 0)
 
-            const suspensions: Array<{ id: string; reason: string; banned: number }> = []
-            const warnings: Array<{ id: string }> = []
-
-            cardList.forEach(c => {
-              let effectiveYellows = c.yellow
-              if (hasReachedSemis && c.yellow === 1 && c.red === 0) {
-                effectiveYellows = 0
-              }
-              if (c.red > 0) {
-                suspensions.push({ id: c.id, reason: '레드카드', banned: c.red * (redBan > 0 ? redBan : 2) })
-              }
-              if (effectiveYellows >= yellowLimit) {
-                const bans = Math.floor(effectiveYellows / yellowLimit)
-                suspensions.push({ id: c.id, reason: `옐로 ${effectiveYellows}장 누적`, banned: bans })
-              } else if (effectiveYellows === yellowLimit - 1) {
-                warnings.push({ id: c.id })
-              }
-            })
-
-            if (suspensions.length === 0 && warnings.length === 0) return null
+            if (suspended.length === 0 && warned.length === 0 && resetPlayers.length === 0) return null
 
             return (
               <div>
                 <h3 className="mb-3 text-sm font-bold" style={{ color: 'var(--text-primary)' }}>징계 현황</h3>
-                {hasReachedSemis && (
+                {resetPlayers.length > 0 && (
                   <div className="mb-3 rounded-lg px-3 py-2 text-xs" style={{ background: 'rgba(16,185,129,0.08)', color: '#10b981' }}>
-                    4강 진출 — 옐로카드 1장 보유 선수는 경고 초기화됨
+                    4강 진출 — 경고 초기화 대상: {resetPlayers.map(p => mn(p.playerId)).join(', ')}
                   </div>
                 )}
                 <div className="space-y-2">
-                  {suspensions.map(s => (
-                    <div key={`sus-${s.id}-${s.reason}`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+                  {suspended.map(s => (
+                    <div key={`sus-${s.playerId}`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
                       style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
                       <span className="text-red-500 font-bold text-xs">출전정지</span>
-                      <span style={{ color: 'var(--text-primary)' }}>{mn(s.id)}</span>
-                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>({s.reason}, {s.banned}경기)</span>
+                      <span style={{ color: 'var(--text-primary)' }}>{mn(s.playerId)}</span>
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        (옐로 {s.totalYellows} / 레드 {s.totalReds}, 잔여 {s.remainingBan}경기)
+                      </span>
                     </div>
                   ))}
-                  {warnings.map(w => (
-                    <div key={`warn-${w.id}`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+                  {warned.map(w => (
+                    <div key={`warn-${w.playerId}`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
                       style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}>
                       <span className="text-amber-500 font-bold text-xs">경고</span>
-                      <span style={{ color: 'var(--text-primary)' }}>{mn(w.id)}</span>
+                      <span style={{ color: 'var(--text-primary)' }}>{mn(w.playerId)}</span>
                       <span className="text-xs" style={{ color: 'var(--text-muted)' }}>(옐로 {yellowLimit - 1}장 — 추가 시 출전정지)</span>
+                      {w.warningReset && (
+                        <span className="rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981' }}>초기화됨</span>
+                      )}
                     </div>
                   ))}
                 </div>
