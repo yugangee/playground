@@ -59,15 +59,12 @@ export default function AnnouncementDetailPage() {
   const isManager = currentUserRoles.includes('manager') || currentUserRoles.includes('leader');
   const hasFullEditPermission = isManager;
 
-  // 공지사항 로드
+  // 공지사항 로드 (개별 공지사항 API 호출)
   useEffect(() => {
     if (!currentTeam?.id || !announcementId) return;
     setLoading(true);
-    manageFetch(`/team/${currentTeam.id}/announcements`)
-      .then(data => {
-        const found = (data || []).find((a: Announcement) => a.id === announcementId);
-        setAnnouncement(found || null);
-      })
+    manageFetch(`/team/${currentTeam.id}/announcements/${announcementId}`)
+      .then(data => setAnnouncement(data || null))
       .catch(() => setAnnouncement(null))
       .finally(() => setLoading(false));
   }, [currentTeam?.id, announcementId]);
