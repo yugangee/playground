@@ -45,6 +45,16 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
         {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
         {children}
       </main>
+      <footer className="border-t py-6 px-4" style={{ borderColor: "var(--card-border)", background: "var(--background)" }}>
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs" style={{ color: "var(--text-muted)" }}>
+          <p>&copy; {new Date().getFullYear()} Playground. All rights reserved.</p>
+          <div className="flex items-center gap-4">
+            <a href="/privacy" className="hover:underline">개인정보처리방침</a>
+            <a href="/terms" className="hover:underline">이용약관</a>
+            <a href="mailto:playground@sedaily.com" className="hover:underline">문의하기</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
