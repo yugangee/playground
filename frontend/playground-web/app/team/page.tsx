@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { CalendarDays, TrendingUp, Users, Shield, UserPlus, X, Copy, Check, Send, MessageCircle, Crown, Pencil, Swords, Plus, CheckCircle, Wallet, TrendingDown, Bot, Trash2 } from "lucide-react";
+import { CalendarDays, TrendingUp, Users, Shield, UserPlus, X, Copy, Check, Send, MessageCircle, Crown, Pencil, Swords, Plus, CheckCircle, Wallet, TrendingDown, Bot, Trash2, Megaphone, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useTeam } from "@/context/TeamContext";
@@ -531,9 +531,9 @@ export default function TeamPage() {
   }
 
   // 권한 체크
-  const currentMember = members.find(m => m.userId === user?.email || m.userId === user?.username);
-  const currentUserRoles = currentMember?.role ? [currentMember.role] : ['member'];
-  const isManager = currentUserRoles.includes('manager');
+  const currentMember = members.find(m => m.userId === user?.email || m.userId === user?.username || m.email === user?.email);
+  const currentUserRoles = currentMember?.roles?.length ? currentMember.roles : (currentMember?.role ? currentMember.role.split(',').map((r: string) => r.trim()) : ['member']);
+  const isManager = currentUserRoles.includes('manager') || currentUserRoles.includes('leader');
   const isTreasurer = currentUserRoles.includes('treasurer');
   const hasFullEditPermission = isManager; // 관리자만
   const hasTreasurerPermission = isTreasurer; // 총무
@@ -582,7 +582,7 @@ export default function TeamPage() {
     return <TeamPageContent club={demoClub} members={demoMembers} isDemo={true} />;
   }
 
-  if (teams.length === 0 || !currentTeam) {
+  if (!teamLoading && teams.length === 0) {
     return (
       <div className="max-w-4xl mx-auto pt-20 text-center space-y-4">
         <Shield size={40} className="text-gray-600 mx-auto" />
@@ -592,6 +592,10 @@ export default function TeamPage() {
         </Link>
       </div>
     );
+  }
+
+  if (!currentTeam) {
+    return <div className="max-w-4xl mx-auto pt-20 text-center"><p className="text-gray-500 text-sm">로딩 중...</p></div>;
   }
 
   const sportName = sportTypeLabel[currentTeam.sportType ?? ''] ?? currentTeam.sportType ?? '-';
@@ -814,7 +818,7 @@ function TeamPageContent({
   };
 
   const [showScheduleForm, setShowScheduleForm] = useState(false);
-  const [scheduleForm, setScheduleForm] = useState({ type: "경기", awayTeamId: "", date: "", time: "", venue: "" });
+  const [scheduleForm, setScheduleForm] = useState({ type: "경기", awayTeamId: "", date: "", startTime: "", endTime: "", venue: "" });
   const [scheduleSaving, setScheduleSaving] = useState(false);
   const [manageMatches, setManageMatches] = useState<any[]>([]);
   const [matchAttendance, setMatchAttendance] = useState<Record<string, string>>({});
@@ -862,12 +866,13 @@ function TeamPageContent({
     if (!currentTeam?.id) return;
     setScheduleSaving(true);
     try {
-      const scheduledAt = scheduleForm.date && scheduleForm.time ? `${scheduleForm.date}T${scheduleForm.time}:00` : "";
+      const scheduledAt = scheduleForm.date && scheduleForm.startTime ? `${scheduleForm.date}T${scheduleForm.startTime}:00` : "";
+      const endAt = scheduleForm.date && scheduleForm.endTime ? `${scheduleForm.date}T${scheduleForm.endTime}:00` : "";
       await manageFetch("/schedule/matches", {
         method: "POST",
-        body: JSON.stringify({ homeTeamId: currentTeam.id, type: scheduleForm.type, awayTeamId: scheduleForm.awayTeamId, scheduledAt, venue: scheduleForm.venue }),
+        body: JSON.stringify({ homeTeamId: currentTeam.id, type: scheduleForm.type, awayTeamId: scheduleForm.awayTeamId, scheduledAt, endAt, venue: scheduleForm.venue }),
       });
-      setScheduleForm({ type: "경기", awayTeamId: "", date: "", time: "", venue: "" });
+      setScheduleForm({ type: "경기", awayTeamId: "", date: "", startTime: "", endTime: "", venue: "" });
       setShowScheduleForm(false);
       await loadManageMatches();
     } catch {
@@ -1087,19 +1092,34 @@ function TeamPageContent({
                   <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (!file || !currentTeam?.id) return;
-                    const reader = new FileReader();
-                    reader.onload = async () => {
-                      const base64 = reader.result as string;
-                      try {
-                        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clubs`, {
-                          method: "PUT",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ clubId: currentTeam.id, logoUrl: base64 }),
-                        });
-                        window.location.reload();
-                      } catch { alert("로고 변경에 실패했습니다"); }
-                    };
-                    reader.readAsDataURL(file);
+                    try {
+                      // 1. S3 업로드 URL 요청
+                      const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload-url`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ folder: "team-logos", fileName: file.name, contentType: file.type }),
+                      });
+                      const { uploadUrl, publicUrl } = await uploadRes.json();
+                      if (!uploadUrl) throw new Error("업로드 URL 생성 실패");
+                      
+                      // 2. S3에 직접 업로드
+                      await fetch(uploadUrl, {
+                        method: "PUT",
+                        headers: { "Content-Type": file.type },
+                        body: file,
+                      });
+                      
+                      // 3. 클럽 정보에 로고 URL 저장 (Auth API는 image 필드 사용)
+                      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clubs`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ clubId: currentTeam.id, image: publicUrl }),
+                      });
+                      window.location.reload();
+                    } catch (err) { 
+                      console.error("로고 업로드 실패:", err);
+                      alert("로고 변경에 실패했습니다"); 
+                    }
                   }} />
                 </label>
               )}
@@ -1336,27 +1356,13 @@ function TeamPageContent({
       </div>
 
       {/* 공지사항 */}
-      <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--text-primary)' }}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-          <h2 className="text-sm font-semibold text-gray-300">공지사항</h2>
-        </div>
-        <div className="space-y-3">
-          {[
-            { date: "2026.03.10", title: "3/15(토) vs FC 블루 경기 안내", content: "서경대 운동장 14시 집합. 유니폼 지참 필수." },
-            { date: "2026.03.08", title: "3월 회비 납부 안내", content: "3월 회비 30,000원 15일까지 납부 부탁드립니다." },
-            { date: "2026.03.05", title: "3/18(화) 정기 훈련 공지", content: "성북구 풋살장 19시. 개인 음료 준비해주세요." },
-          ].map((notice, i) => (
-            <div key={i} className="bg-white rounded-lg p-3">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-semibold text-black">{notice.title}</span>
-                <span className="text-xs text-gray-500">{notice.date}</span>
-              </div>
-              <p className="text-xs text-gray-600">{notice.content}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+      <AnnouncementSection 
+        currentTeam={currentTeam}
+        hasFullEditPermission={hasFullEditPermission}
+        currentUser={currentUser}
+        memberNames={memberNames}
+        isDemo={isDemo}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* 경기 일정 */}
@@ -1407,10 +1413,17 @@ function TeamPageContent({
                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-white/30" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-gray-400">시간</label>
+                  <label className="text-xs text-gray-400">시작 시간</label>
                   <div className="flex gap-1">
-                    <TimeSelect placeholder="시" value={scheduleForm.time.split(":")[0] || ""} onChange={v => setScheduleForm(f => ({ ...f, time: `${v}:${f.time.split(":")[1] || "00"}` }))} className="flex-1" />
-                    <TimeSelect placeholder="분" value={scheduleForm.time.split(":")[1] || ""} onChange={v => setScheduleForm(f => ({ ...f, time: `${f.time.split(":")[0] || "00"}:${v}` }))} className="flex-1" />
+                    <TimeSelect placeholder="시" value={scheduleForm.startTime.split(":")[0] || ""} onChange={v => setScheduleForm(f => ({ ...f, startTime: `${v}:${f.startTime.split(":")[1] || "00"}` }))} className="flex-1" />
+                    <TimeSelect placeholder="분" value={scheduleForm.startTime.split(":")[1] || ""} onChange={v => setScheduleForm(f => ({ ...f, startTime: `${f.startTime.split(":")[0] || "00"}:${v}` }))} className="flex-1" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-400">종료 시간 <span className="text-gray-600">(선택)</span></label>
+                  <div className="flex gap-1">
+                    <TimeSelect placeholder="시" value={scheduleForm.endTime.split(":")[0] || ""} onChange={v => setScheduleForm(f => ({ ...f, endTime: `${v}:${f.endTime.split(":")[1] || "00"}` }))} className="flex-1" />
+                    <TimeSelect placeholder="분" value={scheduleForm.endTime.split(":")[1] || ""} onChange={v => setScheduleForm(f => ({ ...f, endTime: `${f.endTime.split(":")[0] || "00"}:${v}` }))} className="flex-1" />
                   </div>
                 </div>
                 <div className="space-y-1 col-span-2">
@@ -1433,7 +1446,9 @@ function TeamPageContent({
             <div className="space-y-3">
               {manageMatches.map((m: any) => {
                 const dt = m.scheduledAt ? new Date(m.scheduledAt) : null;
-                const dateStr = dt ? `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}` : "";
+                const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+                const dayStr = dt ? `(${dayNames[dt.getDay()]})` : "";
+                const dateStr = dt ? `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')} ${dayStr}` : "";
                 const timeStr = dt ? `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}` : "";
                 const myStatus = matchAttendance[m.id] ?? m.myAttendance ?? null;
                 const attending = (m.attendances ?? []).filter((a: any) => a.status === "accepted");
@@ -2037,6 +2052,276 @@ function TeamPageContent({
     </div>
     </div>
     </div>
+  );
+}
+
+
+// ─── Announcement Section ────────────────────────────────────────────────────
+
+type Announcement = {
+  id: string;
+  teamId: string;
+  title: string;
+  content: string;
+  authorId: string;
+  authorName?: string;
+  createdAt: string;
+};
+
+function AnnouncementSection({ 
+  currentTeam, 
+  hasFullEditPermission, 
+  currentUser,
+  memberNames,
+  isDemo 
+}: { 
+  currentTeam: any; 
+  hasFullEditPermission: boolean;
+  currentUser: any;
+  memberNames: Record<string, string>;
+  isDemo: boolean;
+}) {
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
+  const [createForm, setCreateForm] = useState({ title: "", content: "" });
+  const [saving, setSaving] = useState(false);
+
+  // 공지사항 로드
+  useEffect(() => {
+    if (!currentTeam?.id || isDemo) return;
+    setLoading(true);
+    manageFetch(`/team/${currentTeam.id}/announcements?limit=4`)
+      .then((data) => setAnnouncements(data || []))
+      .catch(() => setAnnouncements([]))
+      .finally(() => setLoading(false));
+  }, [currentTeam?.id, isDemo]);
+
+  // 공지사항 생성
+  const createAnnouncement = async () => {
+    if (!currentTeam?.id || !createForm.title.trim() || !createForm.content.trim()) return;
+    setSaving(true);
+    try {
+      const authorName = currentUser?.name || memberNames[currentUser?.email] || currentUser?.email?.split('@')[0] || '관리자';
+      const newAnnouncement = await manageFetch(`/team/${currentTeam.id}/announcements`, {
+        method: "POST",
+        body: JSON.stringify({ 
+          title: createForm.title.trim(), 
+          content: createForm.content.trim(),
+          authorName 
+        }),
+      });
+      setAnnouncements(prev => [newAnnouncement, ...prev].slice(0, 4));
+      setCreateForm({ title: "", content: "" });
+      setShowCreateModal(false);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "공지사항 등록에 실패했습니다");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 공지사항 삭제
+  const deleteAnnouncement = async (id: string) => {
+    if (!currentTeam?.id || !confirm("이 공지사항을 삭제하시겠습니까?")) return;
+    try {
+      await manageFetch(`/team/${currentTeam.id}/announcements/${id}`, { method: "DELETE" });
+      setAnnouncements(prev => prev.filter(a => a.id !== id));
+      setSelectedAnnouncement(null);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "삭제에 실패했습니다");
+    }
+  };
+
+  const displayAnnouncements = announcements;
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  const getFirstLine = (content: string) => {
+    const firstLine = content.split('\n')[0];
+    return firstLine.length > 50 ? firstLine.slice(0, 50) + '...' : firstLine;
+  };
+
+  return (
+    <>
+      <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Megaphone size={16} style={{ color: 'var(--text-primary)' }} />
+            <h2 className="text-sm font-semibold text-gray-300">공지사항</h2>
+          </div>
+          {!isDemo && hasFullEditPermission && (
+            <button 
+              onClick={() => setShowCreateModal(true)}
+              className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+            >
+              <Plus size={14} className="text-gray-300" />
+            </button>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-6">
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : displayAnnouncements.length === 0 ? (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-600 text-center py-6">등록된 공지사항이 없습니다</p>
+            {!isDemo && (
+              <Link
+                href="/team/announcements"
+                className="block text-center text-xs text-gray-500 hover:text-white py-2 transition-colors"
+              >
+                전체보기 →
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {displayAnnouncements.slice(0, 3).map((notice) => (
+              isDemo ? (
+                <div
+                  key={notice.id}
+                  className="w-full bg-white rounded-lg p-3 text-left"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-semibold text-black truncate flex-1 mr-2">{notice.title}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-gray-500">{formatDate(notice.createdAt)}</span>
+                      <ChevronRight size={14} className="text-gray-400" />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-600 truncate flex-1 mr-2">{getFirstLine(notice.content)}</p>
+                    <span className="text-xs text-gray-400 shrink-0">{notice.authorName || '관리자'}</span>
+                  </div>
+                </div>
+              ) : (
+                <Link
+                  key={notice.id}
+                  href={`/team/announcements/${notice.id}`}
+                  className="block w-full bg-white rounded-lg p-3 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-semibold text-black truncate flex-1 mr-2">{notice.title}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-gray-500">{formatDate(notice.createdAt)}</span>
+                      <ChevronRight size={14} className="text-gray-400" />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-600 truncate flex-1 mr-2">{getFirstLine(notice.content)}</p>
+                    <span className="text-xs text-gray-400 shrink-0">{notice.authorName || '관리자'}</span>
+                  </div>
+                </Link>
+              )
+            ))}
+            {/* 전체보기 링크 */}
+            {!isDemo && (
+              <Link
+                href="/team/announcements"
+                className="block text-center text-xs text-gray-500 hover:text-white py-2 transition-colors"
+              >
+                전체보기 →
+              </Link>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 공지사항 생성 모달 */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={() => setShowCreateModal(false)}>
+          <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-md space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <span className="text-white font-semibold">공지사항 등록</span>
+              <button onClick={() => setShowCreateModal(false)} className="text-gray-500 hover:text-white"><X size={16} /></button>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs text-gray-400">제목</label>
+                <input
+                  value={createForm.title}
+                  onChange={e => setCreateForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="공지사항 제목을 입력하세요"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-white/30 placeholder:text-gray-600"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-400">내용</label>
+                <textarea
+                  value={createForm.content}
+                  onChange={e => setCreateForm(f => ({ ...f, content: e.target.value }))}
+                  placeholder="공지사항 내용을 입력하세요"
+                  rows={5}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm outline-none focus:border-white/30 placeholder:text-gray-600 resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setShowCreateModal(false)} 
+                className="flex-1 py-2 rounded-lg text-sm bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                취소
+              </button>
+              <button 
+                onClick={createAnnouncement}
+                disabled={saving || !createForm.title.trim() || !createForm.content.trim()}
+                className="flex-1 py-2 rounded-lg text-sm font-semibold text-white bg-black hover:bg-gray-900 disabled:opacity-50 transition-colors"
+              >
+                {saving ? "등록 중..." : "등록"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 공지사항 상세 모달 */}
+      {selectedAnnouncement && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={() => setSelectedAnnouncement(null)}>
+          <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-md space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <span className="text-white font-semibold">공지사항</span>
+              <button onClick={() => setSelectedAnnouncement(null)} className="text-gray-500 hover:text-white"><X size={16} /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-white font-semibold text-lg">{selectedAnnouncement.title}</h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-gray-500">{formatDate(selectedAnnouncement.createdAt)}</span>
+                  <span className="text-xs text-gray-600">·</span>
+                  <span className="text-xs text-gray-500">{selectedAnnouncement.authorName || '관리자'}</span>
+                </div>
+              </div>
+              <div className="border-t border-white/10 pt-3">
+                <p className="text-sm text-gray-300 whitespace-pre-wrap">{selectedAnnouncement.content}</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {hasFullEditPermission && (
+                <button 
+                  onClick={() => deleteAnnouncement(selectedAnnouncement.id)}
+                  className="flex-1 py-2 rounded-lg text-sm text-red-400 bg-red-500/10 hover:bg-red-500/20 transition-colors"
+                >
+                  삭제
+                </button>
+              )}
+              <button 
+                onClick={() => setSelectedAnnouncement(null)} 
+                className="flex-1 py-2 rounded-lg text-sm font-semibold text-white bg-white/10 hover:bg-white/20 transition-colors"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

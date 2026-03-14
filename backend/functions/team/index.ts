@@ -17,6 +17,7 @@ const UNIFORMS = process.env.UNIFORMS_TABLE!
 const EQUIPMENT = process.env.EQUIPMENT_TABLE!
 const RECRUITMENT = process.env.RECRUITMENT_TABLE!
 const INVITES = process.env.INVITES_TABLE!
+const ANNOUNCEMENTS = process.env.ANNOUNCEMENTS_TABLE!
 
 const res = (statusCode: number, body: unknown) => ({
   statusCode,
@@ -371,6 +372,70 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     // DELETE /team/:id/recruitment/:recruitId
     if (method === 'DELETE' && parts[1] === 'recruitment' && parts[2]) {
       await db.send(new DeleteCommand({ TableName: RECRUITMENT, Key: { id: parts[2] } }))
+      return res(200, { message: 'deleted' })
+    }
+
+    // ── Announcements (공지사항) ───────────────────────────────────────
+
+    // GET /team/:id/announcements (인증 불필요)
+    if (method === 'GET' && parts[1] === 'announcements' && !parts[2]) {
+      const limit = event.queryStringParameters?.limit ? parseInt(event.queryStringParameters.limit) : 10
+      try {
+        const result = await db.send(new QueryCommand({
+          TableName: ANNOUNCEMENTS,
+          IndexName: 'teamId-createdAt-index',
+          KeyConditionExpression: 'teamId = :tid',
+          ExpressionAttributeValues: { ':tid': teamId },
+          ScanIndexForward: false, // 최신순
+          Limit: limit,
+        }))
+        return res(200, result.Items ?? [])
+      } catch (e) {
+        console.error('Announcements query error:', e)
+        return res(500, { message: 'Failed to fetch announcements' })
+      }
+    }
+
+    // GET /team/:id/announcements/:announcementId (인증 불필요)
+    if (method === 'GET' && parts[1] === 'announcements' && parts[2]) {
+      try {
+        const result = await db.send(new GetCommand({ TableName: ANNOUNCEMENTS, Key: { id: parts[2] } }))
+        if (!result.Item) return res(404, { message: 'Announcement not found' })
+        return res(200, result.Item)
+      } catch (e) {
+        console.error('Announcement get error:', e)
+        return res(500, { message: 'Failed to fetch announcement' })
+      }
+    }
+
+    // POST /team/:id/announcements
+    if (method === 'POST' && parts[1] === 'announcements') {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      const body = parseBody(event.body)
+      if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
+      if (!body.title || typeof body.title !== 'string' || !body.title.trim()) {
+        return res(400, { message: '제목(title)은 필수입니다' })
+      }
+      if (!body.content || typeof body.content !== 'string' || !body.content.trim()) {
+        return res(400, { message: '내용(content)은 필수입니다' })
+      }
+      const announcement = {
+        id: randomUUID(),
+        teamId,
+        title: body.title.trim(),
+        content: body.content.trim(),
+        authorId: userId,
+        authorName: body.authorName || null,
+        createdAt: new Date().toISOString(),
+      }
+      await db.send(new PutCommand({ TableName: ANNOUNCEMENTS, Item: announcement }))
+      return res(201, announcement)
+    }
+
+    // DELETE /team/:id/announcements/:announcementId
+    if (method === 'DELETE' && parts[1] === 'announcements' && parts[2]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      await db.send(new DeleteCommand({ TableName: ANNOUNCEMENTS, Key: { id: parts[2] } }))
       return res(200, { message: 'deleted' })
     }
 

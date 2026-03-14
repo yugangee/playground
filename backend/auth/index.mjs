@@ -376,7 +376,7 @@ async function updateClub(body) {
   const exprNames = {};
   const exprValues = {};
   let idx = 0;
-  const allowed = ["captainEmail", "recruiting", "members"];
+  const allowed = ["captainEmail", "recruiting", "members", "logoUrl", "name", "sport", "areas", "styles", "image"];
   for (const key of allowed) {
     if (body[key] !== undefined) {
       exprParts.push(`#f${idx} = :v${idx}`);

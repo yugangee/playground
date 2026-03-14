@@ -12,16 +12,17 @@ import {
 // ─── 상수 ───────────────────────────────────────────────────────────────
 const TABS = ["우리동네", "자유게시판", "축구", "풋살", "농구", "야구", "배드민턴", "테니스", "마켓"];
 
+// ★ 이모티콘 제거 → 순수 텍스트
 const TAB_LABEL: Record<string, string> = {
-  우리동네: "📍 우리동네",
-  자유게시판: "💬 자유게시판",
-  축구: "⚽ 축구",
-  풋살: "🥅 풋살",
-  농구: "🏀 농구",
-  야구: "⚾ 야구",
-  배드민턴: "🏸 배드민턴",
-  테니스: "🎾 테니스",
-  마켓: "🛍️ 마켓",
+  우리동네: "우리동네",
+  자유게시판: "자유게시판",
+  축구: "축구",
+  풋살: "풋살",
+  농구: "농구",
+  야구: "야구",
+  배드민턴: "배드민턴",
+  테니스: "테니스",
+  마켓: "마켓",
 };
 
 const SPORT_COLOR: Record<string, string> = {
@@ -156,7 +157,11 @@ function SectionHeader({ icon, title, action }: { icon?: React.ReactNode; title:
 
 function MoreLink({ href }: { href: string }) {
   return (
-    <Link href={href} className="flex items-center gap-0.5 text-xs hover:opacity-60 transition-opacity" style={{ color: "var(--text-muted)" }}>
+    <Link
+      href={href}
+      className="flex items-center gap-0.5 text-xs font-medium transition-all hover:gap-1"
+      style={{ color: "var(--text-muted)" }}
+    >
       전체보기 <ChevronRight size={13} />
     </Link>
   );
@@ -170,11 +175,15 @@ function MemberBar({ cur, max }: { cur: number; max: number }) {
     <div className="space-y-1.5">
       <div className="flex justify-between" style={{ color: "var(--text-muted)" }}>
         <span className="text-xs flex items-center gap-1"><Users size={11} />{cur}/{max}명</span>
-        <span className="text-xs font-medium" style={{ color: pct >= 80 && !full ? "#f97316" : "var(--text-muted)" }}>{pct}%</span>
+        <span className="text-xs font-semibold" style={{ color: pct >= 80 && !full ? "#f97316" : "var(--text-muted)" }}>
+          {full ? "마감" : `${pct}%`}
+        </span>
       </div>
       <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--card-border)" }}>
-        <div className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, background: barColor }} />
+        <div
+          className="h-full rounded-full transition-all duration-700 ease-out"
+          style={{ width: `${pct}%`, background: barColor }}
+        />
       </div>
     </div>
   );
@@ -192,7 +201,7 @@ function EmptyState({ message }: { message: string }) {
 
 function HotBadge() {
   return (
-    <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-md"
+    <span className="shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-md tracking-wide"
       style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>HOT</span>
   );
 }
@@ -204,7 +213,7 @@ function SportBadge({ sport }: { sport: string }) {
       style={color
         ? { background: `${color}18`, color, border: `1px solid ${color}30` }
         : { background: "var(--card-border)", color: "var(--text-muted)" }}>
-      {TAB_LABEL[sport]?.split(" ")[0]} {sport}
+      {sport}
     </span>
   );
 }
@@ -214,7 +223,7 @@ function SegmentControl<T extends string>({ options, value, onChange }: { option
     <div className="flex rounded-lg overflow-hidden p-0.5 gap-0.5" style={{ background: "var(--card-border)" }}>
       {options.map((o) => (
         <button key={o.key} onClick={() => onChange(o.key)}
-          className="px-3 py-1.5 text-xs font-semibold rounded-md transition-all"
+          className="px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-150"
           style={value === o.key
             ? { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }
             : { color: "var(--text-muted)" }}>
@@ -228,7 +237,7 @@ function SegmentControl<T extends string>({ options, value, onChange }: { option
 function SolidBtn({ children, onClick, disabled, fullWidth }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; fullWidth?: boolean }) {
   return (
     <button disabled={disabled} onClick={onClick}
-      className={`${fullWidth ? "w-full" : ""} py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-95`}
+      className={`${fullWidth ? "w-full" : ""} py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 active:scale-[0.97]`}
       style={disabled
         ? { background: "var(--card-border)", color: "var(--text-muted)", cursor: "not-allowed" }
         : { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>
@@ -242,12 +251,20 @@ function SolidBtn({ children, onClick, disabled, fullWidth }: { children: React.
 function TeamCard({ team }: { team: Team }) {
   const full = team.members >= team.max;
   return (
-    <div className="p-5 rounded-2xl flex flex-col gap-4 cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
-      style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+    <div
+      className="p-5 rounded-2xl flex flex-col gap-4 cursor-pointer transition-all duration-200 hover:-translate-y-1"
+      style={{
+        background: "var(--card-bg)",
+        border: "1px solid var(--card-border)",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      }}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>{team.name}</p>
-          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{team.location} · {team.ageRange}</p>
+          <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
+            <MapPin size={10} />{team.location} · {team.ageRange}
+          </p>
         </div>
         <span className="shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-lg"
           style={{ background: "var(--card-border)", color: "var(--text-muted)" }}>{team.level}</span>
@@ -262,13 +279,19 @@ function TeamCard({ team }: { team: Team }) {
 function ScheduleCard({ s, onApply }: { s: Schedule; onApply: () => void }) {
   const full = s.participants >= s.max;
   return (
-    <div className="p-5 rounded-2xl flex flex-col gap-4 transition-all duration-200 hover:-translate-y-0.5"
-      style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+    <div
+      className="p-5 rounded-2xl flex flex-col gap-4 transition-all duration-200 hover:-translate-y-1"
+      style={{
+        background: "var(--card-bg)",
+        border: "1px solid var(--card-border)",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      }}
+    >
       <div className="flex items-center justify-between">
         <SportBadge sport={s.sport} />
         {full && (
           <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg"
-            style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>마감</span>
+            style={{ background: "var(--card-border)", color: "var(--text-muted)" }}>마감</span>
         )}
       </div>
       <p className="font-semibold text-sm leading-snug" style={{ color: "var(--text-primary)" }}>{s.title}</p>
@@ -284,8 +307,12 @@ function ScheduleCard({ s, onApply }: { s: Schedule; onApply: () => void }) {
 
 function PostList({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl overflow-hidden"
-      style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+    <div className="rounded-2xl overflow-hidden divide-y"
+      style={{
+        background: "var(--card-bg)",
+        border: "1px solid var(--card-border)",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      }}>
       {children}
     </div>
   );
@@ -293,20 +320,25 @@ function PostList({ children }: { children: React.ReactNode }) {
 
 function PostRow({ post, index, hot }: { post: { id: number; title: string; author: string; comments: number; likes: number }; index: number; hot?: boolean }) {
   return (
-    <div className="px-5 py-4 flex items-center gap-4 cursor-pointer transition-opacity hover:opacity-70"
+    <div
+      className="px-5 py-4 flex items-center gap-3 cursor-pointer group transition-colors"
       style={{
         background: "var(--card-bg)",
         borderTop: index > 0 ? "1px solid var(--card-border)" : "none",
-      }}>
+      }}
+    >
       {hot && <HotBadge />}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{post.title}</p>
+        <p className="text-sm font-medium truncate group-hover:opacity-70 transition-opacity" style={{ color: "var(--text-primary)" }}>
+          {post.title}
+        </p>
         <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{post.author}</p>
       </div>
-      <div className="flex gap-4 text-xs shrink-0" style={{ color: "var(--text-muted)" }}>
-        <span>댓글 {post.comments}</span>
-        <span>좋아요 {post.likes}</span>
+      <div className="flex gap-3 text-xs shrink-0" style={{ color: "var(--text-muted)" }}>
+        <span className="flex items-center gap-1"><Users size={11} />{post.comments}</span>
+        <span className="flex items-center gap-1"><Heart size={11} />{post.likes}</span>
       </div>
+      <ChevronRight size={14} className="shrink-0 opacity-30 group-hover:opacity-60 transition-opacity" style={{ color: "var(--text-muted)" }} />
     </div>
   );
 }
@@ -381,7 +413,7 @@ function WriteModal({ tab, onClose }: { tab: string; onClose: () => void }) {
         <div className="flex gap-2 flex-wrap">
           {cats.map((c) => (
             <button key={c} onClick={() => setCat(c)}
-              className="text-xs px-3 py-1.5 rounded-full font-semibold transition-all"
+              className="text-xs px-3 py-1.5 rounded-full font-semibold transition-all duration-150"
               style={cat === c
                 ? { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }
                 : { background: "var(--card-border)", color: "var(--text-muted)" }}>
@@ -389,10 +421,16 @@ function WriteModal({ tab, onClose }: { tab: string; onClose: () => void }) {
             </button>
           ))}
         </div>
-        <input className="w-full px-4 py-3 rounded-xl text-sm outline-none"
-          style={{ background: "var(--card-border)", color: "var(--text-primary)" }} placeholder="제목" />
-        <textarea className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none"
-          style={{ background: "var(--card-border)", color: "var(--text-primary)", minHeight: 110 }} placeholder="내용을 입력하세요" />
+        <input
+          className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-colors focus:ring-2"
+          style={{ background: "var(--card-border)", color: "var(--text-primary)" }}
+          placeholder="제목"
+        />
+        <textarea
+          className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none transition-colors focus:ring-2"
+          style={{ background: "var(--card-border)", color: "var(--text-primary)", minHeight: 110 }}
+          placeholder="내용을 입력하세요"
+        />
         <SolidBtn fullWidth>등록하기</SolidBtn>
       </ModalShell>
     </Overlay>
@@ -442,59 +480,95 @@ function CommunityContent() {
       <div className="flex items-center justify-between pt-2 pb-6">
         <h1 className="text-3xl font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>커뮤니티</h1>
         <div className="flex items-center gap-2">
+          {/* ★ 글쓰기 버튼: 헤더 우측 인라인 배치 — 챗봇 FAB과 겹치지 않음 */}
+          {tab !== "마켓" && (
+            <button
+              onClick={() => setShowWrite(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-150 hover:opacity-80 active:scale-95"
+              style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}
+            >
+              <PenLine size={15} />
+              글쓰기
+            </button>
+          )}
           {showSearch ? (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all"
-              style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all"
+              style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}
+            >
               <Search size={15} style={{ color: "var(--text-muted)" }} />
-              <input autoFocus className="text-sm outline-none bg-transparent w-36"
-                style={{ color: "var(--text-primary)" }} placeholder="게시글 검색"
-                value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+              <input
+                autoFocus
+                className="text-sm outline-none bg-transparent w-36"
+                style={{ color: "var(--text-primary)" }}
+                placeholder="게시글 검색"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
               <button onClick={() => { setShowSearch(false); setSearchQuery(""); }}>
                 <X size={14} style={{ color: "var(--text-muted)" }} />
               </button>
             </div>
           ) : (
-            <button className="p-2 rounded-xl transition-opacity hover:opacity-60"
+            <button
+              className="p-2 rounded-xl transition-opacity hover:opacity-60"
               style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}
-              onClick={() => setShowSearch(true)}>
+              onClick={() => setShowSearch(true)}
+            >
               <Search size={17} style={{ color: "var(--text-muted)" }} />
             </button>
           )}
-          <button className="p-2 rounded-xl transition-opacity hover:opacity-60"
-            style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+          <button
+            className="p-2 rounded-xl transition-opacity hover:opacity-60"
+            style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}
+          >
             <SlidersHorizontal size={17} style={{ color: "var(--text-muted)" }} />
           </button>
         </div>
       </div>
 
-      {/* ── 스티키 탭바 ─────────────────────────────────────────────────
-           ★ 수정 포인트: rgba(255,255,255,…) → var(--card-bg)
-           페이지 배경색 CSS 변수를 그대로 참조해 다크모드/커스텀 테마에서도 일치
-      ─────────────────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-30 -mx-4 px-4"
+      {/* ── 스티키 탭바 ── */}
+      <div
+        className="sticky top-0 z-30 -mx-4 px-4"
         style={{
           background: "var(--card-bg)",
           backdropFilter: "blur(16px)",
           WebkitBackdropFilter: "blur(16px)",
           borderBottom: "1px solid var(--card-border)",
-        }}>
-        <div ref={tabRef} className="flex gap-1 overflow-x-auto scrollbar-none">
+        }}
+      >
+        <div ref={tabRef} className="flex gap-0 overflow-x-auto scrollbar-none">
           {TABS.map((t) => {
             const active = tab === t;
             const label = TAB_LABEL[t] ?? t;
             if (t === "마켓") return (
-              <Link key={t} href="/market" data-tab={t}
-                className="pb-3 pt-3 px-2 text-sm font-medium whitespace-nowrap shrink-0 hover:opacity-70 transition-opacity"
-                style={{ color: "var(--text-muted)" }}>{label}</Link>
+              <Link
+                key={t}
+                href="/market"
+                data-tab={t}
+                className="pb-3 pt-3 px-3.5 text-sm font-medium whitespace-nowrap shrink-0 hover:opacity-70 transition-opacity"
+                style={{ color: "var(--text-muted)" }}
+              >
+                {label}
+              </Link>
             );
             return (
-              <button key={t} data-tab={t} onClick={() => setTab(t)}
-                className="pb-3 pt-3 px-2 text-sm font-medium whitespace-nowrap shrink-0 relative transition-colors"
-                style={{ color: active ? "var(--text-primary)" : "var(--text-muted)" }}>
+              <button
+                key={t}
+                data-tab={t}
+                onClick={() => setTab(t)}
+                className="pb-3 pt-3 px-3.5 text-sm whitespace-nowrap shrink-0 relative transition-colors"
+                style={{
+                  color: active ? "var(--text-primary)" : "var(--text-muted)",
+                  fontWeight: active ? 700 : 500,
+                }}
+              >
                 {label}
                 {active && (
-                  <div className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full"
-                    style={{ background: "var(--text-primary)" }} />
+                  <div
+                    className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full transition-all duration-200"
+                    style={{ background: "var(--text-primary)" }}
+                  />
                 )}
               </button>
             );
@@ -537,7 +611,6 @@ function CommunityContent() {
                         style={{
                           background: i < 3 ? "var(--card-border)" : "var(--card-bg)",
                           borderTop: i > 0 ? "1px solid var(--card-border)" : "none",
-                          opacity: i < 3 ? 1 : 0.85,
                         }}>
                         <span className="w-7 text-center font-bold text-sm shrink-0">
                           {i < 3 ? RANK_MEDAL[i] : <span style={{ color: "var(--text-muted)" }}>{r.rank}</span>}
@@ -584,11 +657,10 @@ function CommunityContent() {
               <SectionHeader title="베스트 플레이" action={<MoreLink href="/community/videos" />} />
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {mockHighlights.map((v) => (
-                  <div key={v.id} className="cursor-pointer group transition-all duration-200 hover:-translate-y-0.5"
+                  <div key={v.id} className="cursor-pointer group transition-all duration-200 hover:-translate-y-1"
                     onMouseEnter={() => setHoveredVideo(v.id)} onMouseLeave={() => setHoveredVideo(null)}>
                     <div className="aspect-[9/14] rounded-2xl overflow-hidden relative"
                       style={{ background: "var(--card-border)", border: "1px solid var(--card-border)" }}>
-                      {/* 썸네일 그라디언트 플레이스홀더 */}
                       <div className="absolute inset-0"
                         style={{ background: "linear-gradient(145deg, var(--card-border) 0%, var(--card-bg) 100%)" }} />
                       {hoveredVideo === v.id && (
@@ -638,7 +710,7 @@ function CommunityContent() {
                 <div className="flex gap-1 p-0.5 rounded-xl" style={{ background: "var(--card-border)" }}>
                   {MY_REGIONS.map((r) => (
                     <button key={r} onClick={() => setRegion(r)}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all duration-150"
                       style={region === r
                         ? { background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }
                         : { color: "var(--text-muted)" }}>
@@ -737,9 +809,9 @@ function CommunityContent() {
                 <div className="rounded-2xl overflow-hidden"
                   style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
                   {mockLocalPosts.filter((p) => p.location === region).map((p, i) => (
-                    <div key={p.id} className="px-4 py-4 cursor-pointer transition-opacity hover:opacity-70"
+                    <div key={p.id} className="px-4 py-4 cursor-pointer group transition-colors hover:opacity-70"
                       style={{ background: "var(--card-bg)", borderTop: i > 0 ? "1px solid var(--card-border)" : "none" }}>
-                      <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{p.title}</p>
+                      <p className="text-sm font-medium group-hover:opacity-70 transition-opacity" style={{ color: "var(--text-primary)" }}>{p.title}</p>
                       <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{p.author} · {p.time}</p>
                     </div>
                   ))}
@@ -807,16 +879,6 @@ function CommunityContent() {
           </>
         )}
       </div>
-
-      {/* ── FAB (글쓰기) ── */}
-      {tab !== "마켓" && (
-        <button onClick={() => setShowWrite(true)}
-          className="fixed bottom-8 right-6 z-40 flex items-center gap-2 px-5 py-3.5 rounded-full shadow-2xl transition-all duration-200 hover:scale-105 active:scale-95"
-          style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>
-          <PenLine size={16} />
-          <span className="text-sm font-semibold">글쓰기</span>
-        </button>
-      )}
 
       {showWrite && <WriteModal tab={tab} onClose={() => setShowWrite(false)} />}
       {reserveTarget && <ReserveModal s={reserveTarget} onClose={() => setReserveTarget(null)} />}

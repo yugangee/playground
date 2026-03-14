@@ -102,8 +102,8 @@ export function TeamProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('currentTeamId', team.id)
   }
 
-  // 리더 여부 판단 (Auth API에서는 leaderId가 없으므로 user.role 체크)
-  const isLeader = !!(currentTeam && user && user.role === 'leader')
+  // 리더 또는 매니저 여부 판단 (Auth API에서는 leaderId가 없으므로 user.role 체크)
+  const isLeader = !!(currentTeam && user && (user.role === 'leader' || user.role === 'manager'))
 
   useEffect(() => { reload() }, [user?.username, user?.teamIds?.length, user?.teamId])
 

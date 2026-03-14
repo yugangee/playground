@@ -205,6 +205,14 @@ export class PlaygroundStack extends cdk.Stack {
         billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
       }),
+      // 대회별 선수 등록 (로스터)
+      leagueRosters: new dynamodb.Table(this, 'LeagueRostersTable', {
+        tableName: 'pg-league-rosters',
+        partitionKey: { name: 'leagueId', type: dynamodb.AttributeType.STRING },
+        sortKey: { name: 'sk', type: dynamodb.AttributeType.STRING }, // `${teamId}#${playerId}`
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      }),
     }
 
     // GSI for team-members userId queries (for GET /team endpoint)
@@ -288,6 +296,12 @@ export class PlaygroundStack extends cdk.Stack {
       indexName: 'leagueId-index',
       partitionKey: { name: 'leagueId', type: dynamodb.AttributeType.STRING },
     })
+    // 팀별 대회 로스터 조회 GSI
+    tables.leagueRosters.addGlobalSecondaryIndex({
+      indexName: 'teamId-index',
+      partitionKey: { name: 'teamId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'leagueId', type: dynamodb.AttributeType.STRING },
+    })
 
     // ─── S3 Bucket ───────────────────────────────────────────────────
     const assetsBucket = new s3.Bucket(this, 'AssetsBucket', {
@@ -351,6 +365,8 @@ export class PlaygroundStack extends cdk.Stack {
       MATCH_EVENTS_TABLE: tables.matchEvents.tableName,
       MATCH_LINEUPS_TABLE: tables.matchLineups.tableName,
       MATCH_MOM_TABLE: tables.matchMom.tableName,
+      // 대회 로스터
+      LEAGUE_ROSTERS_TABLE: tables.leagueRosters.tableName,
     }
 
     const lambdaDefaults = {
