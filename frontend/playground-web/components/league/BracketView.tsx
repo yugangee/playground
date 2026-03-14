@@ -544,7 +544,7 @@ function CustomBlockBracket({ matches, tn, onSlotClick, leagueStatus }: {
             </React.Fragment>
           ))}
 
-          {/* Final */}
+          {/* Final (결승만 — 3/4위전은 하단 별도 표시) */}
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: CARD_W + 20 }}>
             <div style={{ textAlign: 'center', marginBottom: 12 }}>
               <span style={{
@@ -555,17 +555,18 @@ function CustomBlockBracket({ matches, tn, onSlotClick, leagueStatus }: {
                 결승
               </span>
             </div>
-            {finalMatches.length > 0 ? finalMatches.map(m => (
-              <div key={m.id} style={{ display: 'flex', justifyContent: 'center', padding: '4px 0' }}>
-                <MatchCard match={m} tn={tn}
-                  onClick={canClick(m) ? () => onSlotClick(m.matchNumber ?? 0, m) : undefined}
-                  label={m.matchNumber ? `#${m.matchNumber}` : undefined} />
-              </div>
-            )) : (
-              <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <MatchCard match={undefined} tn={tn} label="결승" />
-              </div>
-            )}
+            {finalMatches.filter(m => m.round !== '3/4위전').length > 0
+              ? finalMatches.filter(m => m.round !== '3/4위전').map(m => (
+                <div key={m.id} style={{ display: 'flex', justifyContent: 'center', padding: '4px 0' }}>
+                  <MatchCard match={m} tn={tn}
+                    onClick={canClick(m) ? () => onSlotClick(m.matchNumber ?? 0, m) : undefined}
+                    label={m.matchNumber ? `#${m.matchNumber}` : undefined} />
+                </div>
+              )) : (
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <MatchCard match={undefined} tn={tn} label="결승" />
+                </div>
+              )}
           </div>
 
           {/* Right block (reversed for symmetry) */}

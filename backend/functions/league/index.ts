@@ -19,6 +19,8 @@ const MATCH_EVENTS = process.env.MATCH_EVENTS_TABLE!
 const MATCH_LINEUPS = process.env.MATCH_LINEUPS_TABLE!
 const MATCH_MOM = process.env.MATCH_MOM_TABLE!
 const LEAGUE_ROSTERS = process.env.LEAGUE_ROSTERS_TABLE!
+const TEAM_MEMBERS = process.env.TEAM_MEMBERS_TABLE!
+const CLUB_MEMBERS = process.env.CLUB_MEMBERS_TABLE || 'playground-club-members'
 
 const res = (statusCode: number, body: unknown) => ({
   statusCode,
@@ -617,15 +619,17 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       const body = parseBody(event.body)
       if (!body) return res(400, { message: '요청 본문이 올바른 JSON 형식이 아닙니다' })
       // F-3: 필수 필드 검증
-      const { teamId } = body as { teamId?: string }
+      const { teamId, clubId } = body as { teamId?: string; clubId?: string }
       if (!teamId || typeof teamId !== 'string') {
         return res(400, { message: '팀 ID(teamId)는 필수입니다' })
       }
       // F-2: 중복 참가 방지 (ConditionExpression)
       try {
+        const item: Record<string, unknown> = { leagueId, teamId, joinedAt: new Date().toISOString() }
+        if (clubId) item.clubId = clubId
         await db.send(new PutCommand({
           TableName: LEAGUE_TEAMS,
-          Item: { leagueId, teamId, joinedAt: new Date().toISOString() },
+          Item: item,
           ConditionExpression: 'attribute_not_exists(leagueId) AND attribute_not_exists(teamId)',
         }))
       } catch (e) {
@@ -655,6 +659,118 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     }
 
     // ── 로스터 관리 ──────────────────────────────────────────────────────────
+
+    // POST /league/:id/rosters/auto-populate — 팀 멤버 → 로스터 자동 등록
+    if (method === 'POST' && parts[1] === 'rosters' && parts[2] === 'auto-populate' && !parts[3]) {
+      if (!userId) return res(401, { message: 'Unauthorized' })
+      const league = await db.send(new GetCommand({ TableName: LEAGUES, Key: { id: leagueId } }))
+      if (!league.Item) return res(404, { message: 'League not found' })
+      if (league.Item.organizerId !== userId) return res(403, { message: '리그 주최자만 실행할 수 있습니다' })
+
+      // 참가팀 목록
+      const ltResult = await db.send(new QueryCommand({
+        TableName: LEAGUE_TEAMS,
+        KeyConditionExpression: 'leagueId = :lid',
+        ExpressionAttributeValues: { ':lid': leagueId },
+      }))
+      const leagueTeamsList = ltResult.Items ?? []
+
+      let totalPopulated = 0
+      const teamResults: Array<{ teamId: string; added: number; skipped: number }> = []
+
+      for (const lt of leagueTeamsList) {
+        const teamId = lt.teamId as string
+        const clubId = lt.clubId as string | undefined
+
+        // 기존 로스터 확인
+        const existingRoster = await db.send(new QueryCommand({
+          TableName: LEAGUE_ROSTERS,
+          KeyConditionExpression: 'leagueId = :lid AND begins_with(sk, :prefix)',
+          ExpressionAttributeValues: { ':lid': leagueId, ':prefix': `${teamId}#` },
+        }))
+        const existingPlayerIds = new Set(
+          (existingRoster.Items ?? []).map(i => (i.sk as string).split('#')[1])
+        )
+        const usedNumbers = new Set(
+          (existingRoster.Items ?? []).map(i => i.jerseyNumber as number)
+        )
+
+        // 1) pg-team-members 조회 (Manage API)
+        const membersResult = await db.send(new QueryCommand({
+          TableName: TEAM_MEMBERS,
+          KeyConditionExpression: 'teamId = :tid',
+          ExpressionAttributeValues: { ':tid': teamId },
+        }))
+
+        // 2) playground-club-members 조회 (Auth API) — clubId가 있을 때만
+        let clubMembers: Record<string, unknown>[] = []
+        if (clubId) {
+          try {
+            const cmResult = await db.send(new QueryCommand({
+              TableName: CLUB_MEMBERS,
+              KeyConditionExpression: 'clubId = :cid',
+              ExpressionAttributeValues: { ':cid': clubId },
+            }))
+            clubMembers = cmResult.Items ?? []
+          } catch { /* playground-club-members 접근 불가 시 무시 */ }
+        }
+
+        // 3) 두 소스 병합 — memberId 기준 중복 제거
+        const allMembers: Array<{ id: string; name: string; number?: number; position?: string }> = []
+        const seenIds = new Set<string>()
+
+        for (const m of membersResult.Items ?? []) {
+          const id = m.userId as string
+          if (!seenIds.has(id)) {
+            seenIds.add(id)
+            allMembers.push({ id, name: (m.name as string) || id, number: m.number as number | undefined, position: m.position as string | undefined })
+          }
+        }
+        for (const cm of clubMembers) {
+          const id = (cm.email as string) || (cm.userId as string)
+          if (id && !seenIds.has(id)) {
+            seenIds.add(id)
+            allMembers.push({ id, name: (cm.name as string) || id, number: cm.jerseyNumber as number | undefined, position: cm.position as string | undefined })
+          }
+        }
+
+        let added = 0
+        let skipped = 0
+        const now = new Date().toISOString()
+
+        for (const member of allMembers) {
+          if (existingPlayerIds.has(member.id)) { skipped++; continue }
+
+          let jerseyNumber = member.number
+          if (!jerseyNumber || usedNumbers.has(jerseyNumber)) {
+            jerseyNumber = 1
+            while (usedNumbers.has(jerseyNumber) && jerseyNumber <= 99) jerseyNumber++
+          }
+          usedNumbers.add(jerseyNumber)
+
+          await db.send(new PutCommand({
+            TableName: LEAGUE_ROSTERS,
+            Item: {
+              leagueId,
+              sk: `${teamId}#${member.id}`,
+              teamId,
+              playerId: member.id,
+              name: member.name,
+              jerseyNumber,
+              department: member.position || '',
+              verified: false,
+              registeredAt: now,
+            },
+          }))
+          added++
+          totalPopulated++
+        }
+
+        teamResults.push({ teamId, added, skipped })
+      }
+
+      return res(200, { message: `${totalPopulated}명 자동 등록 완료`, totalPopulated, teams: teamResults })
+    }
 
     // GET /league/:id/rosters
     if (method === 'GET' && parts[1] === 'rosters' && !parts[2]) {

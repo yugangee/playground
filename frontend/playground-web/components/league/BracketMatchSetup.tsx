@@ -89,7 +89,7 @@ export default function BracketMatchSetup({ leagueId, match, teams, teamNames, o
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.5)' }} onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl p-6 shadow-xl"
-        style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}
+        style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--card-border)' }}
         onClick={e => e.stopPropagation()}>
 
         <div className="flex items-center justify-between mb-5">

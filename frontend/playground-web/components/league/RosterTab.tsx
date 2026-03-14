@@ -158,6 +158,61 @@ export default function RosterTab({ leagueId, teams, teamNames, isOrganizer, lea
     }
   }
 
+  const importFromTeamMembers = async () => {
+    if (!selectedTeamId) return
+    try {
+      // 1) Manage API (pg-team-members)
+      let members: Array<{ userId: string; name?: string; number?: number; position?: string }> = []
+      try {
+        const m = await manageFetch(`/team/${selectedTeamId}/members`)
+        if (Array.isArray(m)) members = m
+      } catch { /* ignore */ }
+
+      // 2) Auth API (playground-club-members) — teamId를 clubId로 시도
+      const AUTH_API = process.env.NEXT_PUBLIC_API_URL
+      if (AUTH_API) {
+        try {
+          const r = await fetch(`${AUTH_API}/club-members/${selectedTeamId}`)
+          if (r.ok) {
+            const data = await r.json()
+            const clubMembers: Array<{ email?: string; name?: string; jerseyNumber?: number; position?: string }> = data.members ?? data ?? []
+            // 중복 제거 후 병합
+            const existingIds = new Set(members.map(m => m.userId))
+            for (const cm of clubMembers) {
+              const id = cm.email ?? ''
+              if (id && !existingIds.has(id)) {
+                existingIds.add(id)
+                members.push({ userId: id, name: cm.name ?? id.split('@')[0], number: cm.jerseyNumber, position: cm.position })
+              }
+            }
+          }
+        } catch { /* Auth API 접근 불가 시 무시 */ }
+      }
+
+      if (members.length === 0) {
+        setError('등록된 팀 멤버가 없습니다')
+        return
+      }
+      const usedNumbers = new Set<number>()
+      const imported: EditingPlayer[] = members.map(m => {
+        let num = m.number ?? 1
+        while (usedNumbers.has(num) && num <= 99) num++
+        usedNumbers.add(num)
+        return {
+          playerId: m.userId,
+          name: m.name ?? '',
+          jerseyNumber: num,
+          department: m.position ?? '',
+          verified: false,
+        }
+      })
+      setEditing(imported)
+      setIsEditMode(true)
+    } catch {
+      setError('팀 멤버를 불러올 수 없습니다')
+    }
+  }
+
   return (
     <div className="flex gap-4 flex-col sm:flex-row">
       {/* 좌측: 팀 리스트 */}
@@ -279,7 +334,20 @@ export default function RosterTab({ leagueId, teams, teamNames, isOrganizer, lea
               roster.length === 0 ? (
                 <div className="py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
                   등록된 선수가 없습니다
-                  {isOrganizer && <><br /><span className="text-xs">편집 버튼을 눌러 선수를 등록하세요</span></>}
+                  {isOrganizer && leagueStatus !== 'finished' && (
+                    <div className="mt-3 flex justify-center gap-2">
+                      <button onClick={importFromTeamMembers}
+                        className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                        style={{ color: 'var(--btn-solid-bg)', border: '1px solid var(--card-border)' }}>
+                        팀 멤버 불러오기
+                      </button>
+                      <button onClick={startEdit}
+                        className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                        style={{ color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
+                        직접 등록
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="overflow-x-auto">

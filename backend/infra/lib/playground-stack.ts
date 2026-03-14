@@ -398,6 +398,7 @@ export class PlaygroundStack extends cdk.Stack {
         ...lambdaDefaults,
         entry: '../functions/league/index.ts',
         functionName: 'playground-league',
+        timeout: cdk.Duration.seconds(30),
       }),
       notifications: new NodejsFunction(this, 'NotificationsFunction', {
         ...lambdaDefaults,
@@ -443,6 +444,11 @@ export class PlaygroundStack extends cdk.Stack {
     })
     seasonResetRule.addTarget(new targets.LambdaFunction(seasonResetFn))
 
+    // Auth API 테이블 (CDK 외부) — league auto-populate에서 클럽 멤버 조회용
+    const clubMembersTable = dynamodb.Table.fromTableName(this, 'ClubMembersTable', 'playground-club-members')
+    clubMembersTable.grantReadData(functions.league)
+    functions.league.addEnvironment('CLUB_MEMBERS_TABLE', 'playground-club-members')
+
     // Lambda에 DynamoDB, S3, SNS 권한 부여
     Object.values(tables).forEach(table => {
       Object.values(functions).forEach(fn => table.grantReadWriteData(fn))
@@ -474,6 +480,14 @@ export class PlaygroundStack extends cdk.Stack {
     })
     api.addGatewayResponse('AccessDeniedCors', {
       type: apigateway.ResponseType.ACCESS_DENIED,
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+        'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+      },
+    })
+    // Lambda 오류/타임아웃 시 5xx 응답에도 CORS 헤더 추가
+    api.addGatewayResponse('Default5xxCors', {
+      type: apigateway.ResponseType.DEFAULT_5XX,
       responseHeaders: {
         'Access-Control-Allow-Origin': "'*'",
         'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",

@@ -40,6 +40,7 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
   const [detailTeam, setDetailTeam] = useState<Team | null>(null)
   const [tabOverride, setTabOverride] = useState<DetailTab | null>(null)
   const [setupMatch, setSetupMatch] = useState<LeagueMatch | null>(null)
+  const [rosterCounts, setRosterCounts] = useState<Record<string, number>>({})
 
   const tab = tabOverride ?? getDefaultTab(league, matches.length)
   const setTab = (t: DetailTab) => setTabOverride(t)
@@ -93,9 +94,21 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
     } catch { return [] }
   }
 
+  const loadRosterCounts = async () => {
+    try {
+      const allRosters = await manageFetch(`/league/${league.id}/rosters`)
+      const counts: Record<string, number> = {}
+      for (const r of (allRosters ?? [])) {
+        const tid = r.teamId as string
+        counts[tid] = (counts[tid] ?? 0) + 1
+      }
+      setRosterCounts(counts)
+    } catch { /* ignore */ }
+  }
+
   useEffect(() => {
     fetchAllTeamInfo().then(() => {
-      Promise.all([loadTeams(), loadMatches()]).then(([teamsData, matchesData]) => {
+      Promise.all([loadTeams(), loadMatches(), loadRosterCounts()]).then(([teamsData, matchesData]) => {
         extractNamesFromData(teamsData, matchesData)
       })
     })
@@ -120,19 +133,30 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
   const startLeague = async () => {
     // KJA 커스텀 대진표 → 57경기 일괄 생성
     if (isTournament && isKJATemplate) {
-      if (!confirm(`KJA 52팀 대진표 (57경기)를 생성하고 대회를 시작하시겠습니까?\n대진표에서 시드 팀과 참가 팀을 배정할 수 있습니다.`)) return
+      // 이미 매치가 존재하면 (시드 데이터 등) 생성 단계 건너뛰고 상태만 변경
+      const hasExistingMatches = matches.length > 0
+      const confirmMsg = hasExistingMatches
+        ? `이미 ${matches.length}개의 경기가 등록되어 있습니다. 대회를 시작하시겠습니까?`
+        : `KJA 52팀 대진표 (57경기)를 생성하고 대회를 시작하시겠습니까?\n대진표에서 시드 팀과 참가 팀을 배정할 수 있습니다.`
+      if (!confirm(confirmMsg)) return
       setGenerating(true)
       try {
-        const defaultDate = league.startDate
-          ? new Date(league.startDate).toISOString()
-          : new Date().toISOString()
-        const venue = league.region ?? '미정'
+        if (!hasExistingMatches) {
+          const defaultDate = league.startDate
+            ? new Date(league.startDate).toISOString()
+            : new Date().toISOString()
+          const venue = league.region ?? '미정'
 
-        const batchPayload = kjaTemplateToBatchPayload({}, defaultDate, venue)
-        await manageFetch(`/league/${league.id}/matches`, {
-          method: 'POST',
-          body: JSON.stringify({ matches: batchPayload }),
-        })
+          const batchPayload = kjaTemplateToBatchPayload({}, defaultDate, venue)
+          await manageFetch(`/league/${league.id}/matches`, {
+            method: 'POST',
+            body: JSON.stringify({ matches: batchPayload }),
+          })
+        }
+
+        // 팀 멤버 → 로스터 자동 등록
+        try { await manageFetch(`/league/${league.id}/rosters/auto-populate`, { method: 'POST' }) }
+        catch (e) { console.warn('Auto-populate rosters failed:', e) }
 
         await manageFetch(`/league/${league.id}`, {
           method: 'PATCH',
@@ -150,47 +174,57 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
 
     // 고정 대진표 → TBD 매치 일괄 생성
     if (isTournament && league.bracketSize) {
-      if (!confirm(`${league.bracketSize}팀 대진표를 생성하고 대회를 시작하시겠습니까?\n대진표에서 팀을 배정할 수 있습니다.`)) return
+      const hasExisting = matches.length > 0
+      const msg = hasExisting
+        ? `이미 ${matches.length}개의 경기가 등록되어 있습니다. 대회를 시작하시겠습니까?`
+        : `${league.bracketSize}팀 대진표를 생성하고 대회를 시작하시겠습니까?\n대진표에서 팀을 배정할 수 있습니다.`
+      if (!confirm(msg)) return
       setGenerating(true)
       try {
-        const bracketMatches = generateFullBracket(league.bracketSize!, new Map())
+        if (!hasExisting) {
+          const bracketMatches = generateFullBracket(league.bracketSize!, new Map())
 
-        const defaultDate = league.startDate
-          ? new Date(league.startDate).toISOString()
-          : new Date().toISOString()
-        const venue = league.region ?? '미정'
+          const defaultDate = league.startDate
+            ? new Date(league.startDate).toISOString()
+            : new Date().toISOString()
+          const venue = league.region ?? '미정'
 
-        // Use batch creation if available
-        try {
-          await manageFetch(`/league/${league.id}/matches`, {
-            method: 'POST',
-            body: JSON.stringify({
-              matches: bracketMatches.map(bm => ({
-                homeTeamId: bm.homeTeamId,
-                awayTeamId: bm.awayTeamId,
-                round: bm.round,
-                matchNumber: bm.matchNumber,
-                scheduledAt: defaultDate,
-                venue,
-              })),
-            }),
-          })
-        } catch {
-          // Fallback to individual creation
-          for (const bm of bracketMatches) {
+          // Use batch creation if available
+          try {
             await manageFetch(`/league/${league.id}/matches`, {
               method: 'POST',
               body: JSON.stringify({
-                homeTeamId: bm.homeTeamId,
-                awayTeamId: bm.awayTeamId,
-                round: bm.round,
-                matchNumber: bm.matchNumber,
-                scheduledAt: defaultDate,
-                venue,
+                matches: bracketMatches.map(bm => ({
+                  homeTeamId: bm.homeTeamId,
+                  awayTeamId: bm.awayTeamId,
+                  round: bm.round,
+                  matchNumber: bm.matchNumber,
+                  scheduledAt: defaultDate,
+                  venue,
+                })),
               }),
             })
+          } catch {
+            // Fallback to individual creation
+            for (const bm of bracketMatches) {
+              await manageFetch(`/league/${league.id}/matches`, {
+                method: 'POST',
+                body: JSON.stringify({
+                  homeTeamId: bm.homeTeamId,
+                  awayTeamId: bm.awayTeamId,
+                  round: bm.round,
+                  matchNumber: bm.matchNumber,
+                  scheduledAt: defaultDate,
+                  venue,
+                }),
+              })
+            }
           }
         }
+
+        // 팀 멤버 → 로스터 자동 등록
+        try { await manageFetch(`/league/${league.id}/rosters/auto-populate`, { method: 'POST' }) }
+        catch (e) { console.warn('Auto-populate rosters failed:', e) }
 
         await manageFetch(`/league/${league.id}`, {
           method: 'PATCH',
@@ -232,6 +266,10 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
           })
         )
       )
+
+      // 팀 멤버 → 로스터 자동 등록
+      try { await manageFetch(`/league/${league.id}/rosters/auto-populate`, { method: 'POST' }) }
+      catch (e) { console.warn('Auto-populate rosters failed:', e) }
 
       await manageFetch(`/league/${league.id}`, {
         method: 'PATCH',
@@ -438,6 +476,19 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
 
       {tab === 'teams' && (
         <div className="space-y-4">
+          {/* 등록 현황 요약 */}
+          {teams.length > 0 && Object.keys(rosterCounts).length > 0 && (
+            <div className="flex items-center gap-3 rounded-xl px-4 py-3"
+              style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
+              <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>선수 등록 현황</span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {Object.values(rosterCounts).filter(c => c > 0).length}/{teams.length}팀 등록 완료
+              </span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                (총 {Object.values(rosterCounts).reduce((s, c) => s + c, 0)}명)
+              </span>
+            </div>
+          )}
           {isOrganizer && league.status === 'recruiting' && (
             <TeamSearchInvite onInvite={async (invTeamId) => {
               await manageFetch(`/league/${league.id}/teams`, { method: 'POST', body: JSON.stringify({ teamId: invTeamId }) })
@@ -472,6 +523,12 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
                             {t.teamId === currentTeamId && (
                               <span className="flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium"
                                 style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981' }}>우리팀</span>
+                            )}
+                            {(rosterCounts[t.teamId] ?? 0) > 0 && (
+                              <span className="flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                                style={{ background: 'rgba(59,130,246,0.12)', color: '#3b82f6' }}>
+                                {rosterCounts[t.teamId]}명
+                              </span>
                             )}
                           </div>
                           {team && (
