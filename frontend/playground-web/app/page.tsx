@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
-import { ShoppingCart, Users, BarChart2, ArrowRight, Search, Zap, Shield, Check, Trophy, Swords, Calendar, Wallet, Play, Eye, MessageCircle, Heart, TrendingUp, Bell, MapPin, Clock } from "lucide-react";
+import { ShoppingCart, Users, BarChart2, ArrowRight, Search, Zap, Shield, Check, Trophy, Swords, Calendar, Wallet, Play, Eye, MessageCircle, Heart, TrendingUp, Bell, MapPin, Clock, HelpCircle, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { manageFetch } from "@/lib/manageFetch";
 
@@ -27,7 +27,8 @@ const tournaments = [
     status: "모집중",
     date: "2026.04.18 - 04.25",
     teams: "52개팀",
-    image: "/kja-tournament.png"
+    image: "/kja-tournament.png",
+    href: "/manage/league"
   },
 ];
 
@@ -139,60 +140,62 @@ function TournamentCarousel() {
     : { bg: "#F1F5F9", text: "#64748B", border: "#E2E8F0" };
 
   return (
-    <div
-      className="rounded-2xl overflow-hidden cursor-pointer card-hover"
-      style={{ background: "var(--card-bg)", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-    >
-      {/* 이미지 영역 */}
-      <div className="relative aspect-[21/9] sm:aspect-[3/1]">
-        {item.image ? (
-          <img
-            src={item.image}
-            alt={item.title}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-        ) : (
-          <div className="absolute inset-0" style={{ background: "#F1F5F9" }} />
-        )}
+    <Link href={item.href || "/league"}>
+      <div
+        className="rounded-2xl overflow-hidden cursor-pointer card-hover"
+        style={{ background: "var(--card-bg)", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
+        {/* 이미지 영역 */}
+        <div className="relative aspect-[21/9] sm:aspect-[3/1]">
+          {item.image ? (
+            <img
+              src={item.image}
+              alt={item.title}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0" style={{ background: "#F1F5F9" }} />
+          )}
 
-        {/* 인디케이터 도트 */}
-        {tournaments.length > 1 && (
-          <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
-            {tournaments.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrent(i)}
-                className="rounded-full transition-all duration-300"
-                style={i === current
-                  ? { width: "16px", height: "4px", background: "#ffffff" }
-                  : { width: "4px", height: "4px", background: "rgba(255,255,255,0.5)" }
-                }
-                aria-label={`대회 ${i + 1}번으로 이동`}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* 텍스트 영역 */}
-      <div className="p-4 space-y-2">
-        <div className="flex items-center gap-2">
-          <span
-            className="text-xs px-2 py-0.5 rounded font-medium"
-            style={{ background: statusColor.bg, color: statusColor.text }}
-          >
-            {item.status}
-          </span>
-          <span className="text-xs" style={{ color: "var(--text-muted)" }}>{item.date}</span>
+          {/* 인디케이터 도트 */}
+          {tournaments.length > 1 && (
+            <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+              {tournaments.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={(e) => { e.preventDefault(); setCurrent(i); }}
+                  className="rounded-full transition-all duration-300"
+                  style={i === current
+                    ? { width: "16px", height: "4px", background: "#ffffff" }
+                    : { width: "4px", height: "4px", background: "rgba(255,255,255,0.5)" }
+                  }
+                  aria-label={`대회 ${i + 1}번으로 이동`}
+                />
+              ))}
+            </div>
+          )}
         </div>
-        <p className="text-sm leading-snug">
-          <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{item.title}</span>
-          <span style={{ color: "var(--text-muted)" }}> · {item.teams}</span>
-        </p>
+
+        {/* 텍스트 영역 */}
+        <div className="p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <span
+              className="text-xs px-2 py-0.5 rounded font-medium"
+              style={{ background: statusColor.bg, color: statusColor.text }}
+            >
+              {item.status}
+            </span>
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>{item.date}</span>
+          </div>
+          <p className="text-sm leading-snug">
+            <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{item.title}</span>
+            <span style={{ color: "var(--text-muted)" }}> · {item.teams}</span>
+          </p>
+        </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -297,6 +300,56 @@ function getGreeting() {
   return "좋은 저녁이에요";
 }
 
+function HelpModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  if (!open) return null;
+  const items = [
+    { icon: Calendar, label: "일정 관리", desc: "경기·훈련 일정을 등록하고 출석을 관리하세요", href: "/schedule" },
+    { icon: Users, label: "팀 관리", desc: "선수 등록, 포지션 배정, 유니폼 관리", href: "/manage/team" },
+    { icon: Trophy, label: "대회", desc: "리그·토너먼트를 만들거나 참가하세요", href: "/manage/league" },
+    { icon: Wallet, label: "회비 관리", desc: "수입·지출 내역과 회비·벌금 관리", href: "/finance" },
+    { icon: BarChart2, label: "AI 분석", desc: "영상 분석, 리포트, GPS 퍼포먼스", href: "/video" },
+    { icon: Search, label: "클럽 탐색", desc: "주변 클럽을 찾고 경기를 제안하세요", href: "/clubs" },
+  ];
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.5)" }} />
+      <div
+        className="relative w-full max-w-md rounded-2xl p-6 space-y-5"
+        style={{ background: "var(--card-bg)", boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>도움말</h2>
+          <button onClick={onClose} className="p-1 rounded-lg transition-colors" style={{ color: "var(--text-muted)" }}>
+            <X size={18} />
+          </button>
+        </div>
+        <p className="text-sm" style={{ color: "var(--text-muted)" }}>PLAYGROUND에서 할 수 있는 것들</p>
+        <div className="space-y-1">
+          {items.map((item) => (
+            <Link key={item.href} href={item.href} onClick={onClose}>
+              <div className="flex items-center gap-3 p-3 rounded-xl transition-colors hover:bg-[var(--hover-overlay)]">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: "var(--brand-primary-light)" }}>
+                  <item.icon size={18} style={{ color: "var(--brand-primary)" }} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>{item.label}</div>
+                  <div className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{item.desc}</div>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+        <div className="pt-2 text-center">
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            문의: team@sedaily.ai
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LoggedInHome({ user, name, recentTeams: initialRecent, topMatchTeams: initialTop }: { user: any; name: string; recentTeams: any[]; topMatchTeams: any[] }) {
   const [sport, setSport] = useState<string>(() => {
     try {
@@ -323,6 +376,7 @@ function LoggedInHome({ user, name, recentTeams: initialRecent, topMatchTeams: i
   const [myAnnouncements, setMyAnnouncements] = useState<any[]>([]);
   const [myTeamName, setMyTeamName] = useState<string>("");
   const [personalLoading, setPersonalLoading] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   // 사용자 팀 데이터 로드
   useEffect(() => {
@@ -488,6 +542,19 @@ function LoggedInHome({ user, name, recentTeams: initialRecent, topMatchTeams: i
 
   return (
     <div className="max-w-5xl mx-auto space-y-10">
+      {/* 도움말 버튼 */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowHelp(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--hover-overlay)]"
+          style={{ color: "var(--text-muted)" }}
+        >
+          <HelpCircle size={15} />
+          도움말
+        </button>
+      </div>
+      <HelpModal open={showHelp} onClose={() => setShowHelp(false)} />
+
       {/* 진행중인 대회 */}
       <TournamentCarousel />
 
