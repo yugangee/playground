@@ -59,7 +59,7 @@ export default function MobileVideoPage() {
             className="aspect-video rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-4 p-8"
             style={{ borderColor: "var(--card-border)" }}
           >
-            <Upload size={48} className="text-fuchsia-500" />
+            <Upload size={48} className="text-[var(--brand-primary)]" />
             <div className="text-center">
               <p className="font-medium mb-1" style={{ color: "var(--text-primary)" }}>
                 영상을 업로드하세요
@@ -69,7 +69,7 @@ export default function MobileVideoPage() {
               </p>
             </div>
             <label className="px-6 py-3 rounded-full text-sm font-semibold text-white cursor-pointer"
-              style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+              style={{ background: "var(--brand-primary)" }}>
               파일 선택
               <input
                 ref={inputRef}
@@ -95,7 +95,7 @@ export default function MobileVideoPage() {
               <button
                 onClick={startAnalysis}
                 className="w-full py-4 rounded-2xl text-lg font-semibold text-white"
-                style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
+                style={{ background: "var(--brand-primary)" }}
               >
                 AI 분석 시작
               </button>
@@ -119,11 +119,11 @@ export default function MobileVideoPage() {
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span style={{ color: "var(--text-muted)" }}>진행률</span>
-              <span className="font-semibold text-fuchsia-500">{Math.round(progress)}%</span>
+              <span className="font-semibold text-[var(--brand-primary)]">{Math.round(progress)}%</span>
             </div>
             <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-fuchsia-500 to-purple-600 transition-all duration-500"
+                className="h-full bg-[var(--brand-primary)] transition-all duration-500"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -142,7 +142,7 @@ export default function MobileVideoPage() {
           
           <div className="grid grid-cols-2 gap-4">
             <div className="p-4 rounded-xl border text-center" style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}>
-              <p className="text-2xl font-bold text-fuchsia-500">3</p>
+              <p className="text-2xl font-bold text-[var(--brand-primary)]">3</p>
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>골</p>
             </div>
             <div className="p-4 rounded-xl border text-center" style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}>
@@ -177,7 +177,7 @@ export default function MobileVideoPage() {
 
       {/* 로그인 안내 */}
       {!user && (
-        <div className="p-4 rounded-xl border border-fuchsia-500/20 bg-fuchsia-500/5">
+        <div className="p-4 rounded-xl border border-[var(--card-border)] bg-[var(--brand-primary-light)]">
           <p className="text-sm text-center" style={{ color: "var(--text-primary)" }}>
             로그인하여 실제 AI 분석을 이용해보세요
           </p>

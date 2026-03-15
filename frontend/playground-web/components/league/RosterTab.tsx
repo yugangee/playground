@@ -323,7 +323,7 @@ export default function RosterTab({ leagueId, teams, teamNames, isOrganizer, lea
                 ))}
                 {editing.length < maxPlayers && (
                   <button onClick={addPlayer}
-                    className="w-full rounded-lg py-2 text-xs font-medium transition-colors hover:opacity-80"
+                    className="w-full rounded-lg py-2 text-xs font-medium hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
                     style={{ color: 'var(--btn-solid-bg)', border: '1px dashed var(--card-border)' }}>
                     + 선수 추가
                   </button>

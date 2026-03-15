@@ -67,7 +67,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   function sendTimeSlot(id: number, date: string, times: string[]) {
     setRooms(prev => prev.map(r => r.id === id
-      ? { ...r, msgs: [...r.msgs, { from: "me", text: `📅 ${date}`, times }] }
+      ? { ...r, msgs: [...r.msgs, { from: "me", text: `${date}`, times }] }
       : r
     ));
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Trophy } from "lucide-react";
 
 export default function PWAInstallBanner() {
   const [show, setShow] = useState(false);
@@ -29,17 +30,16 @@ export default function PWAInstallBanner() {
     <div
       className="fixed bottom-4 left-4 right-4 z-50 rounded-2xl border px-4 py-3 shadow-2xl"
       style={{
-        background: "rgba(15,15,20,0.96)",
-        borderColor: "rgba(124,58,237,0.35)",
-        backdropFilter: "blur(12px)",
+        background: "var(--card-bg)",
+        borderColor: "var(--card-border)",
       }}
     >
       <div className="flex items-start gap-3">
         <div
           className="h-10 w-10 shrink-0 rounded-xl flex items-center justify-center text-lg"
-          style={{ background: "linear-gradient(135deg, #7c3aed, #c026d3)" }}
+          style={{ background: "var(--brand-primary)" }}
         >
-          ⚽
+          <Trophy size={20} className="text-white" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-white">홈 화면에 추가</p>

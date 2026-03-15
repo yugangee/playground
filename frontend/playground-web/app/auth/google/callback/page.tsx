@@ -9,7 +9,7 @@ const API = process.env.NEXT_PUBLIC_API_URL;
 
 const Spinner = () => (
   <div className="flex justify-center items-center min-h-screen">
-    <div className="w-6 h-6 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
+    <div className="w-6 h-6 border-2 border-[var(--brand-primary)] border-t-transparent rounded-full animate-spin" />
   </div>
 );
 
@@ -114,7 +114,7 @@ function GoogleCallbackInner() {
 
   return (
     <div className="flex flex-col justify-center items-center min-h-screen gap-3">
-      <div className="w-6 h-6 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
+      <div className="w-6 h-6 border-2 border-[var(--brand-primary)] border-t-transparent rounded-full animate-spin" />
       <p className="text-xs text-gray-400">{status}</p>
     </div>
   );

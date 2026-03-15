@@ -157,7 +157,7 @@ export default function MatchDetailModal({ match, leagueId, isOrganizer, leagueS
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
+      style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl p-6 shadow-2xl"
         onClick={e => e.stopPropagation()}
         style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--card-border)' }}>
@@ -368,7 +368,7 @@ export default function MatchDetailModal({ match, leagueId, isOrganizer, leagueS
                             <span className="flex-shrink-0 font-mono text-xs font-bold tabular-nums" style={{ color: 'var(--text-muted)' }}>{ev.minute}&apos;</span>
                           )}
                           {ev.type === 'goal' ? (
-                            <span className="flex-shrink-0 text-sm">⚽</span>
+                            <span className="flex-shrink-0 w-2 h-2 rounded-full bg-emerald-500" />
                           ) : (
                             <span className={`flex-shrink-0 inline-block h-4 w-3 rounded-sm ${(ev as { cardType?: string }).cardType === 'yellow' ? 'bg-yellow-400' : 'bg-red-500'}`} />
                           )}
@@ -443,7 +443,7 @@ export default function MatchDetailModal({ match, leagueId, isOrganizer, leagueS
           <div className="mt-4">
             {!showForfeit ? (
               <button onClick={() => setShowForfeit(true)}
-                className="rounded-xl px-4 py-2 text-xs font-semibold transition-colors hover:opacity-85"
+                className="rounded-xl px-4 py-2 text-xs font-semibold hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
                 style={{ color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
                 몰수패 처리
               </button>
@@ -485,12 +485,12 @@ export default function MatchDetailModal({ match, leagueId, isOrganizer, leagueS
         {canEdit && (
           <div className="mt-6 flex gap-3">
             <button onClick={() => save(false)} disabled={saving}
-              className="flex-1 rounded-xl py-3 text-sm font-semibold transition-colors hover:opacity-85 disabled:opacity-50"
+              className="flex-1 rounded-xl py-3 text-sm font-semibold hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all disabled:opacity-50"
               style={{ color: 'var(--text-primary)', border: '1px solid var(--card-border)' }}>
               {saving ? '저장 중...' : '임시 저장'}
             </button>
             <button onClick={() => save(true)} disabled={saving || homeScore === '' || awayScore === ''}
-              className="flex-1 rounded-xl bg-[var(--btn-solid-bg)] py-3 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85 disabled:opacity-50">
+              className="flex-1 rounded-xl bg-[var(--btn-solid-bg)] py-3 text-sm font-semibold text-[var(--btn-solid-color)] btn-press disabled:opacity-50">
               {saving ? '저장 중...' : '결과 확정'}
             </button>
           </div>

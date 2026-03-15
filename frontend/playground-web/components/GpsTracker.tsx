@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { MapPin, Zap, Target } from 'lucide-react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import { manageFetch } from '@/lib/manageFetch'
 
@@ -470,9 +471,13 @@ export function GpsTracker({ onClose }: GpsTrackerProps) {
                 <p>경기 시작 전 "추적 시작"을 누르세요. GPS가 이동 경로를 기록하며 경기 후 히트맵·속도 분석을 제공합니다.</p>
               </div>
               <div className="grid grid-cols-3 gap-3 text-center text-xs text-slate-500">
-                {[['📍', '이동 거리'], ['⚡', '최고 속도'], ['🎯', '히트맵']].map(([icon, label]) => (
+                {[
+                  { icon: <MapPin size={24} className="text-slate-500" />, label: '이동 거리' },
+                  { icon: <Zap size={24} className="text-slate-500" />, label: '최고 속도' },
+                  { icon: <Target size={24} className="text-slate-500" />, label: '히트맵' },
+                ].map(({ icon, label }) => (
                   <div key={label} className="rounded-xl bg-slate-50 py-4">
-                    <div className="mb-1 text-2xl">{icon}</div>
+                    <div className="mb-1 flex justify-center">{icon}</div>
                     <div className="font-medium">{label}</div>
                   </div>
                 ))}

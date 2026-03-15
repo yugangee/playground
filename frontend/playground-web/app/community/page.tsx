@@ -35,7 +35,9 @@ const SPORT_COLOR: Record<string, string> = {
 };
 
 const MY_REGIONS = ["강남구", "서초구", "마포구"];
-const RANK_MEDAL = ["🥇", "🥈", "🥉"];
+function RankBadge({ rank }: { rank: number }) {
+  return <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold flex items-center justify-center">{rank}</span>;
+}
 
 // ─── Mock 데이터 ────────────────────────────────────────────────────────
 const mockHighlights = [
@@ -348,7 +350,7 @@ function PostRow({ post, index, hot }: { post: { id: number; title: string; auth
 function Overlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+      style={{ background: "rgba(0,0,0,0.7)" }}
       onClick={(e) => e.target === e.currentTarget && onClose()}>
       {children}
     </div>
@@ -484,7 +486,7 @@ function CommunityContent() {
           {tab !== "마켓" && (
             <button
               onClick={() => setShowWrite(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-150 hover:opacity-80 active:scale-95"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold btn-press"
               style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}
             >
               <PenLine size={15} />
@@ -532,8 +534,6 @@ function CommunityContent() {
         className="sticky top-0 z-30 -mx-4 px-4"
         style={{
           background: "var(--card-bg)",
-          backdropFilter: "blur(16px)",
-          WebkitBackdropFilter: "blur(16px)",
           borderBottom: "1px solid var(--card-border)",
         }}
       >
@@ -613,7 +613,7 @@ function CommunityContent() {
                           borderTop: i > 0 ? "1px solid var(--card-border)" : "none",
                         }}>
                         <span className="w-7 text-center font-bold text-sm shrink-0">
-                          {i < 3 ? RANK_MEDAL[i] : <span style={{ color: "var(--text-muted)" }}>{r.rank}</span>}
+                          {i < 3 ? <RankBadge rank={i + 1} /> : <span style={{ color: "var(--text-muted)" }}>{r.rank}</span>}
                         </span>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{r.name}</p>
@@ -641,7 +641,7 @@ function CommunityContent() {
                         background: i < 3 ? "var(--card-border)" : "var(--card-bg)",
                         borderTop: i > 0 ? "1px solid var(--card-border)" : "none",
                       }}>
-                      <span className="font-bold text-xs">{i < 3 ? RANK_MEDAL[i] : <span style={{ color: "var(--text-muted)" }}>{r.rank}</span>}</span>
+                      <span className="font-bold text-xs">{i < 3 ? <RankBadge rank={i + 1} /> : <span style={{ color: "var(--text-muted)" }}>{r.rank}</span>}</span>
                       <span className="font-medium truncate" style={{ color: "var(--text-primary)" }}>{r.name}</span>
                       <span className="text-center text-xs" style={{ color: "var(--text-muted)" }}>{r.wins}</span>
                       <span className="text-center text-xs" style={{ color: "var(--text-muted)" }}>{r.draws}</span>
@@ -662,7 +662,7 @@ function CommunityContent() {
                     <div className="aspect-[9/14] rounded-2xl overflow-hidden relative"
                       style={{ background: "var(--card-border)", border: "1px solid var(--card-border)" }}>
                       <div className="absolute inset-0"
-                        style={{ background: "linear-gradient(145deg, var(--card-border) 0%, var(--card-bg) 100%)" }} />
+                        style={{ border: '1px solid var(--card-border)', background: 'var(--card-bg)' }} />
                       {hoveredVideo === v.id && (
                         <div className="absolute inset-0 flex items-center justify-center transition-all"
                           style={{ background: "rgba(0,0,0,0.55)" }}>
@@ -762,7 +762,7 @@ function CommunityContent() {
                           background: i < 3 ? "var(--card-border)" : "var(--card-bg)",
                           borderTop: i > 0 ? "1px solid var(--card-border)" : "none",
                         }}>
-                        <span className="font-bold text-sm">{i < 3 ? RANK_MEDAL[i] : <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{r.rank}</span>}</span>
+                        <span className="font-bold text-sm">{i < 3 ? <RankBadge rank={i + 1} /> : <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{r.rank}</span>}</span>
                         <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{r.name}</span>
                         <span className="text-center text-xs" style={{ color: "var(--text-muted)" }}>{r.wins}</span>
                         <span className="text-center text-xs" style={{ color: "var(--text-muted)" }}>{r.draws}</span>
@@ -788,7 +788,7 @@ function CommunityContent() {
                         borderTop: i > 0 ? "1px solid var(--card-border)" : "none",
                       }}>
                       <span className="w-7 text-center font-bold text-sm shrink-0">
-                        {i < 3 ? RANK_MEDAL[i] : <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{r.rank}</span>}
+                        {i < 3 ? <RankBadge rank={i + 1} /> : <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{r.rank}</span>}
                       </span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{r.name}</p>

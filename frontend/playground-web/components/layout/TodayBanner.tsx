@@ -17,10 +17,10 @@ export default function TodayBanner() {
                 color: "var(--text-muted)",
             }}
         >
-            <span>📅</span>
+            <span style={{ color: 'var(--text-muted)' }}>Today</span>
             <span>{dateStr}</span>
             <span className="mx-1" style={{ color: "var(--card-border)" }}>·</span>
-            <span className="text-fuchsia-500 font-semibold">오늘 주변 경기 12개</span>
+            <span className="text-[var(--brand-primary)] font-semibold">오늘 주변 경기 12개</span>
         </div>
     );
 }

@@ -71,7 +71,7 @@ function SignupInner() {
     );
   }
 
-  const chipActive = { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" };
+  const chipActive = { background: "var(--brand-primary)", color: "white" };
   const chipInactive = { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)", border: "1px solid var(--chip-inactive-border)" };
 
   const handleSignup = async () => {
@@ -193,7 +193,7 @@ function SignupInner() {
         <button
           onClick={handleSignup}
           disabled={loading}
-          className="w-full py-3 rounded-xl font-semibold text-sm transition-opacity hover:opacity-90 disabled:opacity-50 border"
+          className="w-full py-3 rounded-xl font-semibold text-sm btn-press disabled:opacity-50 border"
           style={{ background: "#000000", color: "#ffffff", borderColor: "rgba(255,255,255,0.3)" }}
         >
           {loading ? "가입 중..." : "가입하기"}
@@ -213,7 +213,7 @@ function SignupInner() {
 
 export default function SignupPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center items-center min-h-screen"><div className="w-6 h-6 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" /></div>}>
+    <Suspense fallback={<div className="flex justify-center items-center min-h-screen"><div className="w-6 h-6 border-2 border-[var(--brand-primary)] border-t-transparent rounded-full animate-spin" /></div>}>
       <SignupInner />
     </Suspense>
   );

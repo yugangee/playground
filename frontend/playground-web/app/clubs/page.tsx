@@ -133,7 +133,7 @@ export default function ClubsPage() {
       if (!r.ok) { show(d.message || "가입 신청 실패", "error"); return; }
       
       setJoinRequestStatus(prev => ({ ...prev, [club.clubId]: "pending" }));
-      show(`${club.name}에 가입 신청했습니다! 관리자 승인을 기다려주세요 📝`, "success");
+      show(`${club.name}에 가입 신청했습니다! 관리자 승인을 기다려주세요`, "success");
       setSelected(null);
     } catch (e) {
       console.error(e);
@@ -269,11 +269,10 @@ export default function ClubsPage() {
             className="px-4 py-3 rounded-xl text-sm font-medium shadow-xl border animate-toast-in"
             style={{
               background: t.type === 'success'
-                ? 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.15))'
-                : 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.15))',
+                ? 'var(--color-success-light)'
+                : 'var(--color-error-light)',
               borderColor: t.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)',
               color: t.type === 'success' ? '#10b981' : '#ef4444',
-              backdropFilter: 'blur(8px)',
             }}
           >
             {t.message}
@@ -391,7 +390,7 @@ export default function ClubsPage() {
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ homeClubId: user.teamId, awayClubId: r.clubId, sport: r.sport, createdBy: user.email }),
                         });
-                        if (res.ok) { setProposed((p) => [...p, r.clubId]); show("경기를 제안했습니다! ⚔️", "success"); }
+                        if (res.ok) { setProposed((p) => [...p, r.clubId]); show("경기를 제안했습니다!", "success"); }
                         else { const d = await res.json(); show(d.message || "경기 제안 실패", "error"); }
                       } catch { show("경기 제안 실패", "error"); }
                     }}
@@ -415,7 +414,7 @@ export default function ClubsPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {paginated.map((c) => (
           <div key={c.clubId} onClick={() => setSelected(c)}
-            className="relative rounded-xl overflow-hidden flex flex-col transition-colors group text-left cursor-pointer"
+            className="relative rounded-xl overflow-hidden flex flex-col group text-left cursor-pointer card-hover"
             style={{ minHeight: "calc((100vh - 280px) / 2)", background: "var(--card-bg)", border: "1px solid var(--card-border)" }}
           >
             {c.image && <Image src={c.image} alt={c.name} fill className="object-cover opacity-20 group-hover:opacity-30 transition-opacity" />}
@@ -424,10 +423,10 @@ export default function ClubsPage() {
               <div>
                 <p className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{c.name}</p>
                 <div className="flex items-center gap-1.5 mt-1">
-                  {(c as any).isManageTeam && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(0,0,0,0.7)", color: "#ffffff" }}>팀</span>}
-                  <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(0,0,0,0.7)", color: "#ffffff" }}>{c.sport}</span>
+                  {(c as any).isManageTeam && <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(0,0,0,0.7)", color: "#ffffff" }}>팀</span>}
+                  <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(0,0,0,0.7)", color: "#ffffff" }}>{c.sport}</span>
                   {(c as any).teamRating && <RatingBadge tier={(c as any).teamRating.tier} type="team" size="sm" />}
-                  <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(0,0,0,0.7)", color: "#ffffff" }}>
+                  <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(0,0,0,0.7)", color: "#ffffff" }}>
                     <MapPin size={10} />
                     {c.areas?.[0]?.sido} {c.areas?.[0]?.sigungu}
                   </span>
@@ -742,11 +741,11 @@ export default function ClubsPage() {
                   });
                   const data = await r.json();
                   if (!r.ok) { show(data.message || "경기 제안 실패", "error"); return; }
-                  show("경기를 제안했습니다! ⚔️", "success");
+                  show("경기를 제안했습니다!", "success");
                   setSelected(null);
                 } catch { show("경기 제안 실패", "error"); }
               }}
-              className="w-full py-2.5 rounded-lg font-semibold text-sm transition-opacity hover:opacity-90"
+              className="w-full py-2.5 rounded-lg font-semibold text-sm btn-press"
               style={{ background: "#000000", color: "#ffffff" }}
             >
               경기 제안하기

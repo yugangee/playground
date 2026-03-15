@@ -32,7 +32,7 @@ export default function TeamDetailModal({ team, onClose }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={onClose}
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
+      style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl p-6 shadow-2xl"
         onClick={e => e.stopPropagation()}
         style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--card-border)' }}>

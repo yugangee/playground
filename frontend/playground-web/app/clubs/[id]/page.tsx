@@ -29,7 +29,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
               <p className="text-gray-400 text-sm">{club.sido} {club.sigungu}</p>
             </div>
           </div>
-          <span className="text-sm px-3 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-400">{club.style}</span>
+          <span className="text-sm px-3 py-1 rounded-full bg-[var(--brand-primary-light)] text-[var(--brand-primary)]">{club.style}</span>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -41,7 +41,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
           ].map(({ icon: Icon, label, value }) => (
             <div key={label} className="bg-white/5 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-1">
-                <Icon size={13} className="text-fuchsia-400" />
+                <Icon size={13} className="text-[var(--brand-primary)]" />
                 <span className="text-xs text-gray-500">{label}</span>
               </div>
               <p className="text-white font-semibold">{value}</p>
@@ -55,7 +55,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
           <div className="grid grid-cols-4 gap-2">
             {positionLabels.map(({ key, label }) => (
               <div key={key} className="flex flex-col items-center gap-1">
-                <span className="text-xs font-bold px-2 py-0.5 rounded bg-fuchsia-500/15 text-fuchsia-400">{label}</span>
+                <span className="text-xs font-bold px-2 py-0.5 rounded bg-[var(--brand-primary-light)] text-[var(--brand-primary)]">{label}</span>
                 <span className="text-white font-semibold text-sm">{club.positions[key]}명</span>
               </div>
             ))}
@@ -68,7 +68,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
           <div className="flex gap-2">
             {club.areas.map((area) => (
               <span key={area} className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-white/5 text-gray-300 border border-white/10">
-                <MapPin size={10} className="text-fuchsia-400" />
+                <MapPin size={10} className="text-[var(--brand-primary)]" />
                 {area}
               </span>
             ))}
@@ -77,7 +77,7 @@ export default async function ClubDetailPage({ params }: { params: Promise<{ id:
 
         <button
           className="w-full py-2.5 rounded-lg font-semibold text-sm text-white"
-          style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}
+          style={{ background: "var(--brand-primary)" }}
         >
           경기 제안하기
         </button>

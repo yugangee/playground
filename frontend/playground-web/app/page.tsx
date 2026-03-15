@@ -140,7 +140,7 @@ function TournamentCarousel() {
 
   return (
     <div
-      className="rounded-2xl overflow-hidden cursor-pointer transition-all hover:shadow-xl"
+      className="rounded-2xl overflow-hidden cursor-pointer card-hover"
       style={{ background: "var(--card-bg)", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -248,7 +248,7 @@ export default function Home() {
 function KJABanner() {
   return (
     <Link href="/league/kja-51">
-      <div className="rounded-2xl overflow-hidden cursor-pointer group transition-all hover:shadow-lg"
+      <div className="rounded-2xl overflow-hidden cursor-pointer group card-hover"
         style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
         <div className="px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
@@ -525,12 +525,12 @@ function LoggedInHome({ user, name, recentTeams: initialRecent, topMatchTeams: i
                   const timeStr = matchDate.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
                   return (
                     <Link key={match.id || i} href="/schedule">
-                      <div className="rounded-xl p-4 h-full transition-all cursor-pointer hover:shadow-md" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                      <div className="rounded-xl p-4 h-full cursor-pointer card-hover" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                         {/* 상단: 날짜 시간 상태 장소 */}
                         <div className="flex items-center gap-2 mb-3 text-[12px] font-medium" style={{ color: "var(--text-primary)" }}>
                           <span>{dateStr}</span>
                           <span>{timeStr}</span>
-                          <span className="px-1.5 py-0.5 rounded text-[10px]" style={{
+                          <span className="px-2 py-0.5 rounded text-[10px]" style={{
                             background: isTraining ? "#EEF2FF" : match.status === 'accepted' ? "#D1FAE5" : "#FEF3C7",
                             color: isTraining ? "#4F46E5" : match.status === 'accepted' ? "#059669" : "#D97706"
                           }}>
@@ -651,7 +651,7 @@ function LoggedInHome({ user, name, recentTeams: initialRecent, topMatchTeams: i
             .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
             .map((match, i) => (
               <Link key={i} href="/league/kja-51">
-                <div className="flex-shrink-0 w-52 rounded-2xl p-4 transition-all cursor-pointer hover:shadow-lg" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+                <div className="flex-shrink-0 w-52 rounded-2xl p-4 cursor-pointer card-hover" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] px-2 py-0.5 rounded font-medium" style={{ background: "#EEF2FF", color: "#4F46E5" }}>
@@ -682,7 +682,7 @@ function LoggedInHome({ user, name, recentTeams: initialRecent, topMatchTeams: i
         <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>팀 관리</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Link href="/schedule">
-            <div className="rounded-2xl p-4 transition-all hover:shadow-lg cursor-pointer" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+            <div className="rounded-2xl p-4 cursor-pointer card-hover" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "#EEF2FF" }}>
                   <Calendar size={20} style={{ color: "#4F46E5" }} />
@@ -695,7 +695,7 @@ function LoggedInHome({ user, name, recentTeams: initialRecent, topMatchTeams: i
             </div>
           </Link>
           <Link href="/manage/team">
-            <div className="rounded-2xl p-4 transition-all hover:shadow-lg cursor-pointer" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+            <div className="rounded-2xl p-4 cursor-pointer card-hover" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "#ECFDF5" }}>
                   <Users size={20} style={{ color: "#059669" }} />
@@ -708,7 +708,7 @@ function LoggedInHome({ user, name, recentTeams: initialRecent, topMatchTeams: i
             </div>
           </Link>
           <Link href="/finance">
-            <div className="rounded-2xl p-4 transition-all hover:shadow-lg cursor-pointer" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+            <div className="rounded-2xl p-4 cursor-pointer card-hover" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "#FEF3C7" }}>
                   <Wallet size={20} style={{ color: "#D97706" }} />
@@ -721,7 +721,7 @@ function LoggedInHome({ user, name, recentTeams: initialRecent, topMatchTeams: i
             </div>
           </Link>
           <Link href="/manage/league">
-            <div className="rounded-2xl p-4 transition-all hover:shadow-lg cursor-pointer" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+            <div className="rounded-2xl p-4 cursor-pointer card-hover" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "#F3E8FF" }}>
                   <Trophy size={20} style={{ color: "#7C3AED" }} />
@@ -753,7 +753,7 @@ function LoggedInHome({ user, name, recentTeams: initialRecent, topMatchTeams: i
             { title: "완벽한 스매시", player: "이서연", team: "강남 셔틀콕", views: 6540 },
           ].map((video, i) => (
             <Link key={i} href="/community">
-              <div className="rounded-xl overflow-hidden cursor-pointer transition-all hover:shadow-md" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              <div className="rounded-xl overflow-hidden cursor-pointer card-hover" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                 <div className="aspect-video flex items-center justify-center relative" style={{ background: "#F1F5F9" }}>
                   <Play size={24} style={{ color: "#94A3B8" }} />
                   <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}>
@@ -788,7 +788,7 @@ function LoggedInHome({ user, name, recentTeams: initialRecent, topMatchTeams: i
             { title: "농구 슛 폼 교정 팁", author: "농구코치", comments: 35, likes: 145, category: "농구", hot: true },
           ].map((post, i) => (
             <Link key={i} href={`/community?tab=${post.category}`}>
-              <div className="rounded-2xl p-4 transition-all cursor-pointer hover:shadow-lg" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+              <div className="rounded-2xl p-4 cursor-pointer card-hover" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
                 <div className="flex items-center gap-2 mb-2">
                   {post.hot && (
                     <span className="text-[10px] px-2 py-0.5 rounded font-medium" style={{ background: "#FEE2E2", color: "#DC2626" }}>인기</span>

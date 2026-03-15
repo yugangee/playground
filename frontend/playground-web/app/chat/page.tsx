@@ -74,7 +74,7 @@ export default function ChatPage() {
 
   function sendVenue() {
     if (!mapVenue.trim() || !active) return;
-    sendMsg(active.id, `📍 ${mapVenue}`);
+    sendMsg(active.id, `${mapVenue}`);
     setMapVenue(""); setShowMap(false);
   }
 
@@ -97,9 +97,9 @@ export default function ChatPage() {
               <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-4 pt-3 pb-1">팀 채팅</p>
               {rooms.filter(r => r.type === "team").map(r => (
                 <button key={r.id} onClick={() => setActiveId(r.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-3 text-left border-b border-gray-100 dark:border-white/5 transition-colors ${active?.id === r.id ? "bg-fuchsia-500/10" : "hover:bg-gray-100 dark:hover:bg-white/5"}`}>
-                  <div className="w-9 h-9 rounded-full shrink-0 border border-fuchsia-500/30 bg-fuchsia-500/10 flex items-center justify-center">
-                    <Users size={16} className="text-fuchsia-400" />
+                  className={`w-full flex items-center gap-3 px-3 py-3 text-left border-b border-gray-100 dark:border-white/5 transition-colors ${active?.id === r.id ? "bg-[var(--brand-primary-light)]" : "hover:bg-gray-100 dark:hover:bg-white/5"}`}>
+                  <div className="w-9 h-9 rounded-full shrink-0 border border-[var(--card-border)] bg-[var(--brand-primary-light)] flex items-center justify-center">
+                    <Users size={16} className="text-[var(--brand-primary)]" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <span className="text-gray-900 dark:text-white text-xs font-semibold block">{r.team}</span>
@@ -112,7 +112,7 @@ export default function ChatPage() {
           <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider px-4 pt-4 pb-1">개인 채팅</p>
           {rooms.filter(r => r.type === "personal").map(r => (
             <button key={r.id} onClick={() => setActiveId(r.id)}
-              className={`w-full flex items-center gap-3 px-3 py-3 text-left border-b border-white/5 transition-colors ${active?.id === r.id ? "bg-fuchsia-500/10" : "hover:bg-white/5"}`}>
+              className={`w-full flex items-center gap-3 px-3 py-3 text-left border-b border-white/5 transition-colors ${active?.id === r.id ? "bg-[var(--brand-primary-light)]" : "hover:bg-white/5"}`}>
               <div className="relative w-9 h-9 rounded-full overflow-hidden shrink-0 border border-white/10">
                 <Image src={r.avatar} alt={r.userName} fill className="object-cover" />
               </div>
@@ -146,13 +146,13 @@ export default function ChatPage() {
               <div key={i} className={`flex ${m.from === "me" ? "justify-end" : "justify-start"}`}>
                 {m.times ? (
                   <div className={`space-y-2 max-w-[75%] ${m.from === "me" ? "items-end" : "items-start"} flex flex-col`}>
-                    <span className="text-xs px-3 py-2 rounded-2xl text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>{m.text}</span>
+                    <span className="text-xs px-3 py-2 rounded-2xl text-white" style={{ background: "var(--brand-primary)" }}>{m.text}</span>
                     <div className="flex flex-wrap gap-1.5 justify-end">
                       {m.times.map(t => (
                         <button key={t} onClick={() => selectTime(active.id, i, t)}
                           className="px-3 py-1 rounded-full text-xs font-semibold transition-colors"
                           style={m.selectedTime?.includes(t)
-                            ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
+                            ? { background: "var(--brand-primary)", color: "white" }
                             : { background: "var(--chip-inactive-bg)", color: "var(--text-primary)" }
                           }>{t}</button>
                       ))}
@@ -165,7 +165,7 @@ export default function ChatPage() {
                     )}
                     <span className={`text-xs px-3 py-2 rounded-2xl text-white`}
                       style={m.from === "me"
-                        ? { background: "linear-gradient(to right, #c026d3, #7c3aed)" }
+                        ? { background: "var(--brand-primary)" }
                         : { background: "#000000" }}>
                       {m.text}
                     </span>
@@ -185,20 +185,20 @@ export default function ChatPage() {
               </div>
               <div className="flex gap-2">
                 <input type="date" value={calDate} onChange={e => setCalDate(e.target.value)}
-                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:border-fuchsia-500/50" style={{ colorScheme: "dark" }} />
+                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:border-[var(--brand-primary)]/50" style={{ colorScheme: "dark" }} />
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"].map(t => (
                   <button key={t} type="button" onClick={() => setCalTimes(p => p.includes(t) ? p.filter(x => x !== t) : [...p, t])}
                     className="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-                    style={calTimes.includes(t) ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
+                    style={calTimes.includes(t) ? { background: "var(--brand-primary)", color: "white" } : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }}>
                     {t}
                   </button>
                 ))}
               </div>
               <button onClick={sendDate} disabled={!calDate}
                 className="w-full py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-40"
-                style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>전송</button>
+                style={{ background: "var(--brand-primary)" }}>전송</button>
             </div>
           )}
 
@@ -212,27 +212,27 @@ export default function ChatPage() {
               <input value={mapVenue} onChange={e => setMapVenue(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && sendVenue()}
                 placeholder="예) 탄천종합운동장"
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:border-fuchsia-500/50 placeholder:text-gray-600" />
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:border-[var(--brand-primary)]/50 placeholder:text-gray-600" />
               <button onClick={sendVenue} disabled={!mapVenue.trim()}
                 className="w-full py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-40"
-                style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>전송</button>
+                style={{ background: "var(--brand-primary)" }}>전송</button>
             </div>
           )}
 
           <div className="px-4 pt-2 pb-1 flex gap-2 border-t border-white/10">
             <button onClick={() => { setShowCal(p => !p); setShowMap(false); }}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs transition-colors ${showCal ? "text-fuchsia-400 bg-fuchsia-500/10" : "text-gray-500 hover:text-white bg-white/5"}`}>
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs transition-colors ${showCal ? "text-[var(--brand-primary)] bg-[var(--brand-primary-light)]" : "text-gray-500 hover:text-white bg-white/5"}`}>
               <Calendar size={13} /> 날짜
             </button>
             <button onClick={() => { setShowMap(p => !p); setShowCal(false); }}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs transition-colors ${showMap ? "text-fuchsia-400 bg-fuchsia-500/10" : "text-gray-500 hover:text-white bg-white/5"}`}>
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs transition-colors ${showMap ? "text-[var(--brand-primary)] bg-[var(--brand-primary-light)]" : "text-gray-500 hover:text-white bg-white/5"}`}>
               <MapPin size={13} /> 장소
             </button>
           </div>
           <div className="flex gap-2 px-4 pb-3">
             <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()}
-              placeholder="메시지 입력..." className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-fuchsia-500/50" />
-            <button onClick={send} className="px-3 py-2 rounded-lg text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+              placeholder="메시지 입력..." className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-xs outline-none focus:border-[var(--brand-primary)]/50" />
+            <button onClick={send} className="px-3 py-2 rounded-lg text-white" style={{ background: "var(--brand-primary)" }}>
               <Send size={13} />
             </button>
           </div>

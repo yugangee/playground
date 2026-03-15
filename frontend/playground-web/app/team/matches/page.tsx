@@ -253,11 +253,11 @@ export default function MatchRecordsPage() {
                         {m._fromManage
                           ? myGoals.filter((s: any) => s.goals > 0 || s.assists > 0).map((s: any, i: number) => (
                               <span key={i} className="px-2 py-0.5 rounded-full bg-white/10 text-gray-300">
-                                {s.goals > 0 ? `⚽${s.name} ${s.goals}` : ""}{s.assists > 0 ? ` 🅰️${s.assists}` : ""}
+                                {s.goals > 0 ? `${s.name} ${s.goals}G` : ""}{s.assists > 0 ? ` ${s.assists}A` : ""}
                               </span>
                             ))
                           : myGoals.map((g: any, i: number) => (
-                              <span key={i} className="px-2 py-0.5 rounded-full bg-white/10 text-gray-300">⚽{g.scorerName || g.scorer?.split("@")[0]} ×{g.count}</span>
+                              <span key={i} className="px-2 py-0.5 rounded-full bg-white/10 text-gray-300">{g.scorerName || g.scorer?.split("@")[0]} x{g.count}</span>
                             ))
                         }
                       </div>

@@ -994,7 +994,7 @@ function TeamPageContent({
                         <div className="flex items-center gap-3 px-3 pb-2">
                           {/* 득점 */}
                           <div className="flex items-center gap-1">
-                            <span className="text-gray-500 text-xs w-8">⚽ 득점</span>
+                            <span className="text-gray-500 text-xs w-8">득점</span>
                             <button type="button" onClick={() => setResultForm(f => ({ ...f, scorers: f.scorers.map(s => s.userId === uid ? { ...s, goals: Math.max(0, s.goals - 1) } : s) }))}
                               className="w-6 h-6 rounded bg-white/10 text-white text-sm flex items-center justify-center hover:bg-white/20">−</button>
                             <span className="text-white text-xs w-5 text-center font-bold">{scorer.goals}</span>
@@ -1003,7 +1003,7 @@ function TeamPageContent({
                           </div>
                           {/* 도움 */}
                           <div className="flex items-center gap-1">
-                            <span className="text-gray-500 text-xs w-8">🅰️ 도움</span>
+                            <span className="text-gray-500 text-xs w-8">도움</span>
                             <button type="button" onClick={() => setResultForm(f => ({ ...f, scorers: f.scorers.map(s => s.userId === uid ? { ...s, assists: Math.max(0, (s.assists||0) - 1) } : s) }))}
                               className="w-6 h-6 rounded bg-white/10 text-white text-sm flex items-center justify-center hover:bg-white/20">−</button>
                             <span className="text-white text-xs w-5 text-center font-bold">{scorer.assists || 0}</span>
@@ -1043,11 +1043,11 @@ function TeamPageContent({
       )}
 
       {isDemo && (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center mb-6">
+        <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center mb-6">
           <Users size={24} className="mx-auto mb-3" style={{ color: 'var(--text-primary)' }} />
           <p className="text-white font-semibold mb-2">로그인하고 내 팀을 관리하세요</p>
           <p className="text-gray-400 text-sm mb-4">현재 샘플 데이터로 표시하고 있습니다</p>
-          <Link href="/login" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 border" style={{ background: "rgba(255,255,255,0.08)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.15)" }}>
+          <Link href="/login" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold btn-press border" style={{ background: "rgba(255,255,255,0.08)", color: "var(--text-primary)", borderColor: "rgba(255,255,255,0.15)" }}>
             로그인
           </Link>
         </div>
@@ -1074,7 +1074,7 @@ function TeamPageContent({
       </div>
 
       {/* 우리 팀 정보 */}
-      <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
+      <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             {/* 팀 로고 */}
@@ -1285,7 +1285,7 @@ function TeamPageContent({
                   )}
                   <span className="text-black text-sm font-medium truncate">{displayName}</span>
                   {m.position && (
-                    <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${positionColor[m.position] || "bg-gray-200 text-gray-600"}`}>{m.position}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded font-semibold ${positionColor[m.position] || "bg-gray-200 text-gray-600"}`}>{m.position}</span>
                   )}
                   {memberRoles.length > 0 && (() => {
                     const roleLabel: Record<string, string> = { leader: '주장', manager: '관리자', treasurer: '총무', member: '멤버' };
@@ -1333,7 +1333,7 @@ function TeamPageContent({
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-white text-sm font-medium truncate">{req.name}</span>
                     {req.position && (
-                      <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${positionColor[req.position] || "bg-white/10 text-gray-400"}`}>{req.position}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded font-semibold ${positionColor[req.position] || "bg-white/10 text-gray-400"}`}>{req.position}</span>
                     )}
                   </div>
                   <div className="flex gap-1 shrink-0 ml-2">
@@ -1366,7 +1366,7 @@ function TeamPageContent({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* 경기 일정 */}
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
+        <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <CalendarDays size={16} style={{ color: 'var(--text-primary)' }} />
@@ -1467,7 +1467,7 @@ function TeamPageContent({
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="flex items-center gap-2 mb-0.5">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${m.type === "경기" ? "text-black" : m.type === "훈련" ? "text-black" : "bg-gray-200 text-gray-600"}`}
+                          <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${m.type === "경기" ? "text-black" : m.type === "훈련" ? "text-black" : "bg-gray-200 text-gray-600"}`}
                             style={m.type === "경기" ? { background: "#87CEEB" } : m.type === "훈련" ? { background: "#90EE90" } : {}}>
                             {m.type || "경기"}
                           </span>
@@ -1620,7 +1620,7 @@ function TeamPageContent({
         </div>
 
         {/* 팀 스탯 */}
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-5">
+        <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp size={16} style={{ color: 'var(--text-primary)' }} />
@@ -1692,10 +1692,10 @@ function TeamPageContent({
                           {m._fromManage
                             ? myGoals.filter((s: any) => s.goals > 0 || s.assists > 0).map((s: any, j: number) => (
                                 <span key={j} className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700">
-                                  {s.goals > 0 ? `⚽ ${s.name} ${s.goals}골` : ""}{s.goals > 0 && s.assists > 0 ? " " : ""}{s.assists > 0 ? `🅰️ ${s.assists}도움` : ""}
+                                  {s.goals > 0 ? `${s.name} ${s.goals}골` : ""}{s.goals > 0 && s.assists > 0 ? " " : ""}{s.assists > 0 ? `${s.assists}도움` : ""}
                                 </span>
                               ))
-                            : myGoals.map((g: any, j: number) => <span key={j} className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700">⚽ {g.scorerName || g.scorer?.split("@")[0]} ×{g.count}</span>)
+                            : myGoals.map((g: any, j: number) => <span key={j} className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700">{g.scorerName || g.scorer?.split("@")[0]} x{g.count}</span>)
                           }
                         </div>
                       )}
@@ -1763,7 +1763,7 @@ function TeamPageContent({
 
       {/* 활동 일정 (동아리형) */}
       {isCasual && (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
+        <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
           <div className="flex items-center gap-2">
             <CalendarDays size={16} style={{ color: 'var(--text-primary)' }} />
             <h2 className="text-sm font-semibold text-gray-300">활동 일정</h2>
@@ -1977,7 +1977,7 @@ function TeamPageContent({
                 members.filter((m: any) => (m.roles || (m.role ? [m.role] : [])).includes('manager')).length <= 1;
               return isLastManagerSelf ? (
                 <p className="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-lg px-3 py-2">
-                  ⚠️ 팀에 관리자가 최소 1명은 있어야 합니다. 다른 멤버에게 관리자 역할을 먼저 부여하세요.
+                  팀에 관리자가 최소 1명은 있어야 합니다. 다른 멤버에게 관리자 역할을 먼저 부여하세요.
                 </p>
               ) : null;
             })()}
@@ -2148,7 +2148,7 @@ function AnnouncementSection({
 
   return (
     <>
-      <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
+      <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Megaphone size={16} style={{ color: 'var(--text-primary)' }} />
@@ -2416,10 +2416,10 @@ function FinanceSection({ currentTeam, members, isLeaderUser, hasFullEditPermiss
   const unpaidMembers = paidList.filter((m) => !m.paid).map((m) => m.userId);
   const aiComment =
     remaining < 0
-      ? `⚠️ 잔액이 부족해요! ${Math.abs(remaining).toLocaleString()}원 초과 지출 상태예요.`
+      ? `잔액이 부족해요! ${Math.abs(remaining).toLocaleString()}원 초과 지출 상태예요.`
       : remaining < 50000
-      ? `💡 잔액이 ${remaining.toLocaleString()}원으로 적어요. 다음 달 회비 수금을 서두르세요.`
-      : `✅ 현재 잔액 ${remaining.toLocaleString()}원으로 안정적이에요. 미납 ${unpaidMembers.length}명 독촉을 권장해요.`;
+      ? `잔액이 ${remaining.toLocaleString()}원으로 적어요. 다음 달 회비 수금을 서두르세요.`
+      : `현재 잔액 ${remaining.toLocaleString()}원으로 안정적이에요. 미납 ${unpaidMembers.length}명 독촉을 권장해요.`;
 
   const togglePaid = async (member: { userId: string; paid: boolean; dueId: string | null }) => {
     if (!currentTeam || member.paid) return;
@@ -2483,7 +2483,7 @@ function FinanceSection({ currentTeam, members, isLeaderUser, hasFullEditPermiss
 
   if (loading) {
     return (
-      <div className="bg-white/5 border border-white/10 rounded-xl p-6">
+      <div className="bg-white/5 border border-white/10 rounded-xl p-5">
         <div className="flex justify-center items-center py-10">
           <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
         </div>
@@ -2564,7 +2564,7 @@ function FinanceSection({ currentTeam, members, isLeaderUser, hasFullEditPermiss
             <p className="text-gray-500 text-xs">미수금 {(unpaidMembers.length * FEE).toLocaleString()}원</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {unpaidMembers.length === 0
-                ? <span className="text-xs text-green-400">전원 납부 완료 ✅</span>
+                ? <span className="text-xs text-green-400">전원 납부 완료</span>
                 : unpaidMembers.map((uid) => (
                   <span key={uid} className="text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 font-mono">{uid.slice(0, 8)}…</span>
                 ))}

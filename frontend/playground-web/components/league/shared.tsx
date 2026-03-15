@@ -31,7 +31,7 @@ export const inpStyle: React.CSSProperties = {
 
 export function TypeBadge({ type }: { type: string }) {
   const style: React.CSSProperties = type === 'tournament'
-    ? { background: 'rgba(147,51,234,0.12)', color: '#a855f7' }
+    ? { background: 'rgba(147,51,234,0.12)', color: 'var(--brand-primary)' }
     : { background: 'rgba(59,130,246,0.12)', color: '#3b82f6' }
   return (
     <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium" style={style}>
@@ -140,10 +140,10 @@ export function TeamSearchInvite({ onInvite }: { onInvite: (teamId: string) => P
       {showDropdown && results.length > 0 && (
         <div className="absolute z-10 mt-1 w-full rounded-xl shadow-lg" style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
           {results.map(t => (
-            <div key={t.id} className="flex items-center justify-between px-4 py-2.5 hover:opacity-80">
+            <div key={t.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-[var(--hover-overlay)] transition-colors">
               <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{t.name}</span>
               <button onClick={() => handleInvite(t)} disabled={inviting === t.id}
-                className="rounded-lg bg-[var(--btn-solid-bg)] px-3 py-1 text-xs font-semibold text-[var(--btn-solid-color)] hover:opacity-85 disabled:opacity-50">
+                className="rounded-lg bg-[var(--btn-solid-bg)] px-3 py-1 text-xs font-semibold text-[var(--btn-solid-color)] hover:bg-[var(--hover-overlay)] transition-colors disabled:opacity-50">
                 {inviting === t.id ? '초대 중...' : '초대'}
               </button>
             </div>

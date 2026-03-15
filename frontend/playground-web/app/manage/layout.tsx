@@ -15,7 +15,7 @@ export default function ManageLayout({ children }: { children: React.ReactNode }
   if (loading) return (
     <div className="flex h-full items-center justify-center py-20">
       <div className="flex flex-col items-center gap-3">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-fuchsia-500/30 border-t-fuchsia-500" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--brand-primary)]/30 border-t-[var(--brand-primary)]" />
         <span className="text-sm" style={{ color: "var(--text-muted)" }}>로딩 중...</span>
       </div>
     </div>

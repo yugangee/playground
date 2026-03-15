@@ -27,7 +27,7 @@ export default function MobileBottomNav() {
             href={href}
             className={`flex flex-col items-center gap-1 px-3 py-1 rounded-lg transition-colors ${
               pathname === href || pathname.startsWith(href + "/")
-                ? "text-fuchsia-500"
+                ? "text-[var(--brand-primary)]"
                 : ""
             }`}
             style={{ color: pathname === href || pathname.startsWith(href + "/") ? undefined : "var(--text-muted)" }}

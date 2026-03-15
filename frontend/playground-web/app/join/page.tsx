@@ -78,7 +78,7 @@ function JoinContent() {
           </div>
           <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{errMsg}</p>
           <Link href="/" className="inline-block rounded-xl px-6 py-2.5 text-sm font-semibold text-white"
-            style={{ background: 'linear-gradient(to right, #c026d3, #7c3aed)' }}>
+            style={{ background: 'var(--brand-primary)' }}>
             홈으로
           </Link>
         </div>
@@ -91,7 +91,7 @@ function JoinContent() {
       <div className="flex min-h-[60vh] items-center justify-center px-4">
         <div className="max-w-sm w-full text-center space-y-4">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl"
-            style={{ background: 'linear-gradient(135deg, #7c3aed, #c026d3)' }}>
+            style={{ background: 'var(--brand-primary)' }}>
             <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
@@ -103,7 +103,7 @@ function JoinContent() {
             <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>이제 일정·채팅·경기 기록을 함께 관리할 수 있어요</p>
           </div>
           <Link href="/schedule" className="inline-block rounded-xl px-6 py-2.5 text-sm font-semibold text-white"
-            style={{ background: 'linear-gradient(to right, #c026d3, #7c3aed)' }}>
+            style={{ background: 'var(--brand-primary)' }}>
             일정 보러 가기
           </Link>
         </div>
@@ -121,7 +121,7 @@ function JoinContent() {
         {/* 초대 헤더 */}
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-black text-white"
-            style={{ background: 'linear-gradient(135deg, #7c3aed, #c026d3)' }}>
+            style={{ background: 'var(--brand-primary)' }}>
             {team?.name?.charAt(0) ?? '?'}
           </div>
           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>
@@ -179,7 +179,7 @@ function JoinContent() {
           onClick={join}
           disabled={expired || phase === 'joining'}
           className="w-full rounded-2xl py-4 text-base font-bold text-white transition-opacity disabled:opacity-50"
-          style={{ background: expired ? 'var(--card-border)' : 'linear-gradient(to right, #c026d3, #7c3aed)' }}
+          style={{ background: expired ? 'var(--card-border)' : 'var(--brand-primary)' }}
         >
           {phase === 'joining' ? '가입 중...' : expired ? '만료된 초대' : `${team?.name ?? '팀'} 합류하기`}
         </button>

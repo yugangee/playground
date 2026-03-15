@@ -283,24 +283,24 @@ export default function VideoPage() {
           <div className="bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl p-6 text-center">
             <p style={{ color: "var(--text-primary)" }} className="font-semibold mb-2">로그인하여 AI 영상분석을 시작하세요</p>
             <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">현재 샘플 데이터로 표시되고 있습니다</p>
-            <Link href="/login" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>로그인</Link>
+            <Link href="/login" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold text-white btn-press" style={{ background: "var(--brand-primary)" }}>로그인</Link>
           </div>
         )}
         <div className="flex items-center gap-3"><h1 className="text-2xl font-bold" style={{ color: "var(--text-primary)" }}>AI 영상 분석</h1></div>
         <div className="flex items-center gap-2">
           {user ? (<>
             <a href="/test.mp4" download="test.mp4" className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"><Download size={15} className="text-sky-500 dark:text-sky-400" /><span className="text-sm" style={{ color: "var(--text-secondary)" }}>테스트 영상 다운</span></a>
-            <label className="flex items-center gap-3 w-fit px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer transition-colors"><Upload size={15} className="text-fuchsia-500 dark:text-fuchsia-400" /><span className="text-sm" style={{ color: "var(--text-secondary)" }}>영상 업로드</span><input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={handleFile} /></label>
+            <label className="flex items-center gap-3 w-fit px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 cursor-pointer transition-colors"><Upload size={15} className="text-[var(--brand-primary)]" /><span className="text-sm" style={{ color: "var(--text-secondary)" }}>영상 업로드</span><input ref={inputRef} type="file" accept="video/*" className="hidden" onChange={handleFile} /></label>
           </>) : (<>
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 opacity-50 cursor-not-allowed"><Download size={15} className="text-sky-500 dark:text-sky-400" /><span className="text-sm" style={{ color: "var(--text-secondary)" }}>테스트 영상 다운</span></div>
-            <div className="flex items-center gap-3 w-fit px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 opacity-50 cursor-not-allowed"><Upload size={15} className="text-fuchsia-500 dark:text-fuchsia-400" /><span className="text-sm" style={{ color: "var(--text-secondary)" }}>영상 업로드</span></div>
+            <div className="flex items-center gap-3 w-fit px-4 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 opacity-50 cursor-not-allowed"><Upload size={15} className="text-[var(--brand-primary)]" /><span className="text-sm" style={{ color: "var(--text-secondary)" }}>영상 업로드</span></div>
           </>)}
           <div className="relative group">
             <HelpCircle size={16} className="text-gray-400 dark:text-gray-500 cursor-help" />
             <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-4 py-3 rounded-lg bg-white dark:bg-[#222] border border-gray-200 dark:border-white/10 text-xs text-gray-600 dark:text-gray-300 w-80 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-lg">
               <p className="font-semibold text-gray-900 dark:text-white mb-1.5">AI 영상 분석 안내</p>
               <p className="mb-2">촬영한 축구 경기 영상을 업로드하여 경기를 분석해보세요.</p>
-              <p className="font-semibold text-yellow-600 dark:text-yellow-400 mb-1">⚠ 주의사항</p>
+              <p className="font-semibold text-yellow-600 dark:text-yellow-400 mb-1">주의사항</p>
               <ul className="list-disc list-inside space-y-0.5 text-gray-500 dark:text-gray-400 mb-2">
                 <li>1분 30초 이내 영상 권장</li>
                 <li>선수의 전신이 카메라에 잡혀야 추적 가능</li>
@@ -314,20 +314,20 @@ export default function VideoPage() {
           <div className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <svg className="animate-spin h-4 w-4 text-fuchsia-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                <svg className="animate-spin h-4 w-4 text-[var(--brand-primary)]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                   {progressMessage || (status === "uploading" ? "영상 업로드중..." : "AI 영상 분석중...")}
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-fuchsia-500">{progressPercent}%</span>
+                <span className="text-sm font-semibold text-[var(--brand-primary)]">{progressPercent}%</span>
                 <button onClick={stopAnalysis} className="text-xs text-red-500 hover:text-red-600 font-medium transition-colors">
                   중지
                 </button>
               </div>
             </div>
             <div className="w-full h-2 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-fuchsia-500 to-purple-600 transition-all duration-500" style={{ width: `${progressPercent}%` }} />
+              <div className="h-full bg-[var(--brand-primary)] transition-all duration-500" style={{ width: `${progressPercent}%` }} />
             </div>
             <div className="flex items-center justify-between mt-2">
               {estimatedTime !== null && (
@@ -344,7 +344,7 @@ export default function VideoPage() {
           </div>
         )}
         {error && <div className="w-full py-3 rounded-xl text-center text-sm text-red-500 dark:text-red-400 border border-red-200 dark:border-red-400/20 bg-red-50 dark:bg-red-400/5">{error}</div>}
-        {localUrl && !isLoading && (<button onClick={analyze} className="w-full py-3 rounded-xl font-semibold text-sm text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>{status === "done" ? "다시 분석" : "AI 분석 시작"}</button>)}
+        {localUrl && !isLoading && (<button onClick={analyze} className="w-full py-3 rounded-xl font-semibold text-sm text-white" style={{ background: "var(--brand-primary)" }}>{status === "done" ? "다시 분석" : "AI 분석 시작"}</button>)}
 
         {(localUrl || showSkeleton || done || user) && (<>
           {/* 상단 2컬럼: 영상 | 점유율+이벤트카드 */}
@@ -415,7 +415,7 @@ export default function VideoPage() {
                   </div>
                   {coachingLoading && <p className="text-sm text-gray-500 dark:text-gray-400 animate-pulse">코칭 분석 중...</p>}
                   {coachingMap[myTeam] && (
-                    <div className="max-h-[600px] overflow-y-auto pr-1 prose dark:prose-invert prose-sm max-w-none [&_h1]:text-lg [&_h1]:font-bold [&_h1]:text-gray-900 dark:[&_h1]:text-white [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-gray-900 dark:[&_h2]:text-white [&_h2]:mt-3 [&_h2]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-gray-800 dark:[&_h3]:text-gray-200 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-gray-700 dark:[&_h4]:text-gray-300 [&_ul]:space-y-1 [&_ol]:space-y-1 [&_li]:text-gray-700 dark:[&_li]:text-gray-300 [&_strong]:text-gray-900 dark:[&_strong]:text-white [&_blockquote]:border-l-2 [&_blockquote]:border-fuchsia-400 [&_blockquote]:pl-3 [&_blockquote]:text-gray-600 dark:[&_blockquote]:text-gray-400 [&_blockquote]:italic">
+                    <div className="max-h-[600px] overflow-y-auto pr-1 prose dark:prose-invert prose-sm max-w-none [&_h1]:text-lg [&_h1]:font-bold [&_h1]:text-gray-900 dark:[&_h1]:text-white [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:text-gray-900 dark:[&_h2]:text-white [&_h2]:mt-3 [&_h2]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-gray-800 dark:[&_h3]:text-gray-200 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-gray-700 dark:[&_h4]:text-gray-300 [&_ul]:space-y-1 [&_ol]:space-y-1 [&_li]:text-gray-700 dark:[&_li]:text-gray-300 [&_strong]:text-gray-900 dark:[&_strong]:text-white [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--brand-primary)] [&_blockquote]:pl-3 [&_blockquote]:text-gray-600 dark:[&_blockquote]:text-gray-400 [&_blockquote]:italic">
                       <ReactMarkdown>{coachingMap[myTeam]}</ReactMarkdown>
                     </div>
                   )}

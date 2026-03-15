@@ -10,7 +10,7 @@ const FEE = 30000;
 
 const categoryColors: Record<string, string> = {
   "구장 대여": "bg-blue-500/20 text-blue-400",
-  "유니폼": "bg-fuchsia-500/20 text-fuchsia-400",
+  "유니폼": "bg-[var(--brand-primary-light)] text-[var(--brand-primary)]",
   "간식": "bg-yellow-500/20 text-yellow-400",
   "기타": "bg-white/10 text-gray-400",
 };
@@ -109,10 +109,10 @@ export default function FinancePage() {
   const unpaidMembers = paidList.filter((m) => !m.paid).map((m) => m.userId);
   const aiComment =
     remaining < 0
-      ? `⚠️ 잔액이 부족해요! ${Math.abs(remaining).toLocaleString()}원 초과 지출 상태예요.`
+      ? `잔액이 부족해요! ${Math.abs(remaining).toLocaleString()}원 초과 지출 상태예요.`
       : remaining < 50000
-      ? `💡 잔액이 ${remaining.toLocaleString()}원으로 적어요. 다음 달 회비 수금을 서두르세요.`
-      : `✅ 현재 잔액 ${remaining.toLocaleString()}원으로 안정적이에요. 미납 ${unpaidMembers.length}명 독촉을 권장해요.`;
+      ? `잔액이 ${remaining.toLocaleString()}원으로 적어요. 다음 달 회비 수금을 서두르세요.`
+      : `현재 잔액 ${remaining.toLocaleString()}원으로 안정적이에요. 미납 ${unpaidMembers.length}명 독촉을 권장해요.`;
 
   const togglePaid = async (member: { userId: string; paid: boolean; dueId: string | null }) => {
     if (!teamId || member.paid) return;
@@ -177,11 +177,11 @@ export default function FinancePage() {
   return (
     <div className="relative">
       {!user && (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center mb-6">
-          <Wallet size={24} className="text-fuchsia-400 mx-auto mb-3" />
+        <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center mb-6">
+          <Wallet size={24} className="text-[var(--brand-primary)] mx-auto mb-3" />
           <p className="text-white font-semibold mb-2">로그인하여 내 팀 재정을 관리하세요</p>
           <p className="text-gray-400 text-sm mb-4">로그인 후 실제 팀 데이터가 표시됩니다</p>
-          <Link href="/login" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+          <Link href="/login" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold text-white btn-press" style={{ background: "var(--brand-primary)" }}>
             로그인
           </Link>
         </div>
@@ -189,15 +189,15 @@ export default function FinancePage() {
 
       {user && loading && (
         <div className="flex justify-center items-center py-20">
-          <div className="w-6 h-6 border-2 border-fuchsia-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-[var(--brand-primary)] border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
       {user && !loading && !teamId && (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center mb-6">
-          <Wallet size={24} className="text-fuchsia-400 mx-auto mb-3" />
+        <div className="bg-white/5 border border-white/10 rounded-xl p-5 text-center mb-6">
+          <Wallet size={24} className="text-[var(--brand-primary)] mx-auto mb-3" />
           <p className="text-white font-semibold mb-2">팀에 가입하거나 팀을 만들어야 합니다</p>
-          <Link href="/manage/team" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+          <Link href="/manage/team" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold text-white btn-press" style={{ background: "var(--brand-primary)" }}>
             팀 관리하기
           </Link>
         </div>
@@ -208,16 +208,16 @@ export default function FinancePage() {
           <h1 className="text-2xl font-bold text-white">스마트 팀 매니지먼트</h1>
 
           {/* AI 분석 */}
-          <div className="bg-fuchsia-500/5 border border-fuchsia-500/20 rounded-xl p-5 space-y-4">
+          <div className="bg-[var(--brand-primary-light)] border border-[var(--card-border)] rounded-xl p-5 space-y-4">
             <div className="flex items-center gap-2">
-              <Bot size={15} className="text-fuchsia-400" />
+              <Bot size={15} className="text-[var(--brand-primary)]" />
               <span className="text-sm font-semibold text-gray-300">AI 분석</span>
               <span className="text-xs text-gray-500 ml-auto">{aiComment}</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="bg-white/5 rounded-xl p-4 space-y-1">
                 <p className="text-xs text-gray-500">월 적정 회비 추정</p>
-                <p className="text-fuchsia-400 text-xl font-bold">{recommendedFee.toLocaleString()}원</p>
+                <p className="text-[var(--brand-primary)] text-xl font-bold">{recommendedFee.toLocaleString()}원</p>
                 <p className="text-gray-500 text-xs">월 평균 지출 {avgMonthly.toLocaleString()}원 ÷ {members.length}명</p>
                 <div className="mt-2 space-y-1">
                   {monthTotals.map(({ month, total }) => {
@@ -226,7 +226,7 @@ export default function FinancePage() {
                       <div key={month} className="flex items-center gap-2">
                         <span className="text-xs text-gray-500 w-8">{month.slice(5)}월</span>
                         <div className="flex-1 h-1.5 bg-white/10 rounded-full">
-                          <div className="h-1.5 rounded-full bg-fuchsia-500/60" style={{ width: `${Math.round((total / maxTotal) * 100)}%` }} />
+                          <div className="h-1.5 rounded-full bg-[var(--brand-primary-light)]" style={{ width: `${Math.round((total / maxTotal) * 100)}%` }} />
                         </div>
                         <span className="text-xs text-gray-400 w-16 text-right">{total.toLocaleString()}</span>
                       </div>
@@ -237,14 +237,14 @@ export default function FinancePage() {
 
               <div className="bg-white/5 rounded-xl p-4 space-y-1">
                 <p className="text-xs text-gray-500">가장 많은 지출</p>
-                <p className="text-fuchsia-400 text-xl font-bold">{topCategory?.[0] ?? "없음"}</p>
+                <p className="text-[var(--brand-primary)] text-xl font-bold">{topCategory?.[0] ?? "없음"}</p>
                 <p className="text-gray-500 text-xs">전체 {topCategory?.[1].toLocaleString() ?? 0}원 지출</p>
                 <div className="mt-2 space-y-1">
                   {Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]).map(([cat, amt]) => (
                     <div key={cat} className="flex items-center gap-2">
                       <span className="text-xs text-gray-500 w-14 truncate">{cat}</span>
                       <div className="flex-1 h-1.5 bg-white/10 rounded-full">
-                        <div className="h-1.5 rounded-full bg-fuchsia-500/60" style={{ width: `${topCategory ? Math.round((amt / topCategory[1]) * 100) : 0}%` }} />
+                        <div className="h-1.5 rounded-full bg-[var(--brand-primary-light)]" style={{ width: `${topCategory ? Math.round((amt / topCategory[1]) * 100) : 0}%` }} />
                       </div>
                       <span className="text-xs text-gray-400 w-16 text-right">{amt.toLocaleString()}</span>
                     </div>
@@ -254,11 +254,11 @@ export default function FinancePage() {
 
               <div className="bg-white/5 rounded-xl p-4 space-y-1">
                 <p className="text-xs text-gray-500">미납 멤버</p>
-                <p className="text-fuchsia-400 text-xl font-bold">{unpaidMembers.length}명</p>
+                <p className="text-[var(--brand-primary)] text-xl font-bold">{unpaidMembers.length}명</p>
                 <p className="text-gray-500 text-xs">미수금 {(unpaidMembers.length * FEE).toLocaleString()}원</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {unpaidMembers.length === 0
-                    ? <span className="text-xs text-green-400">전원 납부 완료 ✅</span>
+                    ? <span className="text-xs text-green-400">전원 납부 완료</span>
                     : unpaidMembers.map((uid) => (
                       <span key={uid} className="text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 font-mono">{uid.slice(0, 8)}…</span>
                     ))}
@@ -270,7 +270,7 @@ export default function FinancePage() {
           {/* 요약 카드 */}
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: "총 수금액", value: totalCollected, color: "text-fuchsia-400" },
+              { label: "총 수금액", value: totalCollected, color: "text-[var(--brand-primary)]" },
               { label: "총 지출액", value: totalSpent, color: "text-red-400" },
               { label: "현재 잔액", value: remaining, color: remaining >= 0 ? "text-green-400" : "text-red-400" },
             ].map(({ label, value, color }) => (
@@ -285,7 +285,7 @@ export default function FinancePage() {
             {/* 회비 납부 현황 */}
             <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
               <div className="flex items-center gap-2">
-                <Wallet size={15} className="text-fuchsia-400" />
+                <Wallet size={15} className="text-[var(--brand-primary)]" />
                 <span className="text-sm font-semibold text-gray-300">회비 납부 현황</span>
                 <span className="ml-auto text-xs text-gray-500">{FEE.toLocaleString()}원/인</span>
               </div>
@@ -308,7 +308,7 @@ export default function FinancePage() {
                         className="flex-1 flex items-center justify-between transition-colors disabled:cursor-default"
                       >
                         <span className="text-sm text-white font-mono text-xs">{m.userId.slice(0, 10)}…</span>
-                        <span className={`text-xs font-semibold ${m.paid ? "text-fuchsia-400" : "text-gray-600"}`}>
+                        <span className={`text-xs font-semibold ${m.paid ? "text-[var(--brand-primary)]" : "text-gray-600"}`}>
                           {m.paid ? "납부" : "미납"}
                         </span>
                       </button>
@@ -326,7 +326,7 @@ export default function FinancePage() {
             {/* 월별 지출 */}
             <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-3">
               <div className="flex items-center gap-2">
-                <TrendingDown size={15} className="text-fuchsia-400" />
+                <TrendingDown size={15} className="text-[var(--brand-primary)]" />
                 <span className="text-sm font-semibold text-gray-300">월별 지출</span>
                 <button onClick={() => setAdding(true)} className="ml-auto text-gray-500 hover:text-white transition-colors">
                   <Plus size={15} />
@@ -341,7 +341,7 @@ export default function FinancePage() {
                     className="px-3 py-1 rounded-full text-xs font-medium transition-colors"
                     style={
                       selMonth === m
-                        ? { background: "linear-gradient(to right, #c026d3, #7c3aed)", color: "white" }
+                        ? { background: "var(--brand-primary)", color: "white" }
                         : { background: "var(--chip-inactive-bg)", color: "var(--chip-inactive-color)" }
                     }
                   >
@@ -394,10 +394,10 @@ export default function FinancePage() {
                       placeholder={ph}
                       value={draft[key as keyof typeof draft]}
                       onChange={(e) => setDraft((p) => ({ ...p, [key]: e.target.value }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:border-fuchsia-500/50 placeholder:text-gray-600"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:border-[var(--brand-primary)]/50 placeholder:text-gray-600"
                     />
                   ))}
-                  <button onClick={addExpense} className="w-full py-1.5 rounded-lg text-xs font-semibold text-white" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>추가</button>
+                  <button onClick={addExpense} className="w-full py-1.5 rounded-lg text-xs font-semibold text-white" style={{ background: "var(--brand-primary)" }}>추가</button>
                 </div>
               )}
             </div>

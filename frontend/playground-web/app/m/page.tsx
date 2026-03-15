@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Search, Zap, Users, Trophy, Calendar, BarChart2 } from "lucide-react";
 
 const quickActions = [
-  { href: "/m/clubs", icon: Search, label: "클럽 탐색", color: "#c026d3" },
+  { href: "/m/clubs", icon: Search, label: "클럽 탐색", color: "var(--brand-primary)" },
   { href: "/m/video", icon: Zap, label: "AI 분석", color: "#059669" },
   { href: "/m/team", icon: Users, label: "팀 관리", color: "#2563eb" },
   { href: "/m/report", icon: BarChart2, label: "리포트", color: "#7c3aed" },
@@ -60,8 +60,8 @@ export default function MobilePage() {
         </h2>
         <div className="space-y-3">
           <div className="flex items-center gap-3 p-4 rounded-xl border" style={{ background: "var(--card-bg)", borderColor: "var(--card-border)" }}>
-            <div className="w-10 h-10 rounded-full bg-fuchsia-500/20 flex items-center justify-center">
-              <Trophy size={18} className="text-fuchsia-500" />
+            <div className="w-10 h-10 rounded-full bg-[var(--brand-primary-light)] flex items-center justify-center">
+              <Trophy size={18} className="text-[var(--brand-primary)]" />
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
@@ -93,7 +93,7 @@ export default function MobilePage() {
       <div className="text-center pt-8">
         <Link
           href="/"
-          className="text-sm text-fuchsia-500 underline"
+          className="text-sm text-[var(--brand-primary)] underline"
         >
           데스크톱 버전으로 보기
         </Link>

@@ -149,10 +149,10 @@ export default function ReportPage() {
     <div className="max-w-5xl mx-auto space-y-6">
       {/* 헤더 */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Shield size={20} className="text-fuchsia-400" />
+        <Shield size={20} className="text-[var(--brand-primary)]" />
         <h1 className="text-2xl font-bold text-white">{displayTeamName}</h1>
         <span className="ml-2 text-sm text-gray-400">AI 분석 리포트</span>
-        {isRealTeam && <span className="ml-2 text-xs px-2 py-1 rounded-full bg-fuchsia-500/20 text-fuchsia-400">실제</span>}
+        {isRealTeam && <span className="ml-2 text-xs px-2 py-1 rounded-full bg-[var(--brand-primary-light)] text-[var(--brand-primary)]">실제</span>}
         {!isRealTeam && (
           <span className="ml-2 text-xs px-2 py-1 rounded-full bg-white/10 text-gray-400">샘플 데이터</span>
         )}
@@ -160,10 +160,10 @@ export default function ReportPage() {
 
       {!user && (
         <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
-          <LogIn size={24} className="text-fuchsia-400 mx-auto mb-3" />
+          <LogIn size={24} className="text-[var(--brand-primary)] mx-auto mb-3" />
           <p className="text-white font-semibold mb-2">로그인하고 내 팀 리포트를 확인하세요</p>
           <p className="text-gray-400 text-sm mb-4">현재 샘플 데이터로 표시하고 있습니다</p>
-          <Link href="/login" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90" style={{ background: "linear-gradient(to right, #c026d3, #7c3aed)" }}>
+          <Link href="/login" className="inline-block px-6 py-2 rounded-lg text-sm font-semibold text-white btn-press" style={{ background: "var(--brand-primary)" }}>
             로그인
           </Link>
         </div>
@@ -175,7 +175,7 @@ export default function ReportPage() {
           <div className="overflow-y-auto flex-1">
             {players.map(p => (
               <button key={`${p.number}-${p.name}`} onClick={() => setSelected(p)}
-                className={`w-full flex items-center gap-2 px-3 py-2.5 text-left border-b border-white/5 transition-colors ${selected.name === p.name && selected.number === p.number ? "bg-fuchsia-500/10" : "hover:bg-white/5"}`}>
+                className={`w-full flex items-center gap-2 px-3 py-2.5 text-left border-b border-white/5 transition-colors ${selected.name === p.name && selected.number === p.number ? "bg-[var(--brand-primary-light)]" : "hover:bg-white/5"}`}>
                 <span className="text-gray-500 text-xs w-4">{p.number}</span>
                 <span className="text-white text-sm flex-1 truncate">{p.name}</span>
                 <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${positionColor[p.position] || "bg-white/10 text-gray-400"}`}>{p.position}</span>
@@ -188,7 +188,7 @@ export default function ReportPage() {
         <div className="flex-1 space-y-4">
           {/* 선수 헤더 */}
           <div className="bg-white/5 border border-white/10 rounded-xl px-5 py-4 flex items-center gap-4">
-            <div className="text-3xl font-black text-fuchsia-400">#{selected.number}</div>
+            <div className="text-3xl font-black text-[var(--brand-primary)]">#{selected.number}</div>
             <div>
               <p className="text-white text-lg font-bold">{selected.name}</p>
               <span className={`text-xs px-2 py-0.5 rounded font-semibold ${positionColor[selected.position] || "bg-white/10 text-gray-400"}`}>{selected.position}</span>
@@ -201,7 +201,7 @@ export default function ReportPage() {
                 { label: "패스", value: selected.passes },
               ].map(({ label, value }) => (
                 <div key={label}>
-                  <p className="text-fuchsia-400 font-bold text-lg">{value}</p>
+                  <p className="text-[var(--brand-primary)] font-bold text-lg">{value}</p>
                   <p className="text-gray-500 text-xs">{label}</p>
                 </div>
               ))}
@@ -216,7 +216,7 @@ export default function ReportPage() {
                 <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
                   <PolarGrid stroke="#475569" />
                   <PolarAngleAxis dataKey="subject" tick={{ fill: "#94a3b8", fontSize: 11 }} />
-                  <Radar dataKey="A" stroke="#c026d3" fill="#c026d3" fillOpacity={0.4} />
+                  <Radar dataKey="A" stroke="var(--brand-primary)" fill="var(--brand-primary)" fillOpacity={0.4} />
                 </RadarChart>
               </ResponsiveContainer>
             </div>
@@ -228,10 +228,10 @@ export default function ReportPage() {
                 <div key={key} className="space-y-1">
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-400">{key}</span>
-                    <span className="text-fuchsia-400 font-medium">{val}</span>
+                    <span className="text-[var(--brand-primary)] font-medium">{val}</span>
                   </div>
                   <div className="h-1.5 bg-white/10 rounded-full">
-                    <div className="h-1.5 rounded-full" style={{ width: `${val}%`, background: "linear-gradient(to right, #c026d3, #7c3aed)" }} />
+                    <div className="h-1.5 rounded-full" style={{ width: `${val}%`, background: "var(--brand-primary)" }} />
                   </div>
                 </div>
               ))}

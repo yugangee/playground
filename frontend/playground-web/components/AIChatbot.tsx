@@ -97,7 +97,7 @@ export default function AIChatbot() {
   const { currentTeam } = useTeam();
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([
-    { role: "assistant", content: "안녕하세요! 축구 관련 질문이나, 팀 경기 일정·결과도 물어보세요 ⚽" },
+    { role: "assistant", content: "안녕하세요! 축구 관련 질문이나, 팀 경기 일정·결과도 물어보세요" },
   ]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -145,7 +145,7 @@ export default function AIChatbot() {
     <>
       {!open && (
         <button onClick={() => setOpen(true)}
-          className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 w-12 h-12 md:w-14 md:h-14 rounded-full bg-black text-white shadow-lg flex items-center justify-center hover:scale-105 transition-transform border border-white/20">
+          className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 w-12 h-12 md:w-14 md:h-14 rounded-full bg-black text-white shadow-lg flex items-center justify-center hover:scale-105 transition-transform border border-[var(--card-border)]">
           <MessageCircle size={20} className="md:w-6 md:h-6" />
         </button>
       )}

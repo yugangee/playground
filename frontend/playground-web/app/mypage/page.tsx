@@ -688,9 +688,9 @@ export default function MyPage() {
               <div className="flex items-center gap-2">
                 {c.image && <img src={c.image} alt={c.name} className="w-6 h-6 rounded-full object-cover" />}
                 <span className="text-white text-sm font-semibold">{c.name}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/15 text-white">{c.sport}</span>
-                {isPrimary && <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500 text-white font-semibold">대표</span>}
-                {user.role && <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300">{user.role}</span>}
+                <span className="text-[10px] px-2 py-0.5 rounded bg-white/15 text-white">{c.sport}</span>
+                {isPrimary && <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500 text-white font-semibold">대표</span>}
+                {user.role && <span className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">{user.role}</span>}
               </div>
               <div className="flex gap-4 text-xs text-gray-400">
                 <span>포지션: {user.position || "-"}</span>
@@ -732,7 +732,7 @@ export default function MyPage() {
                   {c.image && <img src={c.image} alt={c.name} className="w-8 h-8 rounded-full object-cover" />}
                   <div>
                     <span className="text-white text-sm font-semibold">{c.name}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/15 text-white ml-2">{c.sport}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-white/15 text-white ml-2">{c.sport}</span>
                   </div>
                 </div>
               ) : null;
@@ -831,7 +831,7 @@ export default function MyPage() {
             })()}
 
             <button onClick={saveTeam} disabled={teamSaving}
-              className="w-full py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="w-full py-2 rounded-lg text-sm font-semibold btn-press disabled:opacity-50"
               style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>
               {teamSaving ? "저장 중..." : "저장"}
             </button>
@@ -903,7 +903,7 @@ export default function MyPage() {
             </div>
 
             <button onClick={saveProfile} disabled={profileSaving}
-              className="w-full py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="w-full py-2 rounded-lg text-sm font-semibold btn-press disabled:opacity-50"
               style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>
               {profileSaving ? "저장 중..." : "저장"}
             </button>
@@ -939,7 +939,7 @@ export default function MyPage() {
               ))}
             </div>
             <button onClick={saveAreas} disabled={areaSaving}
-              className="w-full py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="w-full py-2 rounded-lg text-sm font-semibold btn-press disabled:opacity-50"
               style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>
               {areaSaving ? "저장 중..." : "저장"}
             </button>
@@ -968,7 +968,7 @@ export default function MyPage() {
               ))}
             </div>
             <button onClick={saveSports} disabled={sportsSaving}
-              className="w-full py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="w-full py-2 rounded-lg text-sm font-semibold btn-press disabled:opacity-50"
               style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>
               {sportsSaving ? "저장 중..." : "저장"}
             </button>

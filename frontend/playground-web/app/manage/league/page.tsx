@@ -133,14 +133,14 @@ function LeaguePageInner() {
           <p className="mt-1 text-sm" style={{ color: 'var(--text-muted)' }}>주최하거나 참가한 대회를 관리하세요</p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/league" className="rounded-xl px-4 py-2.5 text-sm font-medium transition-colors hover:opacity-80"
+          <Link href="/league" className="rounded-xl px-4 py-2.5 text-sm font-medium hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
             style={{ color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
             대회 탐색 →
           </Link>
 
           {isLeader && (
             <button onClick={() => setView('create')}
-              className="flex items-center gap-1.5 rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85">
+              className="flex items-center gap-1.5 rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] btn-press">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
@@ -194,7 +194,7 @@ function LeagueGrid({ leagues, onSelect, currentTeamId, onDelete }: { leagues: L
       {leagues.map(l => (
         <button key={l.id}
           onClick={() => onSelect(l)}
-          className="group relative rounded-2xl p-6 text-left transition-all hover:opacity-90"
+          className="group relative rounded-2xl p-5 text-left card-hover"
           style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
           {onDelete && (
             <span role="button" tabIndex={0}

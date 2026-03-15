@@ -160,20 +160,20 @@ function CreateTeamForm({ onSuccess, onCancel }: { onSuccess: () => void; onCanc
         </Field>
         <Field label="종목">
           <select value={form.sportType} onChange={e => set('sportType', e.target.value)} className={inp}>
-            <optgroup label="⚽ 축구형 (대전형)">
-              <option value="soccer">⚽ 축구</option>
-              <option value="futsal">⚽ 풋살</option>
+            <optgroup label="축구형 (대전형)">
+              <option value="soccer">축구</option>
+              <option value="futsal">풋살</option>
             </optgroup>
-            <optgroup label="🏀 기타 대전형">
-              <option value="basketball">🏀 농구</option>
-              <option value="baseball">⚾ 야구</option>
-              <option value="volleyball">🏐 배구</option>
-              <option value="ice_hockey">🏒 아이스하키</option>
+            <optgroup label="기타 대전형">
+              <option value="basketball">농구</option>
+              <option value="baseball">야구</option>
+              <option value="volleyball">배구</option>
+              <option value="ice_hockey">아이스하키</option>
             </optgroup>
-            <optgroup label="🏃 동아리형">
-              <option value="running">🏃 러닝크루</option>
-              <option value="snowboard">🏂 스노보드</option>
-              <option value="badminton">🏸 배드민턴</option>
+            <optgroup label="동아리형">
+              <option value="running">러닝크루</option>
+              <option value="snowboard">스노보드</option>
+              <option value="badminton">배드민턴</option>
             </optgroup>
           </select>
         </Field>

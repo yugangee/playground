@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Trophy } from 'lucide-react'
 import { manageFetch } from '@/lib/manageFetch'
 import { useTeam } from '@/context/TeamContext'
 import type { Transaction, Due, Fine } from '@/types/manage'
@@ -247,8 +248,8 @@ function DuesTab({ teamId, isLeader, members }: { teamId: string; isLeader: bool
         return `• ${memberName(d.userId)} — ${d.amount.toLocaleString()}원 ${d.description}${due}`
       }),
       '',
-      '빠른 납부 부탁드립니다! 🙏',
-      '👉 납부 현황: https://fun.sedaily.ai/manage/finance',
+      '빠른 납부 부탁드립니다!',
+      '납부 현황: https://fun.sedaily.ai/manage/finance',
     ]
     await navigator.clipboard.writeText(lines.join('\n'))
     setReminderCopied(true)
@@ -279,13 +280,13 @@ function DuesTab({ teamId, isLeader, members }: { teamId: string; isLeader: bool
       {/* 미납자 리마인드 복사 */}
       {isLeader && unpaid.length > 0 && (
         <button onClick={copyReminder}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all hover:opacity-80"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
           style={{
             background: reminderCopied ? 'rgba(74,222,128,0.08)' : 'rgba(239,68,68,0.06)',
             color: reminderCopied ? '#4ade80' : '#ef4444',
             borderColor: reminderCopied ? 'rgba(74,222,128,0.3)' : 'rgba(239,68,68,0.2)',
           }}>
-          {reminderCopied ? '✓ 복사됨! 카톡에 붙여넣기 하세요' : `📤 미납자 ${unpaid.length}명 리마인드 복사`}
+          {reminderCopied ? '복사됨! 카톡에 붙여넣기 하세요' : `미납자 ${unpaid.length}명 리마인드 복사`}
         </button>
       )}
 
@@ -532,7 +533,7 @@ function SettlementTab({ teamId, isLeader, members }: { teamId: string; isLeader
       {/* 대회 참가비 분담 — KJA 케이스 */}
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">🏆</span>
+          <Trophy size={16} className="text-amber-700" />
           <h3 className="text-sm font-semibold text-amber-800">대회 참가비 분담</h3>
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-200 text-amber-700 font-bold">KJA</span>
         </div>

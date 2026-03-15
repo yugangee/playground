@@ -148,7 +148,7 @@ function PaymentForm() {
         </div>
 
         <button onClick={submit} disabled={!form.card || !form.expiry || !form.name || !form.birth || !agreed}
-          className="w-full py-3.5 rounded-xl font-bold text-base disabled:opacity-40 transition-opacity hover:opacity-90 border"
+          className="w-full py-3.5 rounded-xl font-bold text-base disabled:opacity-40 btn-press border"
           style={{ background: "#000000", color: "#ffffff", borderColor: "rgba(255,255,255,0.3)" }}>
           결제하기
         </button>

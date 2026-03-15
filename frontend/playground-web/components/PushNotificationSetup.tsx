@@ -63,7 +63,7 @@ export default function PushNotificationSetup() {
     <div className="fixed bottom-20 left-4 right-4 z-40 mx-auto max-w-sm rounded-2xl border border-violet-500/30 bg-slate-900/95 p-4 shadow-2xl backdrop-blur-sm sm:bottom-6">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-violet-600/20 text-xl">
-          🔔
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-white">푸시 알림 받기</p>

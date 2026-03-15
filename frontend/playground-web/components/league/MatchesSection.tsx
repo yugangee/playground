@@ -115,7 +115,7 @@ function MatchCard({ match: m, isOrganizer, leagueStatus, onClick, onDelete, tea
 
         {isOrganizer && !isCompleted && leagueStatus === 'ongoing' && (
           isTbd ? (
-            <span className="text-xs font-semibold" style={{ color: '#a855f7' }}>팀 배정 →</span>
+            <span className="text-xs font-semibold" style={{ color: 'var(--brand-primary)' }}>팀 배정 →</span>
           ) : (
             <span className="text-xs font-medium" style={{ color: 'var(--btn-solid-bg)' }}>결과 입력 →</span>
           )
@@ -160,12 +160,12 @@ export default function MatchesSection({ leagueId, matches, onRefresh, isOrganiz
       {/* bracketSize 토너먼트: 안내 배너 */}
       {hasBracketSize && leagueStatus === 'ongoing' && matches.some(m => m.homeTeamId === 'TBD' || m.awayTeamId === 'TBD') && (
         <div className="rounded-xl px-4 py-3 text-sm flex items-center justify-between"
-          style={{ background: 'rgba(147,51,234,0.06)', border: '1px solid rgba(147,51,234,0.15)', color: '#a855f7' }}>
+          style={{ background: 'rgba(147,51,234,0.06)', border: '1px solid rgba(147,51,234,0.15)', color: 'var(--brand-primary)' }}>
           <span>팀 미배정 경기가 있습니다. 경기를 클릭하거나 대진표에서 팀을 배정하세요.</span>
           {onSwitchTab && (
             <button onClick={() => onSwitchTab('bracket')}
-              className="ml-3 flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors hover:opacity-85"
-              style={{ background: 'rgba(147,51,234,0.12)', color: '#a855f7' }}>
+              className="ml-3 flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
+              style={{ background: 'rgba(147,51,234,0.12)', color: 'var(--brand-primary)' }}>
               대진표 보기
             </button>
           )}
@@ -176,7 +176,7 @@ export default function MatchesSection({ leagueId, matches, onRefresh, isOrganiz
       {isOrganizer && leagueStatus !== 'finished' && !hasBracketSize && (
         <>
           <button onClick={() => setShowForm(v => !v)}
-            className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors hover:opacity-85"
+            className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold btn-press"
             style={{ background: 'var(--btn-solid-bg)', color: 'var(--btn-solid-color)' }}>
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             경기 추가
@@ -203,7 +203,7 @@ export default function MatchesSection({ leagueId, matches, onRefresh, isOrganiz
               </div>
               <div className="mt-4 flex gap-2">
                 <button type="submit" disabled={loading}
-                  className="rounded-xl px-5 py-2.5 text-sm font-semibold hover:opacity-85 disabled:opacity-50"
+                  className="rounded-xl px-5 py-2.5 text-sm font-semibold btn-press disabled:opacity-50"
                   style={{ background: 'var(--btn-solid-bg)', color: 'var(--btn-solid-color)' }}>
                   {loading ? '추가 중...' : '추가'}
                 </button>

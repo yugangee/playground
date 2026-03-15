@@ -32,7 +32,7 @@ function TeamDetailModal({ teamId, teamName, matches, tn, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}
-      style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
+      style={{ background: 'rgba(0,0,0,0.7)' }}>
       <div className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl p-6 shadow-2xl"
         onClick={e => e.stopPropagation()}
         style={{ background: 'var(--sidebar-bg)', border: '1px solid var(--card-border)' }}>
@@ -161,7 +161,7 @@ export default function StandingsTable({ standings, tn, currentTeamId, matches }
                 const ha = getHomeAway(s.teamId)
                 return (
                   <React.Fragment key={s.teamId}>
-                    <tr className="cursor-pointer transition-colors hover:opacity-80"
+                    <tr className="cursor-pointer hover:bg-[var(--hover-overlay)] transition-all"
                       style={{ borderBottom: '1px solid var(--card-border)', background: medalBg(i), borderLeft: zoneBorder(i) }}
                       onClick={() => setExpandedTeam(expandedTeam === s.teamId ? null : s.teamId)}>
                       <td className="px-3 py-3.5">

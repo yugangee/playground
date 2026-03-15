@@ -77,7 +77,7 @@ export default function InfoTab({ league, isOrganizer, onUpdate }: {
             <button onClick={() => setEditing(false)} className="rounded-lg px-3 py-1.5 text-xs font-medium"
               style={{ color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>취소</button>
             <button onClick={save} disabled={saving}
-              className="rounded-lg bg-[var(--btn-solid-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--btn-solid-color)] hover:opacity-85 disabled:opacity-50">
+              className="rounded-lg bg-[var(--btn-solid-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--btn-solid-color)] btn-press disabled:opacity-50">
               {saving ? '저장 중...' : '저장'}
             </button>
           </div>
@@ -161,7 +161,7 @@ export default function InfoTab({ league, isOrganizer, onUpdate }: {
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAward() } }}
               className={inp} style={inpStyle} placeholder="시상 항목 입력 후 Enter" />
             <button type="button" onClick={addAward}
-              className="flex-shrink-0 rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] hover:opacity-85">추가</button>
+              className="flex-shrink-0 rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] btn-press">추가</button>
           </div>
           {awards.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -185,7 +185,7 @@ export default function InfoTab({ league, isOrganizer, onUpdate }: {
       {isOrganizer && (
         <div className="flex justify-end">
           <button onClick={() => setEditing(true)}
-            className="rounded-lg bg-[var(--btn-solid-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--btn-solid-color)] hover:opacity-85">
+            className="rounded-lg bg-[var(--btn-solid-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--btn-solid-color)] btn-press">
             편집
           </button>
         </div>

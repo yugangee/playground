@@ -14,6 +14,16 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        brand: {
+          DEFAULT: "var(--brand-primary)",
+          light: "var(--brand-primary-light)",
+          muted: "var(--brand-primary-muted)",
+        },
+      },
+      boxShadow: {
+        'soft-sm': 'var(--shadow-sm)',
+        'soft-md': 'var(--shadow-md)',
+        'soft-lg': 'var(--shadow-lg)',
       },
     },
   },

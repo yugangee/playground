@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
+import { Trophy, BarChart3 } from 'lucide-react'
 import { manageFetch } from '@/lib/manageFetch'
 import type { League, Team } from '@/types/manage'
 import { StatusBadge, BackBtn, Empty, TeamSearchInvite, AGE_GROUP_LABEL, SPORT_TYPE_LABEL } from './shared'
@@ -381,8 +382,8 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
         <BackBtn onClick={onBack} />
         <div className="flex flex-1 items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl text-lg font-bold text-white"
-            style={{ background: isTournament ? '#a855f7' : '#3b82f6' }}>
-            {isTournament ? '🏆' : '📊'}
+            style={{ background: isTournament ? 'var(--brand-primary)' : '#3b82f6' }}>
+            {isTournament ? <Trophy size={22} /> : <BarChart3 size={22} />}
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold truncate" style={{ color: 'var(--text-primary)' }}>{league.name}</h1>
@@ -410,7 +411,7 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
               {league.status === 'recruiting' && (
                 <>
                   <button onClick={startLeague} disabled={generating}
-                    className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold btn-press disabled:cursor-not-allowed disabled:opacity-50"
                     style={{ background: 'var(--btn-solid-bg)', color: 'var(--btn-solid-color)' }}>
                     {generating ? (
                       <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />생성 중...</>
@@ -419,7 +420,7 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
                     )}
                   </button>
                   <button onClick={deleteLeague}
-                    className="rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-85"
+                    className="rounded-xl px-4 py-2 text-sm font-semibold hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
                     style={{ color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
                     삭제
                   </button>
@@ -427,7 +428,7 @@ export default function LeagueDetail({ league: initialLeague, onBack, isOrganize
               )}
               {league.status === 'ongoing' && (
                 <button onClick={endLeague}
-                  className="rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-85"
+                  className="rounded-xl px-4 py-2 text-sm font-semibold hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
                   style={{ color: 'var(--text-muted)', border: '1px solid var(--card-border)' }}>
                   대회 종료
                 </button>

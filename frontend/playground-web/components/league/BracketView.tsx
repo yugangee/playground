@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useMemo } from 'react'
+import { Medal, Trophy } from 'lucide-react'
 import { Empty } from './shared'
 import { ROUND_ORDER, generateBracketTemplate, nextPowerOf2, type LeagueMatch } from './utils'
 
@@ -49,26 +50,26 @@ function TournamentResults({ matches, tn }: {
   const totalCards = completed.reduce((sum, m) => sum + (m.cards?.length ?? 0), 0)
 
   return (
-    <div className="mb-6 rounded-2xl p-5" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(16,185,129,0.08))', border: '1px solid rgba(245,158,11,0.2)' }}>
+    <div className="mb-6 rounded-2xl p-5" style={{ background: 'var(--color-warning-light)', border: '1px solid rgba(245,158,11,0.2)' }}>
       <h3 className="text-sm font-bold mb-4" style={{ color: 'var(--text-primary)' }}>대회 결과</h3>
       <div className="flex items-end justify-center gap-4 mb-5">
         {second && (
           <div className="text-center">
-            <div className="text-xl mb-1">🥈</div>
+            <div className="flex justify-center text-xl mb-1"><Medal size={20} style={{ color: '#94a3b8' }} /></div>
             <div className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{tn(second)}</div>
             <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>준우승</div>
           </div>
         )}
         {first && (
           <div className="text-center -mt-2">
-            <div className="text-2xl mb-1">🏆</div>
+            <div className="flex justify-center text-2xl mb-1"><Trophy size={24} style={{ color: '#f59e0b' }} /></div>
             <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{tn(first)}</div>
             <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>우승</div>
           </div>
         )}
         {third && (
           <div className="text-center">
-            <div className="text-xl mb-1">🥉</div>
+            <div className="flex justify-center text-xl mb-1"><Medal size={20} style={{ color: '#d97706' }} /></div>
             <div className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{tn(third)}</div>
             <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>3위</div>
           </div>

@@ -84,11 +84,10 @@ export default function MypagePage() {
             className="px-4 py-3 rounded-xl text-sm font-medium shadow-xl border animate-toast-in"
             style={{
               background: t.type === 'success'
-                ? 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.15))'
-                : 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(220,38,38,0.15))',
+                ? 'var(--color-success-light)'
+                : 'var(--color-error-light)',
               borderColor: t.type === 'success' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)',
               color: t.type === 'success' ? '#10b981' : '#ef4444',
-              backdropFilter: 'blur(8px)',
             }}
           >
             {t.message}
@@ -114,7 +113,7 @@ export default function MypagePage() {
         <div className="mb-5 flex items-center gap-4">
           <div
             className="flex h-16 w-16 items-center justify-center rounded-2xl text-xl font-bold text-white shrink-0"
-            style={{ background: 'linear-gradient(135deg, #c026d3, #7c3aed)' }}
+            style={{ background: 'var(--brand-primary)' }}
           >
             {initials}
           </div>
@@ -164,8 +163,8 @@ export default function MypagePage() {
                 <button
                   onClick={saveName}
                   disabled={saving}
-                  className="flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{ background: 'linear-gradient(to right, #c026d3, #7c3aed)' }}
+                  className="flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-white btn-press disabled:opacity-50"
+                  style={{ background: 'var(--brand-primary)' }}
                 >
                   <Check size={14} />
                   {saving ? '저장 중' : '저장'}
@@ -183,8 +182,8 @@ export default function MypagePage() {
                 <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{name || '—'}</span>
                 <button
                   onClick={() => setEditingName(true)}
-                  className="flex items-center gap-1 text-xs font-medium transition-opacity hover:opacity-80"
-                  style={{ color: '#c026d3' }}
+                  className="flex items-center gap-1 text-xs font-medium hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
+                  style={{ color: 'var(--brand-primary)' }}
                 >
                   <Edit2 size={11} />
                   수정
@@ -204,11 +203,11 @@ export default function MypagePage() {
         }}
       >
         <h2 className="mb-4 font-semibold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-          <Shield size={15} className="text-fuchsia-400" />
+          <Shield size={15} className="text-[var(--brand-primary)]" />
           내 팀
           <span
             className="ml-1 rounded-full px-2 py-0.5 text-xs font-medium"
-            style={{ background: 'rgba(192,38,211,0.12)', color: '#c026d3' }}
+            style={{ background: 'var(--brand-primary-light)', color: 'var(--brand-primary)' }}
           >
             {teams.length}
           </span>
@@ -226,7 +225,7 @@ export default function MypagePage() {
                 <div className="flex items-center gap-3">
                   <div
                     className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white"
-                    style={{ background: 'linear-gradient(135deg, #c026d3, #7c3aed)' }}
+                    style={{ background: 'var(--brand-primary)' }}
                   >
                     {t.name.charAt(0)}
                   </div>
@@ -238,7 +237,7 @@ export default function MypagePage() {
                 {t.leaderId === user?.username && (
                   <span
                     className="rounded-full px-2.5 py-1 text-xs font-medium"
-                    style={{ background: 'rgba(192,38,211,0.12)', color: '#c026d3' }}
+                    style={{ background: 'var(--brand-primary-light)', color: 'var(--brand-primary)' }}
                   >
                     대표
                   </span>
@@ -252,7 +251,7 @@ export default function MypagePage() {
       {/* Logout */}
       <button
         onClick={handleLogout}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium transition-colors hover:opacity-90"
+        className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
         style={{
           background: 'rgba(239,68,68,0.08)',
           border: '1px solid rgba(239,68,68,0.2)',

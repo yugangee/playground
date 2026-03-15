@@ -83,6 +83,24 @@ input[type="time"] {
   --chat-bubble-bg: #d9d9d9;
   --chat-bubble-color: #111111;
   --skeleton-bg: rgba(0, 0, 0, 0.08);
+  /* Brand & semantic colors */
+  --brand-primary: #7c3aed;
+  --brand-primary-light: #ede9fe;
+  --brand-primary-muted: #8b5cf6;
+  --color-success: #10b981;
+  --color-success-light: #ecfdf5;
+  --color-error: #ef4444;
+  --color-error-light: #fef2f2;
+  --color-warning: #f59e0b;
+  --color-warning-light: #fffbeb;
+  --color-info: #3b82f6;
+  --color-info-light: #eff6ff;
+  /* Shadows (Toss-style: soft, no color tint) */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1);
+  /* Hover overlay */
+  --hover-overlay: rgba(0, 0, 0, 0.04);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -137,6 +155,24 @@ input[type="time"] {
   --chat-bubble-bg: #1E1E1E;
   --chat-bubble-color: #ffffff;
   --skeleton-bg: rgba(255, 255, 255, 0.05);
+  /* Brand & semantic colors (dark mode) */
+  --brand-primary: #8b5cf6;
+  --brand-primary-light: rgba(124, 58, 237, 0.15);
+  --brand-primary-muted: #a78bfa;
+  --color-success: #10b981;
+  --color-success-light: rgba(16, 185, 129, 0.12);
+  --color-error: #ef4444;
+  --color-error-light: rgba(239, 68, 68, 0.12);
+  --color-warning: #f59e0b;
+  --color-warning-light: rgba(245, 158, 11, 0.12);
+  --color-info: #3b82f6;
+  --color-info-light: rgba(59, 130, 246, 0.12);
+  /* Shadows (dark mode: stronger opacity) */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.4);
+  /* Hover overlay */
+  --hover-overlay: rgba(255, 255, 255, 0.06);
   --card: #1E1E1E;
   --card-foreground: oklch(0.985 0 0);
   --popover: #1E1E1E;
@@ -284,8 +320,30 @@ input[type="time"] {
 }
 
 .card-lift:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(192, 38, 211, 0.12);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Toss-style button hover: subtle lift + shadow */
+.btn-press {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.btn-press:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+.btn-press:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: none;
+}
+
+/* Karrot-style card hover: gentle lift */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
 /* ── Light mode overrides ── */
@@ -418,8 +476,5 @@ input[type="time"] {
 
   /* Fuchsia tinted backgrounds stay the same (they work in both modes) */
 
-  /* Input focus border */
-  .focus\:border-fuchsia-500\/50:focus {
-    border-color: rgba(192, 38, 211, 0.5) !important;
-  }
+  /* Input focus border — now uses var(--brand-primary) inline */
 }

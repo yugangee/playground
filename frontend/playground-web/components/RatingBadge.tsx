@@ -5,7 +5,7 @@ const playerTierConfig: Record<string, { bg: string; text: string; label: string
   S: { bg: "bg-green-500/20", text: "text-green-400", label: "스타터" },
   A: { bg: "bg-blue-500/20", text: "text-blue-400", label: "아마추어" },
   SP: { bg: "bg-purple-500/20", text: "text-purple-400", label: "세미프로" },
-  P: { bg: "bg-fuchsia-500/20", text: "text-fuchsia-400", label: "프로" },
+  P: { bg: "bg-violet-500/20", text: "text-violet-400", label: "프로" },
 };
 
 const teamTierConfig: Record<string, { bg: string; text: string; label: string }> = {
@@ -13,7 +13,7 @@ const teamTierConfig: Record<string, { bg: string; text: string; label: string }
   Club: { bg: "bg-green-500/20", text: "text-green-400", label: "클럽" },
   Crew: { bg: "bg-blue-500/20", text: "text-blue-400", label: "크루" },
   Elite: { bg: "bg-purple-500/20", text: "text-purple-400", label: "엘리트" },
-  Legend: { bg: "bg-fuchsia-500/20", text: "text-fuchsia-400", label: "레전드" },
+  Legend: { bg: "bg-violet-500/20", text: "text-violet-400", label: "레전드" },
 };
 
 const sizeMap = { sm: "text-xs px-1.5 py-0.5", md: "text-sm px-2 py-0.5", lg: "text-base px-3 py-1" };

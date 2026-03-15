@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import QRCode from 'qrcode'
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts'
+import { Trophy, Bell } from 'lucide-react'
 import { manageFetch } from '@/lib/manageFetch'
 import { useTeam } from '@/context/TeamContext'
 import { useAuth } from '@/context/AuthContext'
@@ -66,7 +67,7 @@ function exportToICS(matches: Match[], teamName: string) {
         `DTSTAMP:${now}`,
         `DTSTART:${fmtDt(start)}`,
         `DTEND:${fmtDt(end)}`,
-        `SUMMARY:⚽ ${m.venue}`,
+        `SUMMARY:${m.venue}`,
         m.venueAddress ? `LOCATION:${m.venueAddress.replace(/,/g, '\\,')}` : '',
         `DESCRIPTION:상태: ${STATUS_LABEL[m.status] ?? m.status}`,
         'END:VEVENT',
@@ -136,7 +137,7 @@ function QRCheckInBanner({ matchId, matches, onDismiss }: {
       style={{ background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.35)' }}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>⚽ 경기 체크인</p>
+          <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>경기 체크인</p>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
             {match.venue} · {formatDateTime(match.scheduledAt)}
           </p>
@@ -149,7 +150,7 @@ function QRCheckInBanner({ matchId, matches, onDismiss }: {
       </div>
       {status === 'idle' && (
         <button onClick={checkIn}
-          className="w-full rounded-xl py-3 text-sm font-bold transition-opacity hover:opacity-90"
+          className="w-full rounded-xl py-3 text-sm font-bold btn-press"
           style={{ background: 'var(--btn-solid-bg)', color: 'var(--btn-solid-color)' }}>
           ✓ 체크인 완료
         </button>
@@ -250,7 +251,7 @@ export default function SchedulePage() {
             <button
               onClick={() => exportToICS(matches, currentTeam?.name ?? '팀')}
               title="캘린더 내보내기 (.ics)"
-              className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-colors hover:opacity-80"
+              className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
               style={{ background: 'var(--card-bg)', color: 'var(--text-secondary)', border: '1px solid var(--card-border)' }}
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -276,7 +277,7 @@ export default function SchedulePage() {
       {pendingProposals.length > 0 && (
         <div className="flex items-start gap-3 rounded-2xl px-4 py-3"
           style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)' }}>
-          <span className="text-lg mt-0.5">🔔</span>
+          <Bell size={18} className="mt-0.5 shrink-0" style={{ color: '#f59e0b' }} />
           <div className="min-w-0">
             <p className="text-sm font-bold" style={{ color: '#f59e0b' }}>
               경기 제안 {pendingProposals.length}건 수신
@@ -429,7 +430,7 @@ export default function SchedulePage() {
         onClick={() => setShowGps(true)}
         title="GPS 퍼포먼스 트래커"
         className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95"
-        style={{ background: 'linear-gradient(135deg,#059669,#10b981)' }}
+        style={{ background: '#10b981' }}
       >
         <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
@@ -499,7 +500,7 @@ function TrainingCard({ match: m, isLeader, members, onRefresh }: {
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-bold rounded-lg px-2 py-0.5"
               style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--text-primary)' }}>
-              🏃 훈련
+              훈련
             </span>
             <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
               {dateStr} {timeStr}
@@ -534,7 +535,7 @@ function TrainingCard({ match: m, isLeader, members, onRefresh }: {
             color: myStatus === 'attending' ? '#4ade80' : 'var(--text-muted)',
             border: `1px solid ${myStatus === 'attending' ? 'rgba(74,222,128,0.4)' : 'var(--card-border)'}`,
           }}>
-          {myStatus === 'attending' ? '✅ 참석' : '참석'}
+          {myStatus === 'attending' ? '참석 완료' : '참석'}
         </button>
         <button onClick={() => vote('absent')} disabled={voting}
           className="flex-1 rounded-xl py-1.5 text-xs font-semibold transition-all"
@@ -543,7 +544,7 @@ function TrainingCard({ match: m, isLeader, members, onRefresh }: {
             color: myStatus === 'absent' ? '#ef4444' : 'var(--text-muted)',
             border: `1px solid ${myStatus === 'absent' ? 'rgba(239,68,68,0.3)' : 'var(--card-border)'}`,
           }}>
-          {myStatus === 'absent' ? '❌ 불참' : '불참'}
+          {myStatus === 'absent' ? '불참 완료' : '불참'}
         </button>
       </div>
       {attendances.length > 0 && (
@@ -584,18 +585,18 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
       month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit',
     })
     const lines = [
-      `⚽ 경기 안내 — ${m.venue}`,
-      `🗓 ${dateStr}`,
-      m.venueAddress ? `📍 ${m.venueAddress}` : '',
-      `⚠️ 경기 당일 신분증 지참 필수`,
+      `경기 안내 — ${m.venue}`,
+      `${dateStr}`,
+      m.venueAddress ? `${m.venueAddress}` : '',
+      `경기 당일 신분증 지참 필수`,
       '',
-      `👉 체크인: https://fun.sedaily.ai/schedule?match=${m.id}`,
+      `체크인: https://fun.sedaily.ai/schedule?match=${m.id}`,
     ].filter(l => l !== undefined) as string[]
     const text = lines.join('\n')
     const url  = `https://fun.sedaily.ai/schedule?match=${m.id}`
     try {
       if (navigator.share) {
-        await navigator.share({ title: '⚽ 경기 안내', text, url })
+        await navigator.share({ title: '경기 안내', text, url })
       } else {
         await navigator.clipboard.writeText(text)
         setShareCopied(true)
@@ -773,9 +774,9 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
               onClick={() => respond('attending')}
               disabled={loading}
               className="w-full rounded-2xl py-3 text-sm font-bold text-white transition-opacity disabled:opacity-50"
-              style={{ background: 'linear-gradient(to right, #16a34a, #4ade80)' }}
+              style={{ background: '#10b981' }}
             >
-              {loading ? '처리 중...' : '🏃 경기 당일 체크인'}
+              {loading ? '처리 중...' : '경기 당일 체크인'}
             </button>
           )}
 
@@ -849,17 +850,17 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
         <div className="flex gap-2">
           <button
             onClick={() => setShowGoalModal(true)}
-            className="flex-1 rounded-xl py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+            className="flex-1 rounded-xl py-2 text-xs font-semibold hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
             style={{ background: 'rgba(74,222,128,0.08)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.2)' }}
           >
-            ⚽ 득점 기록
+            득점 기록
           </button>
           <button
             onClick={() => setShowCardModal(true)}
-            className="flex-1 rounded-xl py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+            className="flex-1 rounded-xl py-2 text-xs font-semibold hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
             style={{ background: 'rgba(251,191,36,0.08)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)' }}
           >
-            🟨 경고 기록
+            경고 기록
           </button>
         </div>
       )}
@@ -870,36 +871,36 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
           {isLeader && (
             <button
               onClick={() => setShowResultModal(true)}
-              className="flex-1 rounded-xl py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+              className="flex-1 rounded-xl py-2 text-xs font-semibold hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
               style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.15)' }}
             >
-              📋 경기 결과 입력
+              경기 결과 입력
             </button>
           )}
           <button
             onClick={() => setShowQRModal(true)}
-            className="rounded-xl px-3 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+            className="rounded-xl px-3 py-2 text-xs font-semibold hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
             style={{ background: 'rgba(96,165,250,0.08)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.25)' }}
           >
             QR
           </button>
           <button
             onClick={shareMatch}
-            className="rounded-xl px-3 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+            className="rounded-xl px-3 py-2 text-xs font-semibold hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
             style={{ background: shareCopied ? 'rgba(74,222,128,0.12)' : 'rgba(156,163,175,0.08)',
               color: shareCopied ? '#4ade80' : 'var(--text-muted)',
               border: `1px solid ${shareCopied ? 'rgba(74,222,128,0.3)' : 'var(--card-border)'}` }}
           >
-            {shareCopied ? '복사됨!' : '📤'}
+            {shareCopied ? '복사됨!' : '공유'}
           </button>
           {/* M3-E: 주장 채팅방 */}
           {m.captainRoomId && (
             <a
               href={`/chat?roomId=${m.captainRoomId}`}
-              className="rounded-xl px-3 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+              className="rounded-xl px-3 py-2 text-xs font-semibold hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
               style={{ background: 'rgba(251,146,60,0.08)', color: '#fb923c', border: '1px solid rgba(251,146,60,0.25)' }}
             >
-              💬 주장채팅
+              주장채팅
             </a>
           )}
         </div>
@@ -929,7 +930,7 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
             className="flex w-full items-center justify-between text-[11px] font-semibold py-1"
             style={{ color: 'var(--text-muted)' }}>
             <span className="flex items-center gap-1.5">
-              📝 경기 노트
+              경기 노트
               {noteText.trim() && !showNote && (
                 <span className="rounded-full px-1.5 py-0.5 text-[9px] font-bold"
                   style={{ background: 'rgba(96,165,250,0.12)', color: '#60a5fa' }}>저장됨</span>
@@ -964,7 +965,7 @@ function UpcomingMatchCard({ match: m, onRefresh, isLeader, teamId, members, onP
                 }}
                 disabled={savingNote}
                 className="rounded-xl px-4 py-1.5 text-xs font-semibold text-white transition-opacity disabled:opacity-50"
-                style={{ background: 'linear-gradient(to right, #3b82f6, #60a5fa)' }}>
+                style={{ background: '#3b82f6' }}>
                 {savingNote ? '저장 중...' : '저장'}
               </button>
             </div>
@@ -1033,7 +1034,7 @@ function AttendBtn({
       onClick={onClick}
       disabled={disabled}
       className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
-        active ? activeClass : `hover:opacity-80 ${inactiveClass}`
+        active ? activeClass : `hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all ${inactiveClass}`
       }`}
       style={active ? undefined : { background: 'var(--sidebar-bg)', color: 'var(--text-secondary)' }}
     >
@@ -1223,7 +1224,7 @@ function QuickAttendRow({ matchId }: { matchId: string }) {
           className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${
             myStatus === s
               ? s === 'attending' ? 'bg-white text-black' : 'bg-red-500 text-white'
-              : 'hover:opacity-80'
+              : 'hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all'
           }`}
           style={myStatus !== s ? { background: 'var(--sidebar-bg)', color: 'var(--text-secondary)' } : undefined}
         >
@@ -1256,7 +1257,7 @@ function MatchFormButton({ teamId, onSuccess }: { teamId: string; onSuccess: () 
         <button onClick={() => openAs('training')}
           className="flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition-colors"
           style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.15)' }}>
-          🏃 훈련
+          훈련
         </button>
       </div>
 
@@ -1267,7 +1268,7 @@ function MatchFormButton({ teamId, onSuccess }: { teamId: string; onSuccess: () 
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
-                {formType === 'training' ? '🏃 훈련 일정 등록' : '⚽ 경기 등록'}
+                {formType === 'training' ? '훈련 일정 등록' : '경기 등록'}
               </h3>
               <button onClick={() => setOpen(false)} style={{ color: 'var(--text-muted)' }}>
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -1376,7 +1377,7 @@ function MatchForm({ teamId, formType = 'match', onSuccess }: { teamId: string; 
             <button type="button" onClick={toggleFavorite}
               className="text-[11px] font-semibold flex items-center gap-1 transition-opacity hover:opacity-70"
               style={{ color: isSaved ? '#fbbf24' : 'var(--text-muted)' }}>
-              {isSaved ? '⭐ 저장됨' : '☆ 즐겨찾기'}
+              {isSaved ? '저장됨' : '즐겨찾기'}
             </button>
           )}
         </div>
@@ -1396,7 +1397,7 @@ function MatchForm({ teamId, formType = 'match', onSuccess }: { teamId: string; 
                 className="w-full text-left px-3.5 py-2.5 border-b last:border-b-0 hover:opacity-75 transition-opacity"
                 style={{ borderColor: 'var(--card-border)' }}>
                 <div className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  <span style={{ color: '#fbbf24' }}>⭐</span>{v.name}
+                  <span style={{ color: '#fbbf24' }}>&#9733;</span>{v.name}
                 </div>
                 {v.address && <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>{v.address}</p>}
               </button>
@@ -1420,7 +1421,7 @@ function MatchForm({ teamId, formType = 'match', onSuccess }: { teamId: string; 
       <button type="submit" disabled={loading}
         className="w-full rounded-xl py-2.5 text-sm font-semibold text-white transition-colors disabled:opacity-50"
         style={{ background: 'var(--accent, #8B5CF6)' }}>
-        {loading ? '등록 중...' : isTraining ? '🏃 훈련 일정 등록' : '⚽ 경기 등록'}
+        {loading ? '등록 중...' : isTraining ? '훈련 일정 등록' : '경기 등록'}
       </button>
     </form>
   )
@@ -1474,7 +1475,7 @@ function MatchResultModal({ match: m, teamId, members, onClose, onSuccess }: {
           method: 'POST',
           body: JSON.stringify({
             teamId,
-            question: `⭐ POTM — ${m.venue} (${new Date(m.scheduledAt).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })})`,
+            question: `POTM — ${m.venue} (${new Date(m.scheduledAt).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })})`,
             options,
           }),
         })
@@ -1575,7 +1576,7 @@ function MatchResultModal({ match: m, teamId, members, onClose, onSuccess }: {
           <>
             <div className="p-5 space-y-4">
               <div className="text-center">
-                <div className="text-3xl mb-2">⭐</div>
+                <div className="text-3xl mb-2"><Trophy size={28} style={{ color: '#fbbf24' }} /></div>
                 <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>POTM 투표</h3>
                 <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>오늘의 MVP를 선택하세요</p>
               </div>
@@ -1589,7 +1590,7 @@ function MatchResultModal({ match: m, teamId, members, onClose, onSuccess }: {
                       color: potmVote === mem.userId ? 'var(--text-primary)' : 'var(--text-secondary)',
                       border: `1px solid ${potmVote === mem.userId ? 'rgba(255,255,255,0.2)' : 'var(--card-border)'}`,
                     }}>
-                    {potmVote === mem.userId ? '⭐ ' : ''}{mem.userId}
+                    {potmVote === mem.userId ? '* ' : ''}{mem.userId}
                     {mem.position && <span className="ml-2 text-xs opacity-60">{mem.position}</span>}
                   </button>
                 ))}
@@ -1679,7 +1680,7 @@ function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
   }
 
   const totalVotes = votes.length
-  const isPotm = poll.question.startsWith('⭐ POTM')
+  const isPotm = poll.question.startsWith('POTM')
   const isEnded = !!poll.endsAt && new Date(poll.endsAt) < new Date()
 
   return (
@@ -1739,7 +1740,7 @@ function PollCard({ poll, onVoted }: { poll: Poll; onVoted: () => void }) {
           disabled={finalizing}
           className="w-full rounded-xl py-2 text-xs font-bold transition-colors disabled:opacity-60"
           style={{ background: 'var(--btn-solid-bg)', color: 'var(--btn-solid-color)' }}>
-          {finalizing ? '확정 중...' : '🏆 POTM 확정하기'}
+          {finalizing ? '확정 중...' : 'POTM 확정하기'}
         </button>
       )}
       {finalized && (
@@ -1778,7 +1779,7 @@ function QRModal({ match: m, onClose }: { match: Match; onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
-      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+      style={{ background: 'rgba(0,0,0,0.6)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="relative w-full max-w-xs rounded-2xl border p-5 space-y-4"
         style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}>
@@ -2007,7 +2008,7 @@ function GuestSection({ match: m, isLeader, onSaved }: {
           {guests.map(name => (
             <div key={name} className="flex items-center gap-0.5 rounded-full px-2.5 py-1 text-xs font-medium"
               style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.15)' }}>
-              ⚽ {name}
+              {name}
               {isLeader && (
                 <button
                   onClick={() => patchGuests(guests.filter(g => g !== name))}
@@ -2081,19 +2082,19 @@ function EventTimeline({ match: m, members }: { match: Match; members: TeamMembe
           const helper = ev.assist ? members.find(mem => mem.userId === ev.assist) : null
           return (
             <div key={`ev-${i}`} className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
-              <span>⚽</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
               <span className="font-medium tabular-nums text-[10px] w-7 shrink-0" style={{ color: 'var(--text-muted)' }}>
                 {ev.minute != null ? `${ev.minute}'` : ''}
               </span>
               <span className="font-semibold">{scorer ? memberLabel(scorer) : ev.scorer.slice(0, 8)}</span>
-              {helper && <span style={{ color: 'var(--text-muted)' }}>(🅰 {memberLabel(helper)})</span>}
+              {helper && <span style={{ color: 'var(--text-muted)' }}>(A {memberLabel(helper)})</span>}
             </div>
           )
         }
         const player = members.find(mem => mem.userId === ev.playerId)
         return (
           <div key={`ev-${i}`} className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
-            <span>{ev.type === 'yellow' ? '🟨' : '🟥'}</span>
+            <span className={`w-3 h-4 rounded-sm inline-block ${ev.type === 'yellow' ? 'bg-yellow-400' : 'bg-red-500'}`} />
             <span className="font-medium tabular-nums text-[10px] w-7 shrink-0" style={{ color: 'var(--text-muted)' }}>
               {ev.minute != null ? `${ev.minute}'` : ''}
             </span>
@@ -2148,7 +2149,7 @@ function GoalModal({ match: m, members, attendances, onClose, onSuccess }: {
         style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-5 pb-3">
-          <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>⚽ 득점 기록</h3>
+          <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>득점 기록</h3>
           <button onClick={onClose} style={{ color: 'var(--text-muted)' }}>
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -2181,7 +2182,7 @@ function GoalModal({ match: m, members, attendances, onClose, onSuccess }: {
                     color: scorer === mem.userId ? '#4ade80' : 'var(--text-secondary)',
                     border: `1px solid ${scorer === mem.userId ? 'rgba(74,222,128,0.4)' : 'var(--card-border)'}`,
                   }}>
-                  {scorer === mem.userId ? '⚽ ' : ''}{memberLabel(mem)}
+                  {scorer === mem.userId ? '* ' : ''}{memberLabel(mem)}
                   {mem.role === 'leader' && <span className="ml-1 text-[10px] opacity-50">주장</span>}
                 </button>
               ))}
@@ -2201,7 +2202,7 @@ function GoalModal({ match: m, members, attendances, onClose, onSuccess }: {
                     color: assist === mem.userId ? '#60a5fa' : 'var(--text-secondary)',
                     border: `1px solid ${assist === mem.userId ? 'rgba(96,165,250,0.3)' : 'var(--card-border)'}`,
                   }}>
-                  {assist === mem.userId ? '🅰 ' : ''}{memberLabel(mem)}
+                  {assist === mem.userId ? 'A ' : ''}{memberLabel(mem)}
                 </button>
               ))}
             </div>
@@ -2446,7 +2447,7 @@ function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSa
         style={{ color: 'var(--text-secondary)' }}
       >
         <span className="flex items-center gap-2">
-          <span>⚽ 라인업</span>
+          <span>라인업</span>
           {hasAnyLineup && (
             <span className="rounded-full px-2 py-0.5 text-[10px] font-bold"
               style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--text-primary)' }}>
@@ -2490,7 +2491,7 @@ function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSa
               className="w-full rounded-xl py-1.5 text-xs font-semibold border"
               style={{ borderColor: 'var(--card-border)', color: 'var(--text-secondary)' }}
             >
-              📋 전반 라인업 복사해서 시작
+              전반 라인업 복사해서 시작
             </button>
           )}
 
@@ -2510,7 +2511,7 @@ function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSa
                   key={mem.userId}
                   onClick={isLeader ? () => cycle(mem.userId) : undefined}
                   disabled={!isLeader}
-                  className={`rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${isLeader ? 'hover:opacity-80' : ''}`}
+                  className={`rounded-xl px-2.5 py-1.5 text-xs font-semibold transition-all ${isLeader ? 'hover:bg-[var(--hover-overlay)] active:scale-[0.98]' : ''}`}
                   style={{
                     background: state === 'starter' ? 'rgba(74,222,128,0.15)' :
                                 state === 'sub'     ? 'rgba(96,165,250,0.12)' : 'var(--sidebar-bg)',
@@ -2554,7 +2555,7 @@ function LineupSection({ match: m, members, isLeader, showLineup, onToggle, onSa
                 style={{ color: 'var(--text-secondary)' }}
               >
                 <span className="flex items-center gap-2">
-                  <span>🏟 포메이션 보드</span>
+                  <span>포메이션 보드</span>
                   {!showFormation && (
                     <span className="rounded-full px-2 py-0.5 text-[10px] font-bold"
                       style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--text-primary)' }}>
@@ -2633,7 +2634,7 @@ function PKOrderSection({ match: m, members, isLeader, onSaved }: {
         style={{ color: 'var(--text-secondary)' }}
       >
         <span className="flex items-center gap-2">
-          <span>🥅 PK 순서</span>
+          <span>PK 순서</span>
           {hasOrder && (
             <span className="rounded-full px-2 py-0.5 text-[10px] font-bold"
               style={{ background: 'rgba(96,165,250,0.12)', color: '#60a5fa' }}>
@@ -2690,7 +2691,7 @@ function PKOrderSection({ match: m, members, isLeader, onSaved }: {
               onClick={save}
               disabled={saving}
               className="w-full rounded-xl py-2 text-xs font-semibold text-white disabled:opacity-50"
-              style={{ background: 'linear-gradient(to right, #1d4ed8, #60a5fa)' }}>
+              style={{ background: '#3b82f6' }}>
               {saving ? '저장 중...' : 'PK 순서 저장'}
             </button>
           )}
@@ -2741,7 +2742,7 @@ function CardModal({ match: m, members, attendances, onClose, onSuccess }: {
         style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between p-5 pb-3">
-          <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>🟨 경고/퇴장 기록</h3>
+          <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>경고/퇴장 기록</h3>
           <button onClick={onClose} style={{ color: 'var(--text-muted)' }}>
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -2769,7 +2770,7 @@ function CardModal({ match: m, members, attendances, onClose, onSuccess }: {
                       ? (t === 'yellow' ? 'rgba(251,191,36,0.4)' : 'rgba(248,113,113,0.4)')
                       : 'var(--card-border)'}`,
                   }}>
-                  {t === 'yellow' ? '🟨 경고' : '🟥 퇴장'}
+                  {t === 'yellow' ? '경고' : '퇴장'}
                 </button>
               ))}
             </div>
@@ -2806,7 +2807,7 @@ function CardModal({ match: m, members, attendances, onClose, onSuccess }: {
                       ? (cardType === 'yellow' ? 'rgba(251,191,36,0.3)' : 'rgba(248,113,113,0.3)')
                       : 'var(--card-border)'}`,
                   }}>
-                  {player === mem.userId ? (cardType === 'yellow' ? '🟨 ' : '🟥 ') : ''}{memberLabel(mem)}
+                  {player === mem.userId ? '* ' : ''}{memberLabel(mem)}
                   {mem.role === 'leader' && <span className="ml-1 text-[10px] opacity-50">주장</span>}
                 </button>
               ))}
@@ -2817,8 +2818,8 @@ function CardModal({ match: m, members, attendances, onClose, onSuccess }: {
             className="w-full rounded-xl py-3 text-sm font-bold text-white disabled:opacity-50"
             style={{
               background: cardType === 'yellow'
-                ? 'linear-gradient(to right, #d97706, #fbbf24)'
-                : 'linear-gradient(to right, #dc2626, #f87171)',
+                ? '#f59e0b'
+                : '#ef4444',
             }}>
             {loading ? '저장 중...' : cardType === 'yellow' ? '경고 기록하기' : '퇴장 기록하기'}
           </button>
@@ -2918,7 +2919,7 @@ function CardTrackerSection({ matches, members, isLeader, onRefresh }: {
               onClick={doReset}
               disabled={resetting}
               className="flex-1 rounded-lg py-1.5 text-xs font-bold text-white disabled:opacity-50"
-              style={{ background: 'linear-gradient(to right, #d97706, #fbbf24)' }}>
+              style={{ background: '#f59e0b' }}>
               {resetting ? '처리 중...' : '초기화 확인'}
             </button>
           </div>
@@ -2971,12 +2972,12 @@ function CardTrackerSection({ matches, members, isLeader, onRefresh }: {
                 <div className="flex items-center gap-2.5 shrink-0">
                   {stat.yellows > 0 && (
                     <span className="text-xs font-bold tabular-nums" style={{ color: '#fbbf24' }}>
-                      🟨 {stat.yellows}
+                      Y {stat.yellows}
                     </span>
                   )}
                   {stat.reds > 0 && (
                     <span className="text-xs font-bold tabular-nums" style={{ color: '#f87171' }}>
-                      🟥 {stat.reds}
+                      R {stat.reds}
                     </span>
                   )}
                 </div>
@@ -3064,7 +3065,7 @@ function RecentResultsSection({ matches, teamId, isLeader, onRefresh }: {
                   <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                     {m.venue}
                     {isDisputed && (
-                      <span className="ml-1.5 text-[9px] font-bold" style={{ color: '#f59e0b' }}>⚠️ 이의신청</span>
+                      <span className="ml-1.5 text-[9px] font-bold" style={{ color: '#f59e0b' }}>이의신청</span>
                     )}
                   </p>
                   <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
@@ -3094,12 +3095,12 @@ function RecentResultsSection({ matches, teamId, isLeader, onRefresh }: {
                         })
                         .filter(Boolean)
                       const lines = [
-                        `⚽ 경기 결과 — ${m.venue}`,
-                        `📅 ${dateStr} · ${resultLabel}`,
+                        `경기 결과 — ${m.venue}`,
+                        `${dateStr} · ${resultLabel}`,
                         `${our} : ${their}`,
                         goals.length > 0 ? `득점: ${goals.join(', ')}` : '',
                         '',
-                        `👉 Playground — fun.sedaily.ai`,
+                        `Playground — fun.sedaily.ai`,
                       ].filter(Boolean)
                       const text = lines.join('\n')
                       try {
@@ -3117,7 +3118,7 @@ function RecentResultsSection({ matches, teamId, isLeader, onRefresh }: {
                       color: sharedId === m.id ? '#4ade80' : 'var(--text-muted)',
                       border: `1px solid ${sharedId === m.id ? 'rgba(74,222,128,0.3)' : 'var(--card-border)'}`,
                     }}>
-                    {sharedId === m.id ? '✓' : '📤'}
+                    {sharedId === m.id ? '✓' : '공유'}
                   </button>
                 )}
 
@@ -3153,7 +3154,7 @@ function RecentResultsSection({ matches, teamId, isLeader, onRefresh }: {
                       onClick={() => submitDispute(m)}
                       disabled={saving || !disputeNote.trim()}
                       className="flex-1 rounded-xl py-2 text-xs font-bold text-white disabled:opacity-50"
-                      style={{ background: 'linear-gradient(to right, #d97706, #fbbf24)' }}>
+                      style={{ background: '#f59e0b' }}>
                       {saving ? '제출 중…' : '제출'}
                     </button>
                   </div>
@@ -3240,9 +3241,9 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
   // 시즌 필터 변경 시 출석 데이터 초기화
   useEffect(() => { setAttendanceMap(null) }, [seasonFilter])
 
-  // M3-A: POTM 횟수 집계 — ⭐ POTM 접두사 poll 투표 집계
+  // M3-A: POTM 횟수 집계 — POTM 접두사 poll 투표 집계
   useEffect(() => {
-    const potmPolls = polls.filter(p => p.question.startsWith('⭐ POTM'))
+    const potmPolls = polls.filter(p => p.question.startsWith('POTM'))
     if (potmPolls.length === 0) { setPotmWins({}); return }
     Promise.all(
       potmPolls.map(p =>
@@ -3397,13 +3398,13 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
     const topScorer = activePlayers[0]
     const topMem = topScorer ? members.find(m => m.userId === topScorer[0]) : null
     const lines = [
-      `🏆 팀 통계 요약 (${filterLabel})`,
+      `팀 통계 요약 (${filterLabel})`,
       `${completed.length}경기 · ${wins}승 ${draws}무 ${losses}패 · 승률 ${hasStats ? Math.round((wins / completed.length) * 100) : 0}%`,
       avgGoalsFor ? `평균 득점 ${avgGoalsFor}골 · 최장 연승 ${maxStreak}연승` : '',
       tier ? `현재 등급: ${tier.name} (${teamPoints}pt)` : '',
       topScorer ? `득점왕: ${topMem ? memberLabel(topMem) : topScorer[0].slice(0,6)} ${topScorer[1].goals}골` : '',
       '',
-      `👉 Playground — fun.sedaily.ai`,
+      `Playground — fun.sedaily.ai`,
     ].filter(Boolean)
     const text = lines.join('\n')
     try {
@@ -3469,7 +3470,7 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
                 color: statsCopied ? '#4ade80' : 'var(--text-muted)',
                 border: `1px solid ${statsCopied ? 'rgba(74,222,128,0.3)' : 'var(--card-border)'}`,
               }}>
-              {statsCopied ? '✓' : '📤'}
+              {statsCopied ? '✓' : '공유'}
             </button>
           )}
         </div>
@@ -3487,7 +3488,7 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
               </span>
               {!isClubSport && curStreak >= 2 && (
                 <span className="rounded-full px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
-                  🔥 {curStreak}연승
+                  {curStreak}연승
                 </span>
               )}
             </div>
@@ -3502,7 +3503,7 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
           </div>
           <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--sidebar-bg)' }}>
             <div className="h-full rounded-full transition-all duration-700"
-              style={{ width: `${tierPct}%`, background: `linear-gradient(to right, ${tier.color}88, ${tier.color})` }} />
+              style={{ width: `${tierPct}%`, background: tier.color }} />
           </div>
           {/* 승급 조건 체크리스트 (M3-D: 동아리형은 활동 횟수 조건) */}
           {nextTier && (() => {
@@ -3519,7 +3520,7 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
                 </p>
                 {isClubSport ? (
                   <div className="flex items-center gap-2 text-[11px]">
-                    <span>{winOk ? '✅' : '⬜'}</span>
+                    <span>{winOk ? '\u2713' : '\u2610'}</span>
                     <span style={{ color: winOk ? '#4ade80' : 'var(--text-secondary)' }}>
                       활동 횟수 {completed.length} / {nextTier.minGames ?? 0}회
                     </span>
@@ -3527,13 +3528,13 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
                 ) : (
                   <>
                     <div className="flex items-center gap-2 text-[11px]">
-                      <span>{metricOk ? '✅' : '⬜'}</span>
+                      <span>{metricOk ? '\u2713' : '\u2610'}</span>
                       <span style={{ color: metricOk ? '#4ade80' : 'var(--text-secondary)' }}>
                         포인트 {teamPoints} / {nextTier.min}pt
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-[11px]">
-                      <span>{winOk ? '✅' : '⬜'}</span>
+                      <span>{winOk ? '\u2713' : '\u2610'}</span>
                       <span style={{ color: winOk ? '#4ade80' : 'var(--text-secondary)' }}>
                         누적 승리 {wins} / {nextTier.minWins}승
                       </span>
@@ -3542,7 +3543,7 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
                 )}
                 {allOk && (
                   <p className="text-[11px] font-bold mt-1" style={{ color: '#4ade80' }}>
-                    🎉 모든 조건 충족 — {nextTier.name} 승급 가능!
+                    모든 조건 충족 — {nextTier.name} 승급 가능!
                   </p>
                 )}
               </div>
@@ -3580,7 +3581,7 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
           <div className="grid grid-cols-2 gap-3 border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
             <div className="rounded-xl px-3 py-2.5" style={{ background: 'var(--sidebar-bg)' }}>
               <p className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>
-                🏠 홈 ({homeGames}경기)
+                홈 ({homeGames}경기)
               </p>
               <p className="text-sm font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
                 <span style={{ color: '#4ade80' }}>{homeWins}</span>
@@ -3597,7 +3598,7 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
             </div>
             <div className="rounded-xl px-3 py-2.5" style={{ background: 'var(--sidebar-bg)' }}>
               <p className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-muted)' }}>
-                ✈️ 원정 ({awayGames}경기)
+                원정 ({awayGames}경기)
               </p>
               <p className="text-sm font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
                 <span style={{ color: '#4ade80' }}>{awayWins}</span>
@@ -3648,8 +3649,8 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
               <span className="text-[10px] font-semibold text-left" style={{ color: 'var(--text-muted)' }}>선수</span>
               <span className="text-[10px] font-bold" style={{ color: '#4ade80' }}>G</span>
               <span className="text-[10px] font-bold" style={{ color: '#60a5fa' }}>A</span>
-              <span className="text-[10px]">🟨</span>
-              <span className="text-[10px]">🟥</span>
+              <span className="text-[10px] font-bold" style={{ color: '#fbbf24' }}>Y</span>
+              <span className="text-[10px] font-bold" style={{ color: '#f87171' }}>R</span>
             </div>
             <div className="space-y-0">
               {activePlayers.map(([userId, s], rank) => {
@@ -3671,13 +3672,13 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
                       className="grid grid-cols-[1fr_28px_28px_28px_28px] gap-x-1 py-1.5 border-b text-center items-center cursor-pointer hover:opacity-75 transition-opacity"
                       style={{ borderColor: 'var(--card-border)' }}>
                       <div className="flex items-center gap-1 min-w-0 text-left">
-                        {rank === 0 && <span className="text-[10px] shrink-0">🥇</span>}
+                        {rank === 0 && <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold flex items-center justify-center shrink-0">1</span>}
                         <span className="text-xs font-medium truncate" style={{ color: 'var(--text-secondary)' }}>
                           {mem ? memberLabel(mem) : userId.slice(0, 8) + '…'}
                         </span>
                         {potmWins[userId] > 0 && (
                           <span className="shrink-0 text-[9px] font-bold" style={{ color: '#fbbf24' }}>
-                            🏆{potmWins[userId]}
+                            <Trophy size={10} className="inline" />{potmWins[userId]}
                           </span>
                         )}
                         <span className="ml-auto shrink-0 text-[9px] pl-1" style={{ color: 'var(--text-muted)' }}>
@@ -3734,8 +3735,8 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
                                   {new Date(mb.date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })} · {mb.venue}
                                 </span>
                                 <span className="text-[10px] font-bold flex items-center gap-2">
-                                  {mb.goals > 0 && <span style={{ color: '#4ade80' }}>⚽ {mb.goals}</span>}
-                                  {mb.assists > 0 && <span style={{ color: '#60a5fa' }}>🅰 {mb.assists}</span>}
+                                  {mb.goals > 0 && <span style={{ color: '#4ade80' }}>{mb.goals}G</span>}
+                                  {mb.assists > 0 && <span style={{ color: '#60a5fa' }}>{mb.assists}A</span>}
                                 </span>
                               </div>
                             ))}
@@ -3774,11 +3775,11 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
                   .slice(0, 5)
                   .map(([uid, count], rank) => {
                     const mem = members.find(m => m.userId === uid)
-                    const medal = ['🥇', '🥈', '🥉'][rank] ?? ''
+                    const rankNum = rank + 1
                     return (
                       <div key={uid} className="flex items-center justify-between py-1">
                         <div className="flex items-center gap-1.5">
-                          {medal && <span className="text-[10px]">{medal}</span>}
+                          {rankNum <= 3 && <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold flex items-center justify-center">{rankNum}</span>}
                           <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                             {mem ? memberLabel(mem) : uid.slice(0, 8) + '…'}
                           </span>
@@ -3836,7 +3837,7 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
         {tournamentStats.length > 0 && (
           <div className="border-t pt-3" style={{ borderColor: 'var(--card-border)' }}>
             <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-muted)' }}>
-              🏆 토너먼트 기록
+              토너먼트 기록
             </p>
             <div className="space-y-2">
               {tournamentStats.map(({ league, w, d, l, total }) => {
@@ -3849,7 +3850,7 @@ function TeamStatsSection({ matches, members, teamId, polls = [], sportType }: {
                         <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
                           {league.name}
                         </span>
-                        <span className="text-[10px] rounded-full px-1.5 py-0.5 font-medium"
+                        <span className="text-[10px] rounded-full px-2 py-0.5 font-medium"
                           style={{ background: `${statusColor}20`, color: statusColor }}>
                           {league.status === 'finished' ? '종료' : league.status === 'ongoing' ? '진행중' : '모집중'}
                         </span>

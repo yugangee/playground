@@ -134,7 +134,7 @@ export default function LeaguePage() {
                     <div className="flex items-center gap-2">
                       <Trophy size={13} style={{ color: "var(--text-muted)" }} />
                       <span className="font-semibold text-sm truncate" style={{ color: "var(--text-primary)" }}>{l.name}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0 font-medium"
+                      <span className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 font-medium"
                         style={{ background: statusColor(l.status).bg, color: statusColor(l.status).color, border: "1px solid var(--card-border)" }}>
                         {statusLabel[l.status] ?? l.status}
                       </span>
@@ -146,7 +146,7 @@ export default function LeaguePage() {
                   </div>
                   <Link
                     href={`/manage/league?leagueId=${l.id}`}
-                    className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0 ml-3 flex items-center gap-1 transition-opacity hover:opacity-80"
+                    className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0 ml-3 flex items-center gap-1 btn-press"
                     style={{ background: "var(--btn-solid-bg)", color: "var(--btn-solid-color)" }}>
                     현황 <ArrowRight size={11} />
                   </Link>
@@ -194,7 +194,7 @@ export default function LeaguePage() {
           const sc = statusColor(l.status);
           const alreadyJoined = participatedIds.has(l.id);
           return (
-            <div key={l.id} className="rounded-xl p-5 space-y-3 transition-colors" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
+            <div key={l.id} className="rounded-xl p-5 space-y-3 card-hover" style={{ background: "var(--card-bg)", border: "1px solid var(--card-border)" }}>
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2">
@@ -202,7 +202,7 @@ export default function LeaguePage() {
                     <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>{l.name}</span>
                   </div>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "var(--card-bg)", color: "var(--text-muted)", border: "1px solid var(--card-border)" }}>
+                    <span className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--card-bg)", color: "var(--text-muted)", border: "1px solid var(--card-border)" }}>
                       {typeLabel[l.type] ?? l.type}
                     </span>
                     {l.region && (

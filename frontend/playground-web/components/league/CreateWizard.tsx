@@ -291,7 +291,7 @@ export default function CreateWizard({ teamId, onSuccess, onCancel }: WizardProp
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAward() } }}
                   className={inp} style={inpStyle} placeholder="우승, MVP, 득점왕..." />
                 <button type="button" onClick={addAward}
-                  className="flex-shrink-0 rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] hover:opacity-85">
+                  className="flex-shrink-0 rounded-xl bg-[var(--btn-solid-bg)] px-4 py-2.5 text-sm font-semibold text-[var(--btn-solid-color)] btn-press">
                   추가
                 </button>
               </div>
@@ -316,7 +316,7 @@ export default function CreateWizard({ teamId, onSuccess, onCancel }: WizardProp
         <div className="flex gap-3 pt-2">
           {step > 1 && (
             <button type="button" onClick={prev}
-              className="rounded-xl px-5 py-3 text-sm font-semibold transition-colors hover:opacity-85"
+              className="rounded-xl px-5 py-3 text-sm font-semibold hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
               style={{ color: 'var(--text-primary)', border: '1px solid var(--card-border)' }}>
               이전
             </button>
@@ -324,19 +324,19 @@ export default function CreateWizard({ teamId, onSuccess, onCancel }: WizardProp
           <div className="flex-1" />
           {step < 4 && step > 1 && (
             <button type="button" onClick={submit} disabled={loading}
-              className="rounded-xl px-5 py-3 text-sm font-medium transition-colors hover:opacity-85"
+              className="rounded-xl px-5 py-3 text-sm font-medium hover:bg-[var(--hover-overlay)] active:scale-[0.98] transition-all"
               style={{ color: 'var(--text-muted)' }}>
               건너뛰고 만들기
             </button>
           )}
           {step < 4 ? (
             <button type="button" onClick={next} disabled={!canNext}
-              className="rounded-xl bg-[var(--btn-solid-bg)] px-5 py-3 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50">
+              className="rounded-xl bg-[var(--btn-solid-bg)] px-5 py-3 text-sm font-semibold text-[var(--btn-solid-color)] btn-press disabled:cursor-not-allowed disabled:opacity-50">
               다음
             </button>
           ) : (
             <button type="button" onClick={submit} disabled={loading}
-              className="rounded-xl bg-[var(--btn-solid-bg)] px-5 py-3 text-sm font-semibold text-[var(--btn-solid-color)] transition-colors hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50">
+              className="rounded-xl bg-[var(--btn-solid-bg)] px-5 py-3 text-sm font-semibold text-[var(--btn-solid-color)] btn-press disabled:cursor-not-allowed disabled:opacity-50">
               {loading ? '생성 중...' : '만들기'}
             </button>
           )}

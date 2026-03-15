@@ -18,7 +18,7 @@ import { startEC2IfNeeded } from "@/lib/ensureEC2";
 const generalNavItems = [
   { href: "/clubs",          label: "클럽 탐색",        icon: Shield },
   { href: "/manage/league",  label: "대회",              icon: Trophy },
-  { href: "/league/kja-51",  label: "🏆 기자협회 대회", icon: Trophy, highlight: true },
+  { href: "/league/kja-51",  label: "기자협회 대회", icon: Trophy, highlight: true },
   { href: "/players",        label: "선수 탐색",        icon: UserSearch },
   { href: "/schedule",       label: "일정·참석",        icon: Calendar },
   { href: "/chat",           label: "채팅",             icon: MessageCircle },
@@ -168,12 +168,12 @@ export default function Sidebar() {
               href={href}
               onClick={handleClick}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${active
-                  ? "text-white bg-gradient-to-r from-fuchsia-600/20 to-violet-600/20 border border-fuchsia-500/30"
+                  ? "text-white bg-[var(--brand-primary-light)] border border-[var(--card-border)]"
                   : highlight
-                  ? "hover:bg-[var(--card-bg)] border border-fuchsia-500/20"
+                  ? "hover:bg-[var(--card-bg)] border border-[var(--card-border)]"
                   : "hover:bg-[var(--card-bg)]"
               } ${collapsed ? "justify-center" : ""}`}
-              style={active ? undefined : highlight ? { color: "#e879f9" } : { color: "var(--text-muted)" }}
+              style={active ? undefined : highlight ? { color: "var(--brand-primary)" } : { color: "var(--text-muted)" }}
               title={collapsed ? label : undefined}
             >
               <Icon size={18} className="shrink-0" />
@@ -200,7 +200,7 @@ export default function Sidebar() {
       <div className="px-4 py-4 flex items-center gap-3" style={{ borderTop: "1px solid var(--card-border)" }}>
         <Link href="/mypage" className={`flex items-center gap-3 flex-1 min-w-0 ${collapsed ? "justify-center" : ""}`}>
           <div
-            className="relative w-8 h-8 rounded-full overflow-hidden shrink-0 border border-fuchsia-500/40 flex items-center justify-center"
+            className="relative w-8 h-8 rounded-full overflow-hidden shrink-0 border border-[var(--card-border)] flex items-center justify-center"
             style={{ background: "var(--card-bg)" }}
           >
             {user?.avatar ? (

@@ -45,7 +45,7 @@ export default function MatchCard({ match, compact = false, onClick, scoreEditab
   return (
     <div
       onClick={() => onClick?.(match)}
-      className={`rounded-lg transition-all ${onClick ? 'cursor-pointer hover:opacity-90' : ''} ${compact ? 'p-2.5' : 'p-3'}`}
+      className={`rounded-lg ${onClick ? 'cursor-pointer card-hover' : ''} ${compact ? 'p-2.5' : 'p-3'}`}
       style={{ background: isSedaily ? '#EEF2FF' : '#F9FAFB' }}
     >
       {/* 헤더 */}

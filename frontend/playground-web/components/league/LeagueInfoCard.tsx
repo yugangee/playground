@@ -1,6 +1,7 @@
 'use client'
 
-import React from 'react'
+import React, { type ReactNode } from 'react'
+import { Users, Wallet, Calendar, MapPin, Target, Crosshair, BarChart3 } from 'lucide-react'
 import { ROUND_ORDER, type LeagueMatch, type LeagueTeam } from './utils'
 import type { League } from '@/types/manage'
 
@@ -29,10 +30,10 @@ export default function LeagueInfoCard({ league, teams, matches }: {
     const entryFee = league.registration?.entryFee
     const deadline = league.registration?.registrationDeadline
 
-    const cards = [
-      { label: '참가팀', value: maxTeams ? `${teams.length} / ${maxTeams}팀` : `${teams.length}팀`, icon: '👥' },
-      { label: '참가비', value: entryFee ? `${entryFee.toLocaleString()}원` : '무료', icon: '💰' },
-      { label: '마감일', value: deadline ? new Date(deadline).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '미정', icon: '📅' },
+    const cards: { label: string; value: string; icon: ReactNode }[] = [
+      { label: '참가팀', value: maxTeams ? `${teams.length} / ${maxTeams}팀` : `${teams.length}팀`, icon: <Users size={18} className="text-[var(--text-muted)]" /> },
+      { label: '참가비', value: entryFee ? `${entryFee.toLocaleString()}원` : '무료', icon: <Wallet size={18} className="text-[var(--text-muted)]" /> },
+      { label: '마감일', value: deadline ? new Date(deadline).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '미정', icon: <Calendar size={18} className="text-[var(--text-muted)]" /> },
     ]
 
     return (
@@ -40,7 +41,7 @@ export default function LeagueInfoCard({ league, teams, matches }: {
         {cards.map(c => (
           <div key={c.label} className="rounded-xl p-4 text-center"
             style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-            <div className="text-lg mb-1">{c.icon}</div>
+            <div className="flex justify-center mb-1">{c.icon}</div>
             <div className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>{c.label}</div>
             <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{c.value}</div>
           </div>
@@ -65,11 +66,11 @@ export default function LeagueInfoCard({ league, teams, matches }: {
       return sorted[0] ?? '-'
     })()
 
-    const cards = [
-      { label: '참가팀', value: `${teams.length}팀`, icon: '👥' },
-      { label: '현재 라운드', value: currentRound, icon: '📍' },
-      { label: '경기 진행', value: total > 0 ? `${completed}/${total}` : '-', icon: '⚽' },
-      { label: '총 골', value: totalGoals > 0 ? `${totalGoals}골` : '-', icon: '🥅' },
+    const cards: { label: string; value: string; icon: ReactNode }[] = [
+      { label: '참가팀', value: `${teams.length}팀`, icon: <Users size={18} className="text-[var(--text-muted)]" /> },
+      { label: '현재 라운드', value: currentRound, icon: <MapPin size={18} className="text-[var(--text-muted)]" /> },
+      { label: '경기 진행', value: total > 0 ? `${completed}/${total}` : '-', icon: <Target size={18} className="text-[var(--text-muted)]" /> },
+      { label: '총 골', value: totalGoals > 0 ? `${totalGoals}골` : '-', icon: <Crosshair size={18} className="text-[var(--text-muted)]" /> },
     ]
 
     return (
@@ -77,7 +78,7 @@ export default function LeagueInfoCard({ league, teams, matches }: {
         {cards.map(c => (
           <div key={c.label} className="rounded-xl p-4 text-center"
             style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-            <div className="text-lg mb-1">{c.icon}</div>
+            <div className="flex justify-center mb-1">{c.icon}</div>
             <div className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>{c.label}</div>
             <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{c.value}</div>
           </div>
@@ -89,11 +90,11 @@ export default function LeagueInfoCard({ league, teams, matches }: {
   // 리그
   const progressPct = total > 0 ? Math.round((completed / total) * 100) : 0
 
-  const cards = [
-    { label: '참가팀', value: `${teams.length}팀`, icon: '👥' },
-    { label: '진행률', value: total > 0 ? `${progressPct}%` : '-', icon: '📊' },
-    { label: '총 골', value: totalGoals > 0 ? `${totalGoals}골` : '-', icon: '🥅' },
-    { label: '다음 경기', value: nextMatchLabel, icon: '📅' },
+  const cards: { label: string; value: string; icon: ReactNode }[] = [
+    { label: '참가팀', value: `${teams.length}팀`, icon: <Users size={18} className="text-[var(--text-muted)]" /> },
+    { label: '진행률', value: total > 0 ? `${progressPct}%` : '-', icon: <BarChart3 size={18} className="text-[var(--text-muted)]" /> },
+    { label: '총 골', value: totalGoals > 0 ? `${totalGoals}골` : '-', icon: <Crosshair size={18} className="text-[var(--text-muted)]" /> },
+    { label: '다음 경기', value: nextMatchLabel, icon: <Calendar size={18} className="text-[var(--text-muted)]" /> },
   ]
 
   return (
@@ -101,7 +102,7 @@ export default function LeagueInfoCard({ league, teams, matches }: {
       {cards.map(c => (
         <div key={c.label} className="rounded-xl p-4 text-center"
           style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)' }}>
-          <div className="text-lg mb-1">{c.icon}</div>
+          <div className="flex justify-center mb-1">{c.icon}</div>
           <div className="text-xs mb-0.5" style={{ color: 'var(--text-muted)' }}>{c.label}</div>
           <div className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{c.value}</div>
         </div>
