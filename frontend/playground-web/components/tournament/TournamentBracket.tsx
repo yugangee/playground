@@ -16,14 +16,15 @@ const ROUND_TABS: { key: TournamentRoundKey | 'all' | 'sedaily'; label: string }
   { key: 'all',     label: '전체' },
   { key: 'R1',  label: '1R' },
   { key: 'R2',  label: '2R' },
+  { key: 'R3',  label: '16강' },
   { key: 'QF',  label: '8강' },
   { key: 'SF',  label: '4강' },
   { key: 'F3',  label: '3결' },
   { key: 'F1',  label: '결승' },
 ];
 
-// 서경 경기 경로 (matchNo 기준)
-const SEDAILY_PATH_MATCHES = [38, 48, 53, 55, 56];
+// 서경 경기 경로 (matchNo 기준 — 52회: 9→33→46→53→56→59)
+const SEDAILY_PATH_MATCHES = [9, 33, 46, 53, 56, 59];
 
 export default function TournamentBracket({ matches, scoreEditable, onScoreEdit }: Props) {
   const [activeTab, setActiveTab] = useState<string>('sedaily');

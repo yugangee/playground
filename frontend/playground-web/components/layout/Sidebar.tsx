@@ -18,7 +18,7 @@ import { startEC2IfNeeded } from "@/lib/ensureEC2";
 const generalNavItems = [
   { href: "/clubs",          label: "클럽 탐색",        icon: Shield },
   { href: "/manage/league",  label: "대회",              icon: Trophy },
-  { href: "/league/kja-51",  label: "기자협회 대회", icon: Trophy, highlight: true },
+  { href: "/league/kja-52",  label: "기자협회 대회", icon: Trophy, highlight: true },
   { href: "/players",        label: "선수 탐색",        icon: UserSearch },
   { href: "/schedule",       label: "일정·참석",        icon: Calendar },
   { href: "/chat",           label: "채팅",             icon: MessageCircle },

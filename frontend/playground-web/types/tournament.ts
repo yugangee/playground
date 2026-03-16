@@ -1,6 +1,6 @@
 export type MatchStatus = 'upcoming' | 'live' | 'completed' | 'pk';
 
-export type TournamentRoundKey = 'R1' | 'R2' | 'QF' | 'SF' | 'LF' | 'RF' | 'F3' | 'F1';
+export type TournamentRoundKey = 'R1' | 'R2' | 'R3' | 'QF' | 'SF' | 'LF' | 'RF' | 'F3' | 'F1';
 
 export interface TournamentTeam {
   id: string;
@@ -65,10 +65,11 @@ export interface TournamentData {
   roster: PlayerRoster[];
 }
 
-export const ROUND_ORDER: TournamentRoundKey[] = ['R1', 'R2', 'QF', 'SF', 'LF', 'RF', 'F3', 'F1'];
+export const ROUND_ORDER: TournamentRoundKey[] = ['R1', 'R2', 'R3', 'QF', 'SF', 'LF', 'RF', 'F3', 'F1'];
 export const ROUND_LABEL: Record<TournamentRoundKey, string> = {
   R1: '1회전',
   R2: '2회전',
+  R3: '16강',
   QF: '8강',
   SF: '4강',
   LF: '좌측블록 결승',

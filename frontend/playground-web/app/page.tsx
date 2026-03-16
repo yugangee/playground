@@ -250,7 +250,7 @@ export default function Home() {
 
 function KJABanner() {
   return (
-    <Link href="/league/kja-51">
+    <Link href="/league/kja-52">
       <div className="rounded-2xl overflow-hidden cursor-pointer group card-hover"
         style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
         <div className="px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
@@ -264,10 +264,10 @@ function KJABanner() {
                 <span className="text-[10px] px-2 py-0.5 rounded font-medium"
                   style={{ background: "#DBEAFE", color: "#2563EB" }}>데모</span>
                 <span className="text-[10px] px-2 py-0.5 rounded font-medium"
-                  style={{ background: "#F3E8FF", color: "#7C3AED" }}>서울경제 4시드</span>
+                  style={{ background: "#F3E8FF", color: "#7C3AED" }}>서울경제 1회전 출전</span>
               </div>
-              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>제51회 한국기자협회 서울지역 축구대회</p>
-              <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>52개팀 · 57경기 · 서울경제 어벤져스 선수단 20명</p>
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>제52회 한국기자협회 서울지역 축구대회</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>52개팀 · 59경기 · 4월 18일~25일</p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 text-sm font-medium shrink-0"
@@ -717,7 +717,7 @@ function LoggedInHome({ user, name, recentTeams: initialRecent, topMatchTeams: i
             .filter((match) => region === "전체" || match.region === region)
             .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
             .map((match, i) => (
-              <Link key={i} href="/league/kja-51">
+              <Link key={i} href="/league/kja-52">
                 <div className="flex-shrink-0 w-52 rounded-2xl p-4 cursor-pointer card-hover" style={{ background: "var(--card-bg)", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
