@@ -16,6 +16,7 @@ export interface LeagueMatch {
   homeScore?: number
   awayScore?: number
   round?: string
+  roundLabel?: string
   matchNumber?: number
   goals?: GoalRecord[]
   cards?: CardRecord[]
@@ -41,6 +42,14 @@ export interface LeagueTeam {
 // ── Round ordering ───────────────────────────────────────────────────────────
 
 export const ROUND_ORDER = ['예선', '1라운드', '32강', '16강', '8강', '준결승', '4강', '결승']
+
+// round 코드의 정렬 우선순위 (낮을수록 먼저 = 초기 라운드)
+export const ROUND_SORT_ORDER: Record<string, number> = {
+  // 한글 라운드명 (기존 호환)
+  '예선': 0, '1라운드': 1, '32강': 2, '16강': 3, '8강': 4, '준결승': 5, '4강': 6, '결승': 7,
+  // 영문 라운드 코드 (KJA 등 block 기반 대회)
+  'R1': 0, 'R2': 1, 'QF': 4, 'SF': 6, 'LF': 7, 'RF': 7, 'F1': 8, 'F3': 9,
+}
 
 // ── Fixed bracket system ────────────────────────────────────────────────────
 

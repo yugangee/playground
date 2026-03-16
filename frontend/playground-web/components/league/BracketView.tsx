@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react'
 import { Medal, Trophy } from 'lucide-react'
 import { Empty } from './shared'
-import { ROUND_ORDER, generateBracketTemplate, nextPowerOf2, type LeagueMatch } from './utils'
+import { ROUND_ORDER, ROUND_SORT_ORDER, generateBracketTemplate, nextPowerOf2, type LeagueMatch } from './utils'
 
 /* ── 대회 결과 (결승 완료 시 표시) ─────────────────────────────────────────── */
 
@@ -20,7 +20,7 @@ function TournamentResults({ matches, tn }: {
   }
 
   const finalMatch = matches.find(m => m.round === '결승' && m.status === 'completed')
-  const thirdMatch = matches.find(m => m.round === '3/4위전' && m.status === 'completed')
+  const thirdMatch = matches.find(m => (m.round === '3/4위전' || m.round === 'F3') && m.status === 'completed')
 
   if (!finalMatch) return null
 
@@ -391,7 +391,7 @@ export default function BracketView({ bracketSize, matches, tn, onSlotClick, lea
   // 3/4위전: 정규 매치(p2-1) 다음 번호. round 이름으로도 fallback 검색.
   const thirdPlaceNumber = p2 // = (p2 - 1) + 1 = 총 정규 매치 수 + 1
   const thirdPlaceMatch = matchMap.get(thirdPlaceNumber)
-    ?? Array.from(matchMap.values()).find(m => m.round === '3/4위전')
+    ?? Array.from(matchMap.values()).find(m => m.round === '3/4위전' || m.round === 'F3')
   const canClick = (m?: LeagueMatch) => leagueStatus === 'ongoing' || m?.status === 'completed' || m?.status === 'forfeit' || false
   const rightReversed = [...rightRounds].reverse()
   const firstRoundPerSide = leftRounds[0]?.matchNumbers.length ?? 1
@@ -441,7 +441,7 @@ export default function BracketView({ bracketSize, matches, tn, onSlotClick, lea
                   ? <HLine />
                   : canPair
                     ? <ConnectorSVG matchCount={round.matchNumbers.length} direction="right" />
-                    : <div style={{ width: 24, minWidth: 24 }} />
+                    : <div style={{ width: 24, minWidth: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ width: 1, height: '60%', background: 'var(--input-border)', opacity: 0.5 }} /></div>
                 }
                 <RoundColumn round={round} matchMap={matchMap} tn={tn} onSlotClick={onSlotClick} canClick={canClick} />
               </React.Fragment>
@@ -483,26 +483,29 @@ function CustomBlockBracket({ matches, tn, onSlotClick, leagueStatus }: {
   const leftMatches = matches.filter(m => m.block === 'left')
   const rightMatches = matches.filter(m => m.block === 'right')
   const finalMatches = matches.filter(m => m.block === 'final')
-  const thirdPlaceMatch = matches.find(m => m.round === '3/4위전')
+  const thirdPlaceMatch = matches.find(m => m.round === '3/4위전' || m.round === 'F3')
 
   // Group by round within each block
   const groupByRound = (ms: LeagueMatch[]) => {
-    const groups: Array<{ round: string; matches: LeagueMatch[] }> = []
+    const groups: Array<{ round: string; roundLabel?: string; matches: LeagueMatch[] }> = []
     const roundSet = new Map<string, LeagueMatch[]>()
     for (const m of ms) {
       const r = m.round ?? '?'
       if (!roundSet.has(r)) roundSet.set(r, [])
       roundSet.get(r)!.push(m)
     }
-    // Sort rounds by ROUND_ORDER
+    // Sort rounds by ROUND_SORT_ORDER (숫자 우선순위 기반, 한글/영문 코드 모두 지원)
     const orderedRounds = [...roundSet.keys()].sort((a, b) => {
-      const ai = ROUND_ORDER.indexOf(a)
-      const bi = ROUND_ORDER.indexOf(b)
-      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+      const ai = ROUND_SORT_ORDER[a] ?? 99
+      const bi = ROUND_SORT_ORDER[b] ?? 99
+      return ai - bi
     })
     for (const r of orderedRounds) {
-      if (r !== '3/4위전') {
-        groups.push({ round: r, matches: roundSet.get(r)!.sort((a, b) => (a.matchNumber ?? 0) - (b.matchNumber ?? 0)) })
+      if (r !== '3/4위전' && r !== 'F3') {
+        const roundMatches = roundSet.get(r)!.sort((a, b) => (a.matchNumber ?? 0) - (b.matchNumber ?? 0))
+        // roundLabel이 있으면 사용 (KJA 등 block 기반 대회)
+        const label = roundMatches[0]?.roundLabel
+        groups.push({ round: r, roundLabel: label, matches: roundMatches })
       }
     }
     return groups
@@ -514,7 +517,7 @@ function CustomBlockBracket({ matches, tn, onSlotClick, leagueStatus }: {
   const matchMap = new Map<number, LeagueMatch>()
   matches.forEach(m => { if (m.matchNumber) matchMap.set(m.matchNumber, m) })
 
-  const renderBlockColumn = (group: { round: string; matches: LeagueMatch[] }) => (
+  const renderBlockColumn = (group: { round: string; roundLabel?: string; matches: LeagueMatch[] }) => (
     <div style={{ display: 'flex', flexDirection: 'column', minWidth: CARD_W }}>
       <div style={{ textAlign: 'center', marginBottom: 12 }}>
         <span style={{
@@ -523,7 +526,7 @@ function CustomBlockBracket({ matches, tn, onSlotClick, leagueStatus }: {
           color: 'var(--text-muted)', paddingBottom: 8,
           borderBottom: '1px solid var(--input-border)',
         }}>
-          {group.round}
+          {group.roundLabel ?? group.round}
         </span>
       </div>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -555,7 +558,7 @@ function CustomBlockBracket({ matches, tn, onSlotClick, leagueStatus }: {
                   ? <HLine />
                   : canPair
                     ? <ConnectorSVG matchCount={group.matches.length} direction="left" />
-                    : <div style={{ width: 24, minWidth: 24 }} />
+                    : <div style={{ width: 24, minWidth: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ width: 1, height: '60%', background: 'var(--input-border)', opacity: 0.5 }} /></div>
                 }
               </React.Fragment>
             )
@@ -572,8 +575,8 @@ function CustomBlockBracket({ matches, tn, onSlotClick, leagueStatus }: {
                 결승
               </span>
             </div>
-            {finalMatches.filter(m => m.round !== '3/4위전').length > 0
-              ? finalMatches.filter(m => m.round !== '3/4위전').map(m => (
+            {finalMatches.filter(m => m.round !== '3/4위전' && m.round !== 'F3').length > 0
+              ? finalMatches.filter(m => m.round !== '3/4위전' && m.round !== 'F3').map(m => (
                 <div key={m.id} style={{ display: 'flex', justifyContent: 'center', padding: '4px 0' }}>
                   <MatchCard match={m} tn={tn}
                     onClick={canClick(m) ? () => onSlotClick(m.matchNumber ?? 0, m) : undefined}
@@ -600,7 +603,7 @@ function CustomBlockBracket({ matches, tn, onSlotClick, leagueStatus }: {
                     ? <HLine />
                     : canPair
                       ? <ConnectorSVG matchCount={group.matches.length} direction="right" />
-                      : <div style={{ width: 24, minWidth: 24 }} />
+                      : <div style={{ width: 24, minWidth: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ width: 1, height: '60%', background: 'var(--input-border)', opacity: 0.5 }} /></div>
                   }
                   {renderBlockColumn(group)}
                 </React.Fragment>
@@ -646,13 +649,13 @@ function LegacyBracket({ matches, tn, onMatchClick }: {
       ms.forEach(m => used.add(m.id))
     }
   }
-  const remaining = matches.filter(m => m.round && !used.has(m.id) && m.round !== '3/4위전')
+  const remaining = matches.filter(m => m.round && !used.has(m.id) && m.round !== '3/4위전' && m.round !== 'F3')
   const otherRounds = Array.from(new Set(remaining.map(m => m.round!)))
   for (const r of otherRounds) {
     roundGroups.push({ round: r, matches: remaining.filter(m => m.round === r) })
   }
 
-  const thirdPlaceMatch = matches.find(m => m.round === '3/4위전')
+  const thirdPlaceMatch = matches.find(m => m.round === '3/4위전' || m.round === 'F3')
   if (roundGroups.length === 0) return <Empty text="대진표가 없습니다" />
 
   return (
