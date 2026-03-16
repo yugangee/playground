@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowLeft, Swords, Trophy, Plus, Filter, Calendar, MapPin } from "lucide-react";
+import { ArrowLeft, Swords } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useTeam } from "@/context/TeamContext";
 import { manageFetch } from "@/lib/manageFetch";
+import { MatchDetailModal } from "@/components/MatchDetailModal";
 
 const AUTH_API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -19,6 +20,7 @@ export default function MatchRecordsPage() {
   const [allClubs, setAllClubs] = useState<any[]>([]);
   const [filterResult, setFilterResult] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("latest");
+  const [matchDetail, setMatchDetail] = useState<any>(null);
 
   // Auth API 매치 로드
   useEffect(() => {
@@ -45,6 +47,19 @@ export default function MatchRecordsPage() {
       .catch(() => {});
   }, [currentTeam?.id]);
 
+  // 멤버 로드 (모달용)
+  const [members, setMembers] = useState<any[]>([]);
+  useEffect(() => {
+    if (!currentTeam?.id) return;
+    fetch(`${AUTH_API}/club-members/${currentTeam.id}`)
+      .then(r => r.json())
+      .then(data => setMembers(data.members || data || []))
+      .catch(() => {});
+  }, [currentTeam?.id]);
+
+  const memberNames: Record<string, string> = {};
+  members.forEach((mb: any) => { if (mb.email || mb.userId) memberNames[mb.email || mb.userId] = mb.name || mb.email?.split('@')[0] || mb.userId; });
+
   const clubNameMap: Record<string, string> = {};
   allClubs.forEach((c: any) => { clubNameMap[c.clubId] = c.name; });
 
@@ -59,7 +74,7 @@ export default function MatchRecordsPage() {
     homeClubId: authClubId,
     _fromManage: true,
   }));
-  
+
   let allMatches = [...authMatches, ...manageConfirmed];
 
   // 필터링
@@ -81,22 +96,23 @@ export default function MatchRecordsPage() {
   });
 
   // 통계 계산
-  const totalWins = [...authMatches, ...manageConfirmed].filter((m: any) => {
+  const allForStats = [...authMatches, ...manageConfirmed];
+  const totalWins = allForStats.filter((m: any) => {
     const isHome = m.homeClubId === authClubId;
     if (m._fromManage) return m.result === "win";
     const ourScore = isHome ? m.homeScore : m.awayScore;
     const theirScore = isHome ? m.awayScore : m.homeScore;
     return ourScore > theirScore;
   }).length;
-  const totalDraws = [...authMatches, ...manageConfirmed].filter((m: any) => {
+  const totalDraws = allForStats.filter((m: any) => {
     const isHome = m.homeClubId === authClubId;
     if (m._fromManage) return m.result === "draw";
     const ourScore = isHome ? m.homeScore : m.awayScore;
     const theirScore = isHome ? m.awayScore : m.homeScore;
     return ourScore === theirScore;
   }).length;
-  const totalLosses = [...authMatches, ...manageConfirmed].length - totalWins - totalDraws;
-  const totalGames = [...authMatches, ...manageConfirmed].length;
+  const totalLosses = allForStats.length - totalWins - totalDraws;
+  const totalGames = allForStats.length;
   const winRate = totalGames > 0 ? Math.round(totalWins / totalGames * 100) : 0;
 
   return (
@@ -201,13 +217,13 @@ export default function MatchRecordsPage() {
         ) : (
           allMatches.map((m: any) => {
             const isHome = m.homeClubId === authClubId;
-            const opponentName = m._fromManage 
-              ? (m.awayTeamName || m.awayTeamId || "상대팀") 
+            const opponentName = m._fromManage
+              ? (m.awayTeamName || m.awayTeamId || "상대팀")
               : (clubNameMap?.[isHome ? m.awayClubId : m.homeClubId] || "상대팀");
             const ourScore = m._fromManage ? m.ourScore : (isHome ? m.homeScore : m.awayScore);
             const theirScore = m._fromManage ? m.theirScore : (isHome ? m.awayScore : m.homeScore);
-            const result = m._fromManage 
-              ? (m.result === "win" ? "승" : m.result === "loss" ? "패" : "무") 
+            const result = m._fromManage
+              ? (m.result === "win" ? "승" : m.result === "loss" ? "패" : "무")
               : (ourScore > theirScore ? "승" : ourScore < theirScore ? "패" : "무");
             const resultColor = result === "승" ? "text-green-400" : result === "패" ? "text-red-400" : "text-gray-400";
             const resultBg = result === "승" ? "bg-green-500/5 border-green-500/20" : result === "패" ? "bg-red-500/5 border-red-500/20" : "bg-white/5 border-white/10";
@@ -217,14 +233,12 @@ export default function MatchRecordsPage() {
               : (m.confirmedAt?.slice(0, 10) || "");
             const venue = m._fromManage ? (m.venue || "") : "";
             const matchType = m._fromManage ? (m.type || "") : "";
-            const attendees: any[] = m._fromManage 
-              ? (m.attendees || []) 
-              : (m.attendances || []).filter((a: any) => a.status === "accepted");
+            const matchCards: any[] = m.cards || [];
 
             return (
-              <div key={m.matchId ?? m.id} className={`border rounded-xl overflow-hidden ${resultBg}`}>
+              <div key={m.matchId ?? m.id} className={`border rounded-xl overflow-hidden cursor-pointer transition-all hover:ring-1 hover:ring-white/20 ${resultBg}`} onClick={() => setMatchDetail(m)}>
                 <div className="px-4 py-3 space-y-2">
-                  {/* 메인 라인: 날짜 · 상대팀 · 장소 | 스코어 결과 */}
+                  {/* 메인 라인 */}
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <span className="text-xs text-gray-500 shrink-0">{matchDate}</span>
@@ -246,7 +260,7 @@ export default function MatchRecordsPage() {
                     </div>
                   </div>
 
-                  {/* 득점자 + 참석자 */}
+                  {/* 득점자 + 카드 */}
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                     {myGoals.filter((s: any) => s.goals > 0 || s.assists > 0 || s.count > 0).length > 0 && (
                       <div className="flex flex-wrap gap-1">
@@ -262,14 +276,15 @@ export default function MatchRecordsPage() {
                         }
                       </div>
                     )}
-                    <div className="flex items-center gap-1.5 text-gray-500">
-                      <span>참석({attendees.length})</span>
-                      {attendees.length > 0 ? (
-                        <span className="text-gray-400">{attendees.map((a: any) => a.userName || a.name || a.oderId?.split("@")[0] || a.userId?.split("@")[0]).join(", ")}</span>
-                      ) : (
-                        <span className="text-gray-600">-</span>
-                      )}
-                    </div>
+                    {matchCards.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {matchCards.map((c: any, i: number) => (
+                          <span key={`card-${i}`} className={`text-xs px-2 py-0.5 rounded ${c.type === 'red' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                            {c.type === 'red' ? '🟥' : '🟨'} {c.playerName}{c.minute ? ` ${c.minute}'` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -277,6 +292,26 @@ export default function MatchRecordsPage() {
           })
         )}
       </div>
+
+      {/* 경기 상세 모달 */}
+      {matchDetail && (
+        <MatchDetailModal
+          m={matchDetail}
+          authClubId={authClubId}
+          clubNameMap={clubNameMap}
+          isLeaderUser={isLeader}
+          isManagerUser={false}
+          members={members}
+          memberNames={memberNames}
+          onClose={() => setMatchDetail(null)}
+          onUpdate={(updated: any) => {
+            setMatchDetail(updated);
+            if (updated._fromManage) {
+              setManageMatches(prev => prev.map(x => (x.id || x.matchId) === (updated.id || updated.matchId) ? { ...x, ...updated } : x));
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
