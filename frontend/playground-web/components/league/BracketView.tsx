@@ -535,15 +535,22 @@ function CustomBlockBracket({ matches, tn, onSlotClick, leagueStatus }: {
         <div style={{ display: 'flex', alignItems: 'stretch', minWidth: 'max-content' }}>
 
           {/* Left block */}
-          {leftGroups.map((group, gi) => (
-            <React.Fragment key={`L-${group.round}`}>
-              {renderBlockColumn(group)}
-              {gi < leftGroups.length - 1
-                ? <ConnectorSVG matchCount={Math.max(2, group.matches.length)} direction="left" />
-                : <HLine />
-              }
-            </React.Fragment>
-          ))}
+          {leftGroups.map((group, gi) => {
+            const nextGroup = leftGroups[gi + 1]
+            const isLast = gi >= leftGroups.length - 1
+            const canPair = nextGroup && group.matches.length >= 2 && group.matches.length === nextGroup.matches.length * 2
+            return (
+              <React.Fragment key={`L-${group.round}`}>
+                {renderBlockColumn(group)}
+                {isLast
+                  ? <HLine />
+                  : canPair
+                    ? <ConnectorSVG matchCount={group.matches.length} direction="left" />
+                    : <div style={{ width: 24, minWidth: 24 }} />
+                }
+              </React.Fragment>
+            )
+          })}
 
           {/* Final (결승만 — 3/4위전은 하단 별도 표시) */}
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: CARD_W + 20 }}>
@@ -571,15 +578,24 @@ function CustomBlockBracket({ matches, tn, onSlotClick, leagueStatus }: {
           </div>
 
           {/* Right block (reversed for symmetry) */}
-          {[...rightGroups].reverse().map((group, ri) => (
-            <React.Fragment key={`R-${group.round}`}>
-              {ri === 0
-                ? <HLine />
-                : <ConnectorSVG matchCount={Math.max(2, group.matches.length)} direction="right" />
-              }
-              {renderBlockColumn(group)}
-            </React.Fragment>
-          ))}
+          {(() => {
+            const reversed = [...rightGroups].reverse()
+            return reversed.map((group, ri) => {
+              const prevGroup = reversed[ri - 1]
+              const canPair = prevGroup && prevGroup.matches.length >= 2 && prevGroup.matches.length === group.matches.length * 2
+              return (
+                <React.Fragment key={`R-${group.round}`}>
+                  {ri === 0
+                    ? <HLine />
+                    : canPair
+                      ? <ConnectorSVG matchCount={prevGroup.matches.length} direction="right" />
+                      : <div style={{ width: 24, minWidth: 24 }} />
+                  }
+                  {renderBlockColumn(group)}
+                </React.Fragment>
+              )
+            })
+          })()}
 
         </div>
       </div>

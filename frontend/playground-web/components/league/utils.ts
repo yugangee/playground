@@ -40,7 +40,7 @@ export interface LeagueTeam {
 
 // ── Round ordering ───────────────────────────────────────────────────────────
 
-export const ROUND_ORDER = ['1라운드', '32강', '16강', '8강', '준결승', '결승']
+export const ROUND_ORDER = ['예선', '1라운드', '32강', '16강', '8강', '준결승', '4강', '결승']
 
 // ── Fixed bracket system ────────────────────────────────────────────────────
 
