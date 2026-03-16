@@ -224,6 +224,10 @@ export function generateTournamentPairs(teamIds: string[]) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
+  // 홀수 팀이면 BYE 추가 (마지막 팀이 부전승)
+  if (shuffled.length % 2 !== 0) {
+    shuffled.push('BYE')
+  }
   const rName = firstRoundName(shuffled.length)
   const pairs: Array<{ homeTeamId: string; awayTeamId: string; round: string }> = []
   for (let i = 0; i + 1 < shuffled.length; i += 2) {

@@ -39,8 +39,17 @@ export default function MatchCard({ match, compact = false, onClick, scoreEditab
   const awayIsSedaily = isSedailyTeam(match.awayTeam);
   const isSedaily = match.isSedailyMatch || homeIsSedaily || awayIsSedaily;
 
-  const homeWon = match.score && match.score.home > match.score.away;
-  const awayWon = match.score && match.score.away > match.score.home;
+  // PK 시 동점이므로 pkHome/pkAway로 승자 판별
+  const homeWon = match.score && (
+    match.status === 'pk' && match.score.pkHome !== undefined && match.score.pkAway !== undefined
+      ? match.score.pkHome > match.score.pkAway
+      : match.score.home > match.score.away
+  );
+  const awayWon = match.score && (
+    match.status === 'pk' && match.score.pkHome !== undefined && match.score.pkAway !== undefined
+      ? match.score.pkAway > match.score.pkHome
+      : match.score.away > match.score.home
+  );
 
   return (
     <div
@@ -94,6 +103,13 @@ export default function MatchCard({ match, compact = false, onClick, scoreEditab
           </span>
         </div>
       </div>
+
+      {/* PK 스코어 표시 */}
+      {match.status === 'pk' && match.score?.pkHome !== undefined && match.score?.pkAway !== undefined && (
+        <div className="text-[9px] text-center mt-1" style={{ color: '#92400E' }}>
+          PK {match.score.pkHome}:{match.score.pkAway}
+        </div>
+      )}
 
       {/* 스코어 입력 버튼 */}
       {scoreEditable && !compact && (

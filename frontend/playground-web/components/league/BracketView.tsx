@@ -208,6 +208,7 @@ function MatchCard({ match, tn, onClick, label }: {
 
   return (
     <div
+      className={onClick ? 'bracket-card-interactive' : ''}
       style={{
         width: CARD_W, borderRadius: 10, overflow: 'hidden',
         border: isForfeit ? '1px solid rgba(239,68,68,0.5)' : '1px solid var(--input-border)',
@@ -216,8 +217,6 @@ function MatchCard({ match, tn, onClick, label }: {
         opacity: isBye && isCompleted ? 0.55 : 1,
         transition: 'all 0.2s ease',
       }}
-      onMouseEnter={e => { if (onClick) { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)' } }}
-      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '' }}
       onClick={onClick}
     >
       {/* 헤더 */}
@@ -252,8 +251,10 @@ function MatchCard({ match, tn, onClick, label }: {
 /* ── SVG 커넥터 ───────────────────────────────────────────────────────────── */
 
 function ConnectorSVG({ matchCount, direction }: { matchCount: number; direction: 'left' | 'right' }) {
-  const pairCount = matchCount / 2
-  const segH = 100 / matchCount
+  // 홀수 방어: 최소 2, 짝수로 보정
+  const safeCount = Math.max(2, matchCount % 2 === 0 ? matchCount : matchCount + 1)
+  const pairCount = safeCount / 2
+  const segH = 100 / safeCount
 
   const paths: string[] = []
   for (let i = 0; i < pairCount; i++) {
@@ -387,8 +388,10 @@ export default function BracketView({ bracketSize, matches, tn, onSlotClick, lea
 
   const p2 = nextPowerOf2(bracketSize)
   const finalMatch = finalMatchNumber ? matchMap.get(finalMatchNumber) : undefined
-  const thirdPlaceNumber = p2
+  // 3/4위전: 정규 매치(p2-1) 다음 번호. round 이름으로도 fallback 검색.
+  const thirdPlaceNumber = p2 // = (p2 - 1) + 1 = 총 정규 매치 수 + 1
   const thirdPlaceMatch = matchMap.get(thirdPlaceNumber)
+    ?? Array.from(matchMap.values()).find(m => m.round === '3/4위전')
   const canClick = (m?: LeagueMatch) => leagueStatus === 'ongoing' || m?.status === 'completed' || m?.status === 'forfeit' || false
   const rightReversed = [...rightRounds].reverse()
   const firstRoundPerSide = leftRounds[0]?.matchNumbers.length ?? 1
@@ -429,15 +432,21 @@ export default function BracketView({ bracketSize, matches, tn, onSlotClick, lea
           </div>
 
           {/* ── 오른쪽 브래킷 (역순) ── */}
-          {rightReversed.map((round, ri) => (
-            <React.Fragment key={`R-${round.name}`}>
-              {ri === 0
-                ? <HLine />
-                : <ConnectorSVG matchCount={round.matchNumbers.length} direction="right" />
-              }
-              <RoundColumn round={round} matchMap={matchMap} tn={tn} onSlotClick={onSlotClick} canClick={canClick} />
-            </React.Fragment>
-          ))}
+          {rightReversed.map((round, ri) => {
+            const prevRound = rightReversed[ri - 1]
+            const canPair = prevRound && round.matchNumbers.length >= 2 && round.matchNumbers.length === prevRound.matchNumbers.length * 2
+            return (
+              <React.Fragment key={`R-${round.name}`}>
+                {ri === 0
+                  ? <HLine />
+                  : canPair
+                    ? <ConnectorSVG matchCount={round.matchNumbers.length} direction="right" />
+                    : <div style={{ width: 24, minWidth: 24 }} />
+                }
+                <RoundColumn round={round} matchMap={matchMap} tn={tn} onSlotClick={onSlotClick} canClick={canClick} />
+              </React.Fragment>
+            )
+          })}
 
         </div>
       </div>
@@ -582,13 +591,15 @@ function CustomBlockBracket({ matches, tn, onSlotClick, leagueStatus }: {
             const reversed = [...rightGroups].reverse()
             return reversed.map((group, ri) => {
               const prevGroup = reversed[ri - 1]
-              const canPair = prevGroup && prevGroup.matches.length >= 2 && prevGroup.matches.length === group.matches.length * 2
+              // 우측은 reversed이므로 group이 더 큰 라운드(경기 수 많음), prevGroup이 상위 라운드(경기 수 적음)
+              // 커넥터는 group(많은 쪽) → prevGroup(적은 쪽)으로 합쳐야 하므로 matchCount=group.matches.length
+              const canPair = prevGroup && group.matches.length >= 2 && group.matches.length === prevGroup.matches.length * 2
               return (
                 <React.Fragment key={`R-${group.round}`}>
                   {ri === 0
                     ? <HLine />
                     : canPair
-                      ? <ConnectorSVG matchCount={prevGroup.matches.length} direction="right" />
+                      ? <ConnectorSVG matchCount={group.matches.length} direction="right" />
                       : <div style={{ width: 24, minWidth: 24 }} />
                   }
                   {renderBlockColumn(group)}
@@ -671,6 +682,7 @@ function LegacyBracket({ matches, tn, onMatchClick }: {
                 </div>
               </div>
               {gi < roundGroups.length - 1 && (
+                // LegacyBracket은 좌→우 일방향 진행이므로 항상 direction="left"
                 <ConnectorSVG matchCount={Math.max(2, group.matches.length)} direction="left" />
               )}
             </React.Fragment>

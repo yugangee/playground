@@ -314,6 +314,12 @@ input[type="time"] {
   animation: marquee-reverse 70s linear infinite;
 }
 
+/* ── 대진표 매치 카드 hover ── */
+.bracket-card-interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
 /* ── 카드 hover lift 애니메이션 ── */
 .card-lift {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
