@@ -13,7 +13,7 @@ interface Props {
 
 const ROUND_TABS: { key: TournamentRoundKey | 'all' | 'sedaily'; label: string }[] = [
   { key: 'sedaily', label: '서경' },
-  { key: 'all',     label: '전체' },
+  { key: 'all',     label: '대진표' },
   { key: 'R1',  label: '1R' },
   { key: 'R2',  label: '2R' },
   { key: 'R3',  label: '16강' },
@@ -27,7 +27,15 @@ const ROUND_TABS: { key: TournamentRoundKey | 'all' | 'sedaily'; label: string }
 const SEDAILY_PATH_MATCHES = [9, 33, 46, 53, 56, 59];
 
 // ─────────────────────────────────────────────────────────────
-// 서브 컴포넌트: 라운드 열
+// 레이아웃 상수
+// ─────────────────────────────────────────────────────────────
+const HEADER_H = 32;   // 라운드 헤더 높이
+const COL_W = 140;     // 라운드 열 너비
+const CONN_W = 28;     // 커넥터 너비
+const HLINE_W = 20;    // 수평 연결선 너비
+
+// ─────────────────────────────────────────────────────────────
+// 라운드 열 — 헤더 + 카드 영역 분리 (커넥터 정렬용)
 // ─────────────────────────────────────────────────────────────
 function RoundColumn({ label, matches, onScoreEdit, scoreEditable }: {
   label: string;
@@ -36,29 +44,23 @@ function RoundColumn({ label, matches, onScoreEdit, scoreEditable }: {
   onScoreEdit?: (match: TournamentMatch) => void;
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 140 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: COL_W, minWidth: COL_W }}>
       <div style={{
-        textAlign: 'center', marginBottom: 12, paddingBottom: 8,
+        height: HEADER_H, display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderBottom: '1px solid var(--input-border, #E5E7EB)',
       }}>
-        <span style={{
-          fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
-          color: 'var(--text-muted, #9CA3AF)', textTransform: 'uppercase',
-        }}>
+        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', color: 'var(--text-muted, #9CA3AF)' }}>
           {label}
         </span>
       </div>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {matches.map(m => (
           <div key={m.matchNo} style={{
-            flex: 1, display: 'flex', alignItems: 'center',
-            justifyContent: 'center', padding: '4px 0',
+            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2px 0',
           }}>
-            <MatchCard
-              match={m} compact
-              scoreEditable={scoreEditable}
-              onScoreEdit={onScoreEdit}
-            />
+            <div style={{ width: '100%' }}>
+              <MatchCard match={m} compact scoreEditable={scoreEditable} onScoreEdit={onScoreEdit} />
+            </div>
           </div>
         ))}
       </div>
@@ -67,7 +69,7 @@ function RoundColumn({ label, matches, onScoreEdit, scoreEditable }: {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 서브 컴포넌트: SVG 커넥터 (2:1 합류 라인)
+// SVG 커넥터 — 2:1 합류 라인 (헤더 오프셋 적용)
 // ─────────────────────────────────────────────────────────────
 function ConnectorSVG({ matchCount, direction }: {
   matchCount: number;
@@ -93,63 +95,73 @@ function ConnectorSVG({ matchCount, direction }: {
   }
 
   return (
-    <div style={{ width: 32, minWidth: 32, position: 'relative' }}>
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none"
-        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
-        {paths.map((d, i) => (
-          <path key={i} d={d} fill="none" strokeWidth="1.5"
-            vectorEffect="non-scaling-stroke"
-            style={{ stroke: 'var(--text-muted, #D1D5DB)' }} />
-        ))}
-      </svg>
+    <div style={{ width: CONN_W, minWidth: CONN_W, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ height: HEADER_H }} />
+      <div style={{ flex: 1, position: 'relative' }}>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none"
+          style={{ position: 'absolute', inset: 0 }}>
+          {paths.map((d, i) => (
+            <path key={i} d={d} fill="none" strokeWidth="1.5"
+              vectorEffect="non-scaling-stroke"
+              style={{ stroke: 'var(--text-muted, #D1D5DB)' }} />
+          ))}
+        </svg>
+      </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
-// 서브 컴포넌트: 수평 연결선 (4강 → 결승)
+// 수평 연결선 (4강 → 결승, 헤더 오프셋 적용)
 // ─────────────────────────────────────────────────────────────
 function HLine() {
   return (
-    <div style={{ width: 24, minWidth: 24, position: 'relative' }}>
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none"
-        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
-        <line x1="0" y1="50" x2="100" y2="50" strokeWidth="1.5"
-          vectorEffect="non-scaling-stroke"
-          style={{ stroke: 'var(--text-muted, #D1D5DB)' }} />
-      </svg>
+    <div style={{ width: HLINE_W, minWidth: HLINE_W, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ height: HEADER_H }} />
+      <div style={{ flex: 1, position: 'relative' }}>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none"
+          style={{ position: 'absolute', inset: 0 }}>
+          <line x1="0" y1="50" x2="100" y2="50" strokeWidth="1.5"
+            vectorEffect="non-scaling-stroke"
+            style={{ stroke: 'var(--text-muted, #D1D5DB)' }} />
+        </svg>
+      </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
-// 서브 컴포넌트: 구분선 (canPair 실패 시)
+// 구분선 (canPair 실패 시 fallback, 헤더 오프셋 적용)
 // ─────────────────────────────────────────────────────────────
 function Spacer() {
   return (
-    <div style={{
-      width: 24, minWidth: 24,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <div style={{
-        width: 1, height: '50%',
-        background: 'var(--input-border, #E5E7EB)', opacity: 0.4,
-      }} />
+    <div style={{ width: CONN_W, minWidth: CONN_W, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ height: HEADER_H }} />
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 1, height: '50%', background: 'var(--input-border, #E5E7EB)', opacity: 0.4 }} />
+      </div>
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
-// BracketLayout — 전체 뷰 bracket 레이아웃
+// BracketLayout — R1(예선) 제외, R2~결승 bracket 뷰
+//
+// KJA 52회 기준:
+//   좌측: R2(8) → R3(4) → QF(2) → SF(1) | 결승 | SF(1) → QF(2) → R3(4) → R2(8) :우측
+//   모든 라운드 간 비율이 정확히 2:1 → 완벽한 커넥터 라인
 // ─────────────────────────────────────────────────────────────
 function BracketLayout({ matches, scoreEditable, onScoreEdit }: {
   matches: TournamentMatch[];
   scoreEditable?: boolean;
   onScoreEdit?: (match: TournamentMatch) => void;
 }) {
-  const leftMatches = matches.filter(m => m.block === 'left');
-  const rightMatches = matches.filter(m => m.block === 'right');
-  const finalMatches = matches.filter(m => m.block === 'final');
+  // R1(예선) 제외 — 13+14=27경기는 bracket에 비실용적
+  const bracketMatches = matches.filter(m => m.round !== 'R1');
+
+  const leftMatches = bracketMatches.filter(m => m.block === 'left');
+  const rightMatches = bracketMatches.filter(m => m.block === 'right');
+  const finalMatches = bracketMatches.filter(m => m.block === 'final');
 
   const groupByRound = (ms: TournamentMatch[]) => {
     const groups: Array<{ round: TournamentRoundKey; label: string; matches: TournamentMatch[] }> = [];
@@ -164,11 +176,7 @@ function BracketLayout({ matches, scoreEditable, onScoreEdit }: {
       const roundMs = roundMap.get(r);
       if (roundMs && roundMs.length > 0) {
         roundMs.sort((a, b) => a.matchNo - b.matchNo);
-        groups.push({
-          round: r,
-          label: ROUND_LABEL[r] || r,
-          matches: roundMs,
-        });
+        groups.push({ round: r, label: ROUND_LABEL[r] || r, matches: roundMs });
       }
     }
     return groups;
@@ -183,110 +191,109 @@ function BracketLayout({ matches, scoreEditable, onScoreEdit }: {
   const canPair = (current: number, next: number) =>
     current >= 2 && current === next * 2;
 
+  // Bracket 높이 = 헤더 + 가장 많은 경기 수 × 슬롯 높이
+  const maxLeft = leftGroups.length > 0 ? Math.max(...leftGroups.map(g => g.matches.length)) : 0;
+  const maxRight = rightGroups.length > 0 ? Math.max(...rightGroups.map(g => g.matches.length)) : 0;
+  const maxMatches = Math.max(maxLeft, maxRight, 2);
+  const bracketHeight = HEADER_H + maxMatches * 64;
+
   return (
-    <div style={{ overflowX: 'auto', paddingBottom: 16, WebkitOverflowScrolling: 'touch' }}>
-      <div style={{
-        display: 'flex', alignItems: 'stretch',
-        minWidth: 'max-content', minHeight: 400,
-      }}>
-
-        {/* ── 좌측 블록 (왼쪽→오른쪽 진행) ── */}
-        {leftGroups.map((group, gi) => {
-          const nextGroup = leftGroups[gi + 1];
-          const isLast = gi >= leftGroups.length - 1;
-          const paired = nextGroup && canPair(group.matches.length, nextGroup.matches.length);
-
-          return (
-            <Fragment key={`L-${group.round}`}>
-              <RoundColumn
-                label={group.label}
-                matches={group.matches}
-                scoreEditable={scoreEditable}
-                onScoreEdit={onScoreEdit}
-              />
-              {isLast
-                ? <HLine />
-                : paired
-                  ? <ConnectorSVG matchCount={group.matches.length} direction="left" />
-                  : <Spacer />
-              }
-            </Fragment>
-          );
-        })}
-
-        {/* ── 결승 + 3/4위전 ── */}
+    <div>
+      <div style={{ overflowX: 'auto', paddingBottom: 12, WebkitOverflowScrolling: 'touch' }}>
         <div style={{
-          display: 'flex', flexDirection: 'column',
-          justifyContent: 'center', minWidth: 160, padding: '0 8px',
+          display: 'flex', alignItems: 'stretch',
+          minWidth: 'max-content', height: bracketHeight,
         }}>
-          <div style={{ textAlign: 'center', marginBottom: 12 }}>
-            <span style={{
-              display: 'inline-block', fontSize: 11, fontWeight: 700,
-              letterSpacing: '0.08em', color: '#f59e0b',
-              paddingBottom: 8, borderBottom: '2px solid #f59e0b',
-            }}>
-              결승
-            </span>
-          </div>
-          {finalMatch && (
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-              <MatchCard
-                match={finalMatch}
-                scoreEditable={scoreEditable}
-                onScoreEdit={onScoreEdit}
-              />
-            </div>
-          )}
-          {thirdPlaceMatch && (
-            <>
-              <div style={{ textAlign: 'center', marginBottom: 8, marginTop: 8 }}>
-                <span style={{
-                  fontSize: 10, fontWeight: 600, color: 'var(--text-muted, #9CA3AF)',
-                  letterSpacing: '0.06em',
-                }}>
-                  3·4위전
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <MatchCard
-                  match={thirdPlaceMatch}
-                  scoreEditable={scoreEditable}
-                  onScoreEdit={onScoreEdit}
-                />
-              </div>
-            </>
-          )}
-        </div>
 
-        {/* ── 우측 블록 (오른쪽→왼쪽 진행, 역순 렌더) ── */}
-        {(() => {
-          const reversed = [...rightGroups].reverse();
-          return reversed.map((group, ri) => {
-            const prevGroup = reversed[ri - 1];
-            const paired = prevGroup
-              && group.matches.length >= 2
-              && group.matches.length === prevGroup.matches.length * 2;
+          {/* ── 좌측 블록 (R2→R3→QF→SF, 왼→오 진행) ── */}
+          {leftGroups.map((group, gi) => {
+            const nextGroup = leftGroups[gi + 1];
+            const isLast = gi >= leftGroups.length - 1;
+            const paired = nextGroup && canPair(group.matches.length, nextGroup.matches.length);
 
             return (
-              <Fragment key={`R-${group.round}`}>
-                {ri === 0
-                  ? <HLine />
-                  : paired
-                    ? <ConnectorSVG matchCount={group.matches.length} direction="right" />
-                    : <Spacer />
-                }
+              <Fragment key={`L-${group.round}`}>
                 <RoundColumn
                   label={group.label}
                   matches={group.matches}
                   scoreEditable={scoreEditable}
                   onScoreEdit={onScoreEdit}
                 />
+                {isLast
+                  ? <HLine />
+                  : paired
+                    ? <ConnectorSVG matchCount={group.matches.length} direction="left" />
+                    : <Spacer />
+                }
               </Fragment>
             );
-          });
-        })()}
+          })}
 
+          {/* ── 결승 + 3·4위전 (중앙) ── */}
+          <div style={{
+            display: 'flex', flexDirection: 'column',
+            width: 160, minWidth: 160, padding: '0 4px',
+          }}>
+            <div style={{
+              height: HEADER_H, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderBottom: '2px solid #f59e0b',
+            }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: '#f59e0b' }}>
+                결승
+              </span>
+            </div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 12 }}>
+              {finalMatch && (
+                <MatchCard match={finalMatch} scoreEditable={scoreEditable} onScoreEdit={onScoreEdit} />
+              )}
+              {thirdPlaceMatch && (
+                <div>
+                  <p style={{
+                    textAlign: 'center', fontSize: 10, fontWeight: 600,
+                    color: 'var(--text-muted, #9CA3AF)', marginBottom: 4,
+                  }}>
+                    3·4위전
+                  </p>
+                  <MatchCard match={thirdPlaceMatch} scoreEditable={scoreEditable} onScoreEdit={onScoreEdit} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── 우측 블록 (SF→QF→R3→R2, 역순 렌더) ── */}
+          {(() => {
+            const reversed = [...rightGroups].reverse();
+            return reversed.map((group, ri) => {
+              const prevGroup = reversed[ri - 1];
+              const paired = prevGroup
+                && group.matches.length >= 2
+                && group.matches.length === prevGroup.matches.length * 2;
+
+              return (
+                <Fragment key={`R-${group.round}`}>
+                  {ri === 0
+                    ? <HLine />
+                    : paired
+                      ? <ConnectorSVG matchCount={group.matches.length} direction="right" />
+                      : <Spacer />
+                  }
+                  <RoundColumn
+                    label={group.label}
+                    matches={group.matches}
+                    scoreEditable={scoreEditable}
+                    onScoreEdit={onScoreEdit}
+                  />
+                </Fragment>
+              );
+            });
+          })()}
+
+        </div>
       </div>
+
+      <p style={{ fontSize: 10, color: 'var(--text-muted, #9CA3AF)', textAlign: 'center', marginTop: 4 }}>
+        1회전(예선)은 &apos;1R&apos; 탭에서 확인
+      </p>
     </div>
   );
 }
@@ -331,7 +338,6 @@ export default function TournamentBracket({ matches, scoreEditable, onScoreEdit 
       {/* 서경 경기 경로 뷰 */}
       {activeTab === 'sedaily' && (
         <div className="space-y-4">
-          {/* 경로 플로우 */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-2">
             {sedailyMatches.map((match, i) => (
               <div key={match.matchNo} className="flex items-center gap-1.5 shrink-0">
@@ -344,8 +350,6 @@ export default function TournamentBracket({ matches, scoreEditable, onScoreEdit 
               </div>
             ))}
           </div>
-
-          {/* 서경 경기 상세 카드 */}
           <div className="grid grid-cols-2 gap-3">
             {sedailyMatches.map(match => (
               <MatchCard key={match.matchNo} match={match} scoreEditable={scoreEditable} onScoreEdit={onScoreEdit} />
@@ -354,7 +358,7 @@ export default function TournamentBracket({ matches, scoreEditable, onScoreEdit 
         </div>
       )}
 
-      {/* ★ 전체 뷰 — bracket 레이아웃 */}
+      {/* ★ 대진표 뷰 — bracket 레이아웃 (R2~결승) */}
       {activeTab === 'all' && (
         <BracketLayout
           matches={matches}
@@ -363,7 +367,7 @@ export default function TournamentBracket({ matches, scoreEditable, onScoreEdit 
         />
       )}
 
-      {/* 라운드별 뷰 — 기존 grid 유지 */}
+      {/* 라운드별 뷰 — grid */}
       {activeTab !== 'sedaily' && activeTab !== 'all' && (
         <div className="space-y-5">
           {leftBlock.length > 0 && (
