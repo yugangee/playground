@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { CalendarDays, TrendingUp, Users, Shield, UserPlus, X, Copy, Check, Send, MessageCircle, Crown, Pencil, Swords, Plus, CheckCircle, Wallet, TrendingDown, Bot, Trash2, Megaphone, ChevronRight } from "lucide-react";
+import { CalendarDays, TrendingUp, Users, Shield, UserPlus, X, Copy, Check, Send, MessageCircle, Crown, Pencil, Swords, Plus, CheckCircle, Wallet, TrendingDown, Bot, Trash2, Megaphone, ChevronRight, ArrowRightLeft } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useTeam } from "@/context/TeamContext";
@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { tryRefreshTokens, clearTokens } from "@/lib/tokenRefresh";
 import { manageFetch } from "@/lib/manageFetch";
 import type { TeamMember } from "@/types/manage";
+import { MatchDetailModal } from "@/components/MatchDetailModal";
 
 function TimeSelect({ value, onChange, placeholder, className }: { value: string; onChange: (v: string) => void; placeholder: string; className?: string }) {
   const [open, setOpen] = useState(false);
@@ -239,6 +240,7 @@ export default function TeamPage() {
   const [allClubs, setAllClubs] = useState<any[]>([]);
   const [goalModal, setGoalModal] = useState<any>(null);
   const [goalSelections, setGoalSelections] = useState<Record<string, number>>({});
+  const [goalMinutes, setGoalMinutes] = useState<Record<string, string[]>>({});
   const [activityForm, setActivityForm] = useState({ date: "", venue: "" });
   const [scoreModal, setScoreModal] = useState<any>(null);
   const [scoreForm, setScoreForm] = useState({ ourScore: "", theirScore: "" });
@@ -354,7 +356,10 @@ export default function TeamPage() {
   }
   async function addGoalsAPI() {
     if (!goalModal || !user) return;
-    const goals = Object.entries(goalSelections).filter(([, count]) => count > 0).map(([scorer, count]) => ({ scorer, club: authClubId, count }));
+    const goals = Object.entries(goalSelections).filter(([, count]) => count > 0).map(([scorer, count]) => ({
+      scorer, club: authClubId, count,
+      minutes: (goalMinutes[scorer] || []).filter(m => m).map(m => parseInt(m)),
+    }));
     if (goals.length === 0) { alert("골 기록을 선택하세요"); return; }
     try {
       await authFetch(`/matches/${goalModal.matchId}/goals`, {
@@ -364,6 +369,7 @@ export default function TeamPage() {
       authFetch(`/matches?clubId=${authClubId}`).then(d => setMatches(d.matches || [])).catch(() => {});
       setGoalModal(null);
       setGoalSelections({});
+      setGoalMinutes({});
     } catch { alert("골 기록 추가 실패"); }
   }
   async function createActivityAPI() {
@@ -678,6 +684,8 @@ export default function TeamPage() {
       setGoalModal={setGoalModal}
       goalSelections={goalSelections}
       setGoalSelections={setGoalSelections}
+      goalMinutes={goalMinutes}
+      setGoalMinutes={setGoalMinutes}
       activities={activities}
       activityForm={activityForm}
       setActivityForm={setActivityForm}
@@ -729,6 +737,7 @@ function TeamPageContent({
   scoreForm = { ourScore: "", theirScore: "" }, setScoreForm = () => {},
   goalModal = null, setGoalModal = () => {},
   goalSelections = {}, setGoalSelections = () => {},
+  goalMinutes = {}, setGoalMinutes = () => {},
   activities = [], activityForm = { date: "", venue: "" }, setActivityForm = () => {},
   createActivityAPI, joinActivityAPI, completeActivityAPI,
   router = null, loadingMembers = false,
@@ -747,6 +756,36 @@ function TeamPageContent({
   confirmModal = { open: false, title: '', message: '', onConfirm: () => {} } as ConfirmModalState,
   setConfirmModal = (_: any) => {},
 }: any) {
+  // All hooks must be declared before any early return
+  const [teamInfoEditOpen, setTeamInfoEditOpen] = useState(false);
+  const [teamInfoForm, setTeamInfoForm] = useState({ name: '', region: '' });
+  const [teamInfoSaving, setTeamInfoSaving] = useState(false);
+  const [matchDetail, setMatchDetail] = useState<any>(null);
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState({ type: "경기", awayTeamId: "", date: "", startTime: "", endTime: "", venue: "" });
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [manageMatches, setManageMatches] = useState<any[]>([]);
+  const [matchAttendance, setMatchAttendance] = useState<Record<string, string>>({});
+  const [scheduleEditMode, setScheduleEditMode] = useState(false);
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  const [editMatchForm, setEditMatchForm] = useState({ date: "", time: "", venue: "" });
+  const [resultMatchId, setResultMatchId] = useState<string | null>(null);
+  const [resultForm, setResultForm] = useState({ ourScore: "", theirScore: "", scorers: [] as { userId: string; name: string; goals: number; assists: number }[] });
+  const [resultSaving, setResultSaving] = useState(false);
+  const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
+
+  const loadManageMatches = async () => {
+    if (!currentTeam?.id) return;
+    try {
+      const data = await manageFetch(`/schedule/matches?teamId=${currentTeam.id}`);
+      if (!Array.isArray(data)) return;
+      setManageMatches(data.filter((m: any) => m.status === "pending" || m.status === "accepted" || !m.status));
+      setCompletedManageMatches(data.filter((m: any) => m.status === "completed"));
+    } catch {}
+  };
+
+  useEffect(() => { loadManageMatches(); }, [currentTeam?.id]);
+
   if (!club) {
     return (
       <div className="max-w-4xl mx-auto pt-20 text-center space-y-4">
@@ -796,10 +835,6 @@ function TeamPageContent({
   const finalAreas = areas || (club.areas || []).map((a: any) => [a.sido, a.sigungu].filter(Boolean).join(" ")).join(", ");
   const finalStyles = styles || (club.styles || []).join(", ");
 
-  const [teamInfoEditOpen, setTeamInfoEditOpen] = useState(false);
-  const [teamInfoForm, setTeamInfoForm] = useState({ name: '', region: '' });
-  const [teamInfoSaving, setTeamInfoSaving] = useState(false);
-
   const openTeamInfoEdit = () => {
     setTeamInfoForm({ name: currentTeam?.name || '', region: currentTeam?.region || '' });
     setTeamInfoEditOpen(true);
@@ -816,31 +851,6 @@ function TeamPageContent({
     } catch { alert('수정에 실패했습니다'); }
     finally { setTeamInfoSaving(false); }
   };
-
-  const [showScheduleForm, setShowScheduleForm] = useState(false);
-  const [scheduleForm, setScheduleForm] = useState({ type: "경기", awayTeamId: "", date: "", startTime: "", endTime: "", venue: "" });
-  const [scheduleSaving, setScheduleSaving] = useState(false);
-  const [manageMatches, setManageMatches] = useState<any[]>([]);
-  const [matchAttendance, setMatchAttendance] = useState<Record<string, string>>({});
-  const [scheduleEditMode, setScheduleEditMode] = useState(false);
-  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
-  const [editMatchForm, setEditMatchForm] = useState({ date: "", time: "", venue: "" });
-  const [resultMatchId, setResultMatchId] = useState<string | null>(null);
-  const [resultForm, setResultForm] = useState({ ourScore: "", theirScore: "", scorers: [] as { userId: string; name: string; goals: number; assists: number }[] });
-  const [resultSaving, setResultSaving] = useState(false);
-  const [expandedMatchId, setExpandedMatchId] = useState<string | null>(null);
-
-  const loadManageMatches = async () => {
-    if (!currentTeam?.id) return;
-    try {
-      const data = await manageFetch(`/schedule/matches?teamId=${currentTeam.id}`);
-      if (!Array.isArray(data)) return;
-      setManageMatches(data.filter((m: any) => m.status === "pending" || m.status === "accepted" || !m.status));
-      setCompletedManageMatches(data.filter((m: any) => m.status === "completed"));
-    } catch {}
-  };
-
-  useEffect(() => { loadManageMatches(); }, [currentTeam?.id]);
 
   const respondAttendance = async (matchId: string, status: string) => {
     // currentUser는 AuthContext에서 오는 user 객체
@@ -1676,7 +1686,7 @@ function TeamPageContent({
                     : (m.confirmedAt?.slice(0, 10) || "");
                   const venue = m._fromManage ? (m.venue || "") : "";
                   return (
-                    <div key={m.matchId ?? m.id ?? i} className={`rounded-lg p-3 ${result === "승" ? "bg-green-50" : result === "패" ? "bg-red-50" : "bg-white"}`}>
+                    <div key={m.matchId ?? m.id ?? i} className={`rounded-lg p-3 cursor-pointer transition-all hover:ring-1 hover:ring-black/10 ${result === "승" ? "bg-green-50" : result === "패" ? "bg-red-50" : "bg-white"}`} onClick={() => setMatchDetail(m)}>
                       <div className="flex items-center justify-between mb-1">
                         <div>
                           <p className="text-black font-medium text-sm">vs {opponentName}</p>
@@ -1697,6 +1707,15 @@ function TeamPageContent({
                               ))
                             : myGoals.map((g: any, j: number) => <span key={j} className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700">{g.scorerName || g.scorer?.split("@")[0]} x{g.count}</span>)
                           }
+                        </div>
+                      )}
+                      {(m.cards || []).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {(m.cards as any[]).map((c: any, j: number) => (
+                            <span key={`card-${j}`} className={`text-xs px-2 py-0.5 rounded ${c.type === 'red' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                              {c.type === 'red' ? '🟥' : '🟨'} {c.playerName}{c.minute ? ` ${c.minute}'` : ''}
+                            </span>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -1813,6 +1832,26 @@ function TeamPageContent({
         </div>
       )}
 
+      {/* 경기 상세 모달 */}
+      {matchDetail && <MatchDetailModal
+        m={matchDetail}
+        authClubId={authClubId}
+        clubNameMap={clubNameMap}
+        isDemo={isDemo}
+        isLeaderUser={isLeaderUser}
+        isManagerUser={isManagerUser}
+        members={members}
+        memberNames={memberNames}
+        onClose={() => setMatchDetail(null)}
+        onGoalEdit={() => { setMatchDetail(null); setGoalModal(matchDetail); setGoalSelections({}); setGoalMinutes({}); }}
+        onUpdate={(updated: any) => {
+          setMatchDetail(updated);
+          if (updated._fromManage) {
+            setCompletedManageMatches((prev: any[]) => prev.map((x: any) => (x.id || x.matchId) === (updated.id || updated.matchId) ? { ...x, ...updated } : x));
+          }
+        }}
+      />}
+
       {/* 스코어 입력 모달 */}
       {scoreModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={() => setScoreModal(null)}>
@@ -1841,24 +1880,55 @@ function TeamPageContent({
       {/* 골 기록 추가 모달 */}
       {goalModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "var(--modal-overlay)" }} onClick={() => setGoalModal(null)}>
-          <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-xs space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#111] border border-white/10 rounded-xl p-6 w-full max-w-sm space-y-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <span className="text-white font-semibold text-sm">골 기록 추가</span>
               <button onClick={() => setGoalModal(null)} className="text-gray-500 hover:text-white"><X size={16} /></button>
             </div>
-            <div className="space-y-2 max-h-60 overflow-y-auto">
+            <div className="space-y-2 max-h-[50vh] overflow-y-auto">
               {members.map((m: any) => {
+                const uid = m.userId || m.email;
                 const displayName = memberNames[m.userId] || m.name || (m.userId ? m.userId.slice(0, 8) + '…' : m.email || '-');
+                const count = goalSelections?.[uid] || 0;
+                const mins = goalMinutes?.[uid] || [];
                 return (
-                  <div key={m.userId || m.email} className="flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
-                    <span className="text-white text-sm">{displayName}</span>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => setGoalSelections?.((p: any) => ({ ...p, [m.userId || m.email]: Math.max(0, (p[m.userId || m.email] || 0) - 1) }))}
-                        className="w-6 h-6 rounded bg-white/10 text-gray-400 flex items-center justify-center text-xs">-</button>
-                      <span className="text-white text-sm w-4 text-center">{goalSelections?.[m.userId || m.email] || 0}</span>
-                      <button onClick={() => setGoalSelections?.((p: any) => ({ ...p, [m.userId || m.email]: (p[m.userId || m.email] || 0) + 1 }))}
-                        className="w-6 h-6 rounded bg-white/20 text-white flex items-center justify-center text-xs">+</button>
+                  <div key={uid} className="bg-white/5 rounded-lg px-3 py-2 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-white text-sm">{displayName}</span>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => {
+                          const newCount = Math.max(0, count - 1);
+                          setGoalSelections?.((p: any) => ({ ...p, [uid]: newCount }));
+                          setGoalMinutes?.((p: any) => ({ ...p, [uid]: (p[uid] || []).slice(0, newCount) }));
+                        }} className="w-6 h-6 rounded bg-white/10 text-gray-400 flex items-center justify-center text-xs">-</button>
+                        <span className="text-white text-sm w-4 text-center">{count}</span>
+                        <button onClick={() => {
+                          const newCount = count + 1;
+                          setGoalSelections?.((p: any) => ({ ...p, [uid]: newCount }));
+                          setGoalMinutes?.((p: any) => ({ ...p, [uid]: [...(p[uid] || []), ''] }));
+                        }} className="w-6 h-6 rounded bg-white/20 text-white flex items-center justify-center text-xs">+</button>
+                      </div>
                     </div>
+                    {count > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pl-1">
+                        {Array.from({ length: count }).map((_, gi) => (
+                          <input
+                            key={gi}
+                            type="number"
+                            min="0"
+                            max="120"
+                            placeholder={`${gi + 1}번째 골 (분)`}
+                            value={mins[gi] || ''}
+                            onChange={e => setGoalMinutes?.((p: any) => {
+                              const arr = [...(p[uid] || [])];
+                              arr[gi] = e.target.value;
+                              return { ...p, [uid]: arr };
+                            })}
+                            className="w-28 bg-white/5 border border-white/10 rounded px-2 py-1 text-white text-xs outline-none focus:border-white/30 placeholder:text-gray-600"
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -2068,8 +2138,8 @@ type Announcement = {
   createdAt: string;
 };
 
-function AnnouncementSection({ 
-  currentTeam, 
+function AnnouncementSection({
+  currentTeam,
   hasFullEditPermission, 
   currentUser,
   memberNames,
